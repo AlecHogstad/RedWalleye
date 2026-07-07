@@ -13,4 +13,8 @@ export interface SupabaseConfig {
   anonKey: string;
 }
 
-export const supabaseConfig: SupabaseConfig | null = null;
+export const supabaseConfig: SupabaseConfig | null = {
+  url: "https://dbhckqolbxdbpxjnwcpv.supabase.co",
+  anonKey:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiaGNrcW9sYnhkYnB4am53Y3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDcwMDIsImV4cCI6MjA5OTAyMzAwMn0.T9LWb5Wh7kb5k8C0agz1EQ2yk4l_sasTls5YBlO45D8",
+};
