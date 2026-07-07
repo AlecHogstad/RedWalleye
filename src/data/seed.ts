@@ -1,9 +1,16 @@
-import type { Course, Match, Player, Round, Team, TournamentState } from "../types";
+import type {
+  CourseDef,
+  Hole,
+  Match,
+  Player,
+  Round,
+  Team,
+  TournamentState,
+} from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
-// Retro clubhouse palette: burnt orange, forest green, sky blue, mustard.
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
   { id: "t2", name: "Team 02", color: "#2e6b3e" },
@@ -34,24 +41,72 @@ export const players: Player[] = [
   { id: "nikk", name: "Nikk", handicap: 8, teamId: "t4" },
 ];
 
-// A generic par-72 layout. Everything here is editable in the Course tab so
-// you can drop in the real pars + stroke index for whatever course you play.
-const pars = [4, 4, 5, 3, 4, 4, 4, 3, 5, 4, 4, 5, 3, 4, 4, 4, 3, 5];
-const strokeIndexes = [5, 11, 1, 15, 3, 13, 7, 17, 9, 6, 12, 2, 16, 4, 8, 14, 18, 10];
-
-export const course: Course = {
-  name: "Course (edit me)",
-  holes: pars.map((par, i) => ({
+function holes(rows: [par: number, yards: number, strokeIndex: number][]): Hole[] {
+  return rows.map(([par, yards, strokeIndex], i) => ({
     number: i + 1,
     par,
-    strokeIndex: strokeIndexes[i],
-  })),
+    yards,
+    strokeIndex,
+  }));
+}
+
+// Big Fish Golf Club — pars, yardages, tee ratings, and HDCP (stroke index)
+// ranks all from the real scorecard.
+const bigFish: CourseDef = {
+  id: "bigfish",
+  name: "Big Fish Golf Club",
+  holes: holes([
+    // [par, yards, HDCP]
+    [4, 412, 18],
+    [5, 555, 8],
+    [3, 166, 10],
+    [4, 517, 2],
+    [4, 375, 14],
+    [4, 458, 6],
+    [5, 560, 4],
+    [4, 434, 16],
+    [3, 129, 12],
+    [4, 389, 15],
+    [4, 380, 17],
+    [3, 215, 13],
+    [5, 525, 9],
+    [4, 440, 3],
+    [4, 490, 1],
+    [3, 191, 11],
+    [5, 555, 5],
+    [4, 440, 7],
+  ]),
+  tees: [
+    { name: "Tournament", yardage: 7231, rating: 74.1, slope: 134 },
+    { name: "Championship", yardage: 6608, rating: 71.7, slope: 126 },
+    { name: "Member", yardage: 6084, rating: 68.6, slope: 122 },
+    { name: "Gold", yardage: 5646, rating: 66.8, slope: 115 },
+    { name: "Red", yardage: 4940, rating: 68.4, slope: 115 },
+  ],
 };
 
+// Placeholder second course — edit everything in the Course tab (or send
+// Claude the scorecard and it gets baked in like Big Fish).
+const genericPars = [4, 4, 5, 3, 4, 4, 4, 3, 5, 4, 4, 5, 3, 4, 4, 4, 3, 5];
+const genericSI = [5, 11, 1, 15, 3, 13, 7, 17, 9, 6, 12, 2, 16, 4, 8, 14, 18, 10];
+const course2: CourseDef = {
+  id: "course2",
+  name: "Course 2 (edit me)",
+  holes: genericPars.map((par, i) => ({
+    number: i + 1,
+    par,
+    strokeIndex: genericSI[i],
+  })),
+  // Neutral tee: slope 113 and rating = par means course handicap = index.
+  tees: [{ name: "White", yardage: 6100, rating: 72.0, slope: 113 }],
+};
+
+export const courses: CourseDef[] = [bigFish, course2];
+
 export const rounds: Round[] = [
-  { id: "r1", name: "Round 1", format: "fourball" },
-  { id: "r2", name: "Round 2", format: "scramble" },
-  { id: "r3", name: "Round 3", format: "fourman" },
+  { id: "r1", name: "Round 1", format: "fourball", status: "pending" },
+  { id: "r2", name: "Round 2", format: "scramble", status: "pending" },
+  { id: "r3", name: "Round 3", format: "fourman", status: "pending" },
 ];
 
 const emptyScores = (keys: string[]): Match["scores"] =>
@@ -144,7 +199,7 @@ export const seedMatches: Match[] = [...round1, ...round2, ...round3];
 export function seedState(): TournamentState {
   return {
     version: STATE_VERSION,
-    course: structuredClone(course),
+    courses: structuredClone(courses),
     teams: structuredClone(teams),
     players: structuredClone(players),
     rounds: structuredClone(rounds),

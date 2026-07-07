@@ -18,20 +18,32 @@ export interface Team {
   color: string;
 }
 
-/** One of the 18 holes on the course being played. */
+/** One of the 18 holes on a course. */
 export interface Hole {
   number: number; // 1..18
   par: number;
   /**
-   * Stroke index (a.k.a. handicap ranking) 1..18 — how hard the hole is
+   * Stroke index (the HDCP row on the card) 1..18 — how hard the hole is
    * relative to the others. Strokes are given first on the lowest index.
    */
   strokeIndex: number;
+  /** Yardage, informational only (from the longest tees on the card). */
+  yards?: number;
 }
 
-export interface Course {
+/** A set of tees with the numbers that drive course handicap. */
+export interface TeeSet {
+  name: string;
+  yardage: number;
+  rating: number;
+  slope: number;
+}
+
+export interface CourseDef {
+  id: Id;
   name: string;
   holes: Hole[];
+  tees: TeeSet[];
 }
 
 export type Format = "fourball" | "fourman" | "scramble";
@@ -70,15 +82,27 @@ export interface Match {
   scores: Record<string, Record<number, number | undefined>>;
 }
 
+/**
+ * Round lifecycle: pending → active → final. Only one round can be active
+ * at a time; while a round is active every other round is locked. Starting
+ * a round is when the course + tees get chosen, which fixes the handicap
+ * math for its matches.
+ */
+export type RoundStatus = "pending" | "active" | "final";
+
 export interface Round {
   id: Id;
   name: string;
   format: Format;
+  status: RoundStatus;
+  /** Set when the round is started. */
+  courseId?: Id;
+  teeName?: string;
 }
 
 export interface TournamentState {
   version: number;
-  course: Course;
+  courses: CourseDef[];
   teams: Team[];
   players: Player[];
   rounds: Round[];

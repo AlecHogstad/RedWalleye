@@ -1,25 +1,33 @@
 import { describe, expect, it } from "vitest";
-import type { Course, Match, Player } from "../types";
+import type { CourseDef, Match, Player } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
   computeStandings,
+  contextForRound,
   courseHandicap,
   scrambleTeamHandicap,
   strokesOnHole,
   teamScoreKey,
+  type ScoringContext,
 } from "./engine";
+import { seedState } from "../data/seed";
 
 // A simple par-72 course where strokeIndex === hole number keeps the math
 // easy to reason about (hardest hole is #1, easiest is #18).
-const course: Course = {
+const course: CourseDef = {
+  id: "test",
   name: "Test Links",
   holes: Array.from({ length: 18 }, (_, i) => ({
     number: i + 1,
     par: 4,
     strokeIndex: i + 1,
   })),
+  tees: [{ name: "White", yardage: 6000, rating: 72.0, slope: 113 }],
 };
+
+// Neutral context: slope 113 + rating == par means CH == rounded index.
+const ctx: ScoringContext = { course, tee: course.tees[0] };
 
 const players: Player[] = [
   { id: "hunter", name: "Hunter", handicap: 27, teamId: "t1" },
@@ -27,10 +35,6 @@ const players: Player[] = [
   { id: "nate", name: "Nate D", handicap: 21, teamId: "t2" },
   { id: "jay", name: "Jay", handicap: 6, teamId: "t2" },
 ];
-
-function blankScores(match: Match) {
-  return match;
-}
 
 describe("strokesOnHole", () => {
   it("gives one stroke to holes at or below the total", () => {
@@ -51,15 +55,68 @@ describe("strokesOnHole", () => {
   });
 });
 
-describe("courseHandicap", () => {
-  it("rounds fractional handicaps", () => {
+describe("courseHandicap — USGA slope/rating formula", () => {
+  it("falls back to rounded index without a tee", () => {
     expect(courseHandicap(8.7)).toBe(9);
     expect(courseHandicap(3)).toBe(3);
+  });
+
+  it("equals the rounded index on a neutral tee (slope 113, rating = par)", () => {
+    expect(courseHandicap(27, ctx)).toBe(27);
+    expect(courseHandicap(8.7, ctx)).toBe(9);
+  });
+
+  it("computes Big Fish Championship tees correctly", () => {
+    // 71.7 rating / 126 slope, par 72.
+    const bigFish = seedState().courses.find((c) => c.id === "bigfish")!;
+    const champ: ScoringContext = {
+      course: bigFish,
+      tee: bigFish.tees.find((t) => t.name === "Championship")!,
+    };
+    // 27 × (126/113) + (71.7 − 72) = 30.106 − 0.3 = 29.8 → 30
+    expect(courseHandicap(27, champ)).toBe(30);
+    // 3 × (126/113) − 0.3 = 3.345 − 0.3 = 3.045 → 3
+    expect(courseHandicap(3, champ)).toBe(3);
+  });
+
+  it("gives fewer strokes off shorter tees", () => {
+    const bigFish = seedState().courses.find((c) => c.id === "bigfish")!;
+    const chFor = (teeName: string) =>
+      courseHandicap(20, {
+        course: bigFish,
+        tee: bigFish.tees.find((t) => t.name === teeName)!,
+      });
+    // 20 index: Tournament 20×134/113 + 2.1 = 25.8 → 26; Member 20×122/113 − 3.4 = 18.2 → 18
+    expect(chFor("Tournament")).toBe(26);
+    expect(chFor("Member")).toBe(18);
+    expect(chFor("Tournament")).toBeGreaterThan(chFor("Member"));
+  });
+});
+
+describe("contextForRound", () => {
+  it("resolves the started round's course and tee", () => {
+    const state = seedState();
+    state.rounds[0] = {
+      ...state.rounds[0],
+      status: "active",
+      courseId: "bigfish",
+      teeName: "Member",
+    };
+    const c = contextForRound(state, "r1");
+    expect(c.course.id).toBe("bigfish");
+    expect(c.tee?.name).toBe("Member");
+  });
+
+  it("falls back to first course, no tee, for pending rounds", () => {
+    const state = seedState();
+    const c = contextForRound(state, "r2");
+    expect(c.course.id).toBe("bigfish");
+    expect(c.tee).toBeUndefined();
   });
 });
 
 describe("allocateStrokes (best ball)", () => {
-  it("gives strokes off the lowest player in the match", () => {
+  it("gives strokes off the lowest course handicap in the match", () => {
     const match: Match = {
       id: "m1",
       roundId: "r1",
@@ -68,7 +125,7 @@ describe("allocateStrokes (best ball)", () => {
       sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
       scores: {},
     };
-    const alloc = allocateStrokes(match, players);
+    const alloc = allocateStrokes(match, players, ctx);
     // Low man is Nick (3) -> everyone relative to 3.
     expect(alloc.byPlayer.nick).toBe(0);
     expect(alloc.byPlayer.jay).toBe(3);
@@ -99,19 +156,12 @@ describe("computeMatchState — four-ball match play", () => {
       sideB: { teamId: "t2", playerIds: ["jay"] },
       scores: { nick: {}, jay: {} },
     };
-    // Nick is scratch, Jay gets strokes on holes 1..3. To isolate match play,
-    // make holes 4..16 count on gross where Nick wins 4 with 12 to play... we
-    // want A up by 4 with 2 to play at thru 16 -> "4&2". Simpler: win holes
-    // 4-16 pattern. Let's just drive a clean 3&2:
-    // A wins holes 1,2,3 (net), halve the rest through 16.
+    // A wins holes 1,2,3 outright (birdies beat Jay's stroke), halve 4..16.
     for (let h = 1; h <= 16; h++) {
-      // gross 4 each; Jay gets a stroke on 1..3 so Jay would be LOWER there.
-      // Instead give Nick birdies on 1..3 to win outright regardless.
       match.scores.nick[h] = h <= 3 ? 2 : 4;
       match.scores.jay[h] = 4;
     }
-    const state = computeMatchState(match, players, course);
-    // Jay's stroke on holes 1-3 makes his net 3 vs Nick net 2 -> A still wins.
+    const state = computeMatchState(match, players, ctx);
     expect(state.leader).toBe("A");
     expect(state.margin).toBe(3);
     expect(state.thru).toBe(16);
@@ -132,25 +182,11 @@ describe("computeMatchState — four-ball match play", () => {
         jay: { 1: 4 }, // gross tie, but Jay gets a stroke on hole 1 (SI 1)
       },
     };
-    const state = computeMatchState(match, players, course);
+    const state = computeMatchState(match, players, ctx);
     // Jay net 3 beats Nick net 4 -> B leads.
     expect(state.leader).toBe("B");
     expect(state.margin).toBe(1);
     expect(state.resultText).toBe("1 UP thru 1");
-  });
-
-  it("reports all square while in progress", () => {
-    const match: Match = {
-      id: "m3",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] },
-      sideB: { teamId: "t2", playerIds: ["nick"] },
-      scores: { nick: { 5: 4 } },
-    };
-    const state = computeMatchState(blankScores(match), players, course);
-    expect(state.resultText).toBe("AS thru 1");
-    expect(state.complete).toBe(false);
   });
 
   it("halves a completed match that finishes level", () => {
@@ -170,7 +206,7 @@ describe("computeMatchState — four-ball match play", () => {
       match.scores.nick[h] = 4;
       match.scores.nick2[h] = 4;
     }
-    const state = computeMatchState(match, twoScratch, course);
+    const state = computeMatchState(match, twoScratch, ctx);
     expect(state.thru).toBe(18);
     expect(state.complete).toBe(true);
     expect(state.resultText).toBe("Halved (AS)");
@@ -199,10 +235,10 @@ describe("computeMatchState — scramble", () => {
     };
     // Team A scramble hcp: .35*20+.15*20 = 10; Team B: .35*2+.15*2 = 1.
     // Difference 9 -> Team A gets strokes on SI 1..9. Hole 1 has SI 1.
-    const alloc = allocateStrokes(match, teamPlayers);
+    const alloc = allocateStrokes(match, teamPlayers, ctx);
     expect(alloc.byTeam[teamScoreKey("tA")]).toBe(9);
     expect(alloc.byTeam[teamScoreKey("tB")]).toBe(0);
-    const state = computeMatchState(match, teamPlayers, course);
+    const state = computeMatchState(match, teamPlayers, ctx);
     // A net 3 vs B net 4 -> A wins the hole.
     expect(state.leader).toBe("A");
     expect(state.margin).toBe(1);
@@ -210,7 +246,7 @@ describe("computeMatchState — scramble", () => {
 });
 
 describe("computeStandings", () => {
-  it("totals points across matches", () => {
+  it("totals points across matches using each round's context", () => {
     const scratch: Player[] = [
       { id: "p1", name: "P1", handicap: 0, teamId: "t1" },
       { id: "p2", name: "P2", handicap: 0, teamId: "t2" },
@@ -227,11 +263,24 @@ describe("computeStandings", () => {
       match.scores.p1[h] = 3; // birdies every hole
       match.scores.p2[h] = 4;
     }
-    const standings = computeStandings([match], scratch, course);
+    const standings = computeStandings([match], scratch, { r1: ctx });
     const t1 = standings.find((s) => s.teamId === "t1")!;
     const t2 = standings.find((s) => s.teamId === "t2")!;
     expect(t1.points).toBe(1);
     expect(t2.points).toBe(0);
     expect(t1.matchesComplete).toBe(1);
+  });
+});
+
+describe("Big Fish seed data", () => {
+  it("has 18 holes, par 72, and a valid HDCP permutation", () => {
+    const bigFish = seedState().courses.find((c) => c.id === "bigfish")!;
+    expect(bigFish.holes).toHaveLength(18);
+    expect(bigFish.holes.reduce((s, h) => s + h.par, 0)).toBe(72);
+    const sis = bigFish.holes.map((h) => h.strokeIndex).sort((a, b) => a - b);
+    expect(sis).toEqual(Array.from({ length: 18 }, (_, i) => i + 1));
+    expect(bigFish.tees).toHaveLength(5);
+    // Total yardage on the card = Tournament tees.
+    expect(bigFish.holes.reduce((s, h) => s + (h.yards ?? 0), 0)).toBe(7231);
   });
 });

@@ -2,6 +2,9 @@
 // Scoring engine — pure functions, no React, fully unit-tested.
 //
 // This is where the "different handicaps" problem actually gets solved:
+//  - Course handicaps come from the round's tees via the USGA formula
+//    (handicap index × slope/113 + rating − par), so long tees give more
+//    strokes than short ones.
 //  - Best-ball formats give each player strokes off the LOW player in the
 //    match, allocated hole-by-hole using each hole's stroke index.
 //  - Scramble can't give individual strokes (you only make one team score),
@@ -9,11 +12,45 @@
 //    handed the difference as match strokes. This keeps lopsided teams fair.
 // ---------------------------------------------------------------------------
 
-import type { Course, Match, Player, Side } from "../types";
+import type {
+  CourseDef,
+  Match,
+  Player,
+  Side,
+  TeeSet,
+  TournamentState,
+} from "../types";
+
+/** The course + tees a round is being played from. Tee optional until a
+ *  round is started (falls back to plain rounded handicap index). */
+export interface ScoringContext {
+  course: CourseDef;
+  tee?: TeeSet;
+}
+
+/** Resolve the scoring context for a round from tournament state. Rounds
+ *  that haven't been started score against the first course with no tee
+ *  adjustment, so nothing crashes before a round begins. */
+export function contextForRound(
+  state: TournamentState,
+  roundId: string,
+): ScoringContext {
+  const round = state.rounds.find((r) => r.id === roundId);
+  const course =
+    state.courses.find((c) => c.id === round?.courseId) ?? state.courses[0];
+  const tee = round?.teeName
+    ? course.tees.find((t) => t.name === round.teeName)
+    : undefined;
+  return { course, tee };
+}
 
 /** Key used to store a scramble team's single score. */
 export function teamScoreKey(teamId: string): string {
   return `team:${teamId}`;
+}
+
+export function coursePar(course: CourseDef): number {
+  return course.holes.reduce((s, h) => s + h.par, 0);
 }
 
 /**
@@ -28,20 +65,30 @@ export function strokesOnHole(total: number, strokeIndex: number): number {
   return base + (strokeIndex <= remainder ? 1 : 0);
 }
 
-/** Course handicap used for allocation — handicap index rounded to whole. */
-export function courseHandicap(handicap: number): number {
-  return Math.round(handicap);
+/**
+ * Course handicap for a player. With a tee selected this is the USGA
+ * formula: index × (slope ÷ 113) + (rating − par), rounded. Without a tee
+ * (round not started yet) it falls back to the rounded handicap index.
+ */
+export function courseHandicap(handicapIndex: number, ctx?: ScoringContext): number {
+  if (ctx?.tee) {
+    const par = coursePar(ctx.course);
+    return Math.round(
+      handicapIndex * (ctx.tee.slope / 113) + (ctx.tee.rating - par),
+    );
+  }
+  return Math.round(handicapIndex);
 }
 
 /**
- * Scramble team handicap allowance.
+ * Scramble team handicap allowance, computed from COURSE handicaps.
  *  - 2 players: 35% of low + 15% of high
  *  - 3 players: 30 / 20 / 10
  *  - 4 players: 25 / 20 / 15 / 10
  * Falls back to a simple average for other counts. Result is rounded.
  */
-export function scrambleTeamHandicap(handicaps: number[]): number {
-  const sorted = [...handicaps].sort((a, b) => a - b); // low to high
+export function scrambleTeamHandicap(courseHandicaps: number[]): number {
+  const sorted = [...courseHandicaps].sort((a, b) => a - b); // low to high
   const weightsByCount: Record<number, number[]> = {
     1: [1],
     2: [0.35, 0.15],
@@ -72,16 +119,22 @@ function sidePlayers(side: Side, players: Player[]): Player[] {
 
 /**
  * Compute how many match strokes each scoring entity receives. Best-ball
- * formats work off the lowest player in the match; scramble works off the
- * lower team handicap.
+ * formats work off the lowest course handicap in the match; scramble works
+ * off the lower team handicap.
  */
-export function allocateStrokes(match: Match, players: Player[]): StrokeAllocation {
+export function allocateStrokes(
+  match: Match,
+  players: Player[],
+  ctx: ScoringContext,
+): StrokeAllocation {
   const byPlayer: Record<string, number> = {};
   const byTeam: Record<string, number> = {};
 
   if (match.format === "scramble") {
-    const hcpA = scrambleTeamHandicap(sidePlayers(match.sideA, players).map((p) => p.handicap));
-    const hcpB = scrambleTeamHandicap(sidePlayers(match.sideB, players).map((p) => p.handicap));
+    const chs = (side: Side) =>
+      sidePlayers(side, players).map((p) => courseHandicap(p.handicap, ctx));
+    const hcpA = scrambleTeamHandicap(chs(match.sideA));
+    const hcpB = scrambleTeamHandicap(chs(match.sideB));
     const low = Math.min(hcpA, hcpB);
     byTeam[teamScoreKey(match.sideA.teamId)] = Math.max(0, hcpA - low);
     byTeam[teamScoreKey(match.sideB.teamId)] = Math.max(0, hcpB - low);
@@ -89,10 +142,10 @@ export function allocateStrokes(match: Match, players: Player[]): StrokeAllocati
   }
 
   const everyone = [...sidePlayers(match.sideA, players), ...sidePlayers(match.sideB, players)];
-  const chs = everyone.map((p) => courseHandicap(p.handicap));
+  const chs = everyone.map((p) => courseHandicap(p.handicap, ctx));
   const low = chs.length ? Math.min(...chs) : 0;
-  everyone.forEach((p) => {
-    byPlayer[p.id] = Math.max(0, courseHandicap(p.handicap) - low);
+  everyone.forEach((p, i) => {
+    byPlayer[p.id] = Math.max(0, chs[i] - low);
   });
   return { byPlayer, byTeam };
 }
@@ -147,14 +200,14 @@ function sideNetForHole(
 export function computeMatchState(
   match: Match,
   players: Player[],
-  course: Course,
+  ctx: ScoringContext,
 ): MatchState {
-  const alloc = allocateStrokes(match, players);
+  const alloc = allocateStrokes(match, players, ctx);
   const perHole: HoleResult[] = [];
   let runningMargin = 0; // + means A is up
   let thru = 0;
 
-  for (const hole of course.holes) {
+  for (const hole of ctx.course.holes) {
     const netA = sideNetForHole(match, match.sideA, hole.number, hole.strokeIndex, alloc);
     const netB = sideNetForHole(match, match.sideB, hole.number, hole.strokeIndex, alloc);
 
@@ -174,7 +227,7 @@ export function computeMatchState(
     perHole.push({ hole: hole.number, netA, netB, winner });
   }
 
-  const totalHoles = course.holes.length;
+  const totalHoles = ctx.course.holes.length;
   const holesRemaining = totalHoles - thru;
   const margin = Math.abs(runningMargin);
   const leader: MatchState["leader"] =
@@ -226,11 +279,12 @@ export interface TeamStanding {
   matchesComplete: number;
 }
 
-/** Roll all matches up into team points for the tournament leaderboard. */
+/** Roll all matches up into team points for the tournament leaderboard.
+ *  Each match scores against its own round's course + tees. */
 export function computeStandings(
   matches: Match[],
   players: Player[],
-  course: Course,
+  ctxByRound: Record<string, ScoringContext>,
 ): TeamStanding[] {
   const table = new Map<string, TeamStanding>();
   const ensure = (teamId: string) => {
@@ -241,7 +295,9 @@ export function computeStandings(
   };
 
   for (const match of matches) {
-    const state = computeMatchState(match, players, course);
+    const ctx = ctxByRound[match.roundId];
+    if (!ctx) continue;
+    const state = computeMatchState(match, players, ctx);
     const a = ensure(match.sideA.teamId);
     const b = ensure(match.sideB.teamId);
     if (state.thru > 0) {

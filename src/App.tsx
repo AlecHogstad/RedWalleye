@@ -3,6 +3,7 @@ import HomePage from "./pages/HomePage";
 import MatchPage from "./pages/MatchPage";
 import TeamsPage from "./pages/TeamsPage";
 import CoursePage from "./pages/CoursePage";
+import StartRoundPage from "./pages/StartRoundPage";
 import { PoleFlag } from "./components/CheckFlag";
 
 /** Each screen gets its own block color, like the inspo phones. */
@@ -36,6 +37,7 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/start/:roundId" element={<StartRoundPage />} />
           <Route path="/match/:matchId" element={<MatchPage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/course" element={<CoursePage />} />
