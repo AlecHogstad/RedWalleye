@@ -447,29 +447,32 @@ a {
   background: rgba(30, 74, 43, 0.06);
 }
 
-/* Match banner (scorecard status) -------------------------------------------- */
-.banner {
-  background: var(--hero);
-  border-color: transparent;
-  color: var(--hero-ink);
-  padding: 14px 16px;
-  text-align: center;
-}
-.banner .result {
+/* Live score — its own right-justified element in the scorecard heading ------- */
+.score-line {
+  display: block;
+  text-align: right;
   font-family: var(--font-display);
-  font-size: 21px;
+  font-size: 20px;
   letter-spacing: 0.02em;
+  color: var(--accent);
+  margin: 2px 2px 10px;
 }
-.banner .leadA,
-.banner .leadB {
-  color: inherit;
+.score-line .score-sub {
+  display: block;
+  margin-top: 1px;
 }
-.banner .sub {
+.score-line.leadA {
+  color: var(--green-bright);
+}
+.score-line.leadB {
+  color: var(--orange);
+}
+.score-line .score-sub {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 13px;
-  opacity: 0.8;
-  margin-top: 3px;
+  letter-spacing: 0;
+  color: var(--muted);
 }
 
 /* Scorecard ------------------------------------------------------------------ */
