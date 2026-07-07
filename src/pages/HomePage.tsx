@@ -18,12 +18,19 @@ export default function HomePage() {
     [state.matches, state.players, contexts],
   );
 
+  // Individual stats only make sense where everyone plays their own ball —
+  // scramble rounds (one team ball) are left out of the player table.
+  const statRounds = useMemo(
+    () => state.rounds.filter((r) => r.format !== "scramble"),
+    [state.rounds],
+  );
+
   // player id -> per-round totals
   const totals = useMemo(() => {
     const byPlayer: Record<string, Record<string, RoundTotals | null>> = {};
     for (const p of state.players) {
       byPlayer[p.id] = {};
-      for (const r of state.rounds) {
+      for (const r of statRounds) {
         const match = state.matches.find(
           (m) =>
             m.roundId === r.id &&
@@ -35,7 +42,9 @@ export default function HomePage() {
       }
     }
     return byPlayer;
-  }, [state.players, state.rounds, state.matches, contexts]);
+  }, [state.players, statRounds, state.matches, contexts]);
+
+  const tableGrid = { gridTemplateColumns: `1fr ${statRounds.map(() => "64px").join(" ")}` };
 
   return (
     <>
@@ -70,9 +79,9 @@ export default function HomePage() {
       <section className="section" style={{ paddingTop: 0 }}>
         <h2>Players</h2>
         <div className="card">
-          <div className="ptable-row ptable-head">
+          <div className="ptable-row ptable-head" style={tableGrid}>
             <span>Player</span>
-            {state.rounds.map((r) => (
+            {statRounds.map((r) => (
               <span key={r.id} className="pr-cell">
                 {r.name.replace("Round ", "R")}
               </span>
@@ -82,12 +91,12 @@ export default function HomePage() {
             state.players
               .filter((p) => p.teamId === team.id)
               .map((p) => (
-                <div className="ptable-row" key={p.id}>
+                <div className="ptable-row" key={p.id} style={tableGrid}>
                   <span className="pt-name">
                     <span className="dot" style={{ background: team.color }} />
                     {p.name}
                   </span>
-                  {state.rounds.map((r) => {
+                  {statRounds.map((r) => {
                     const t = totals[p.id]?.[r.id];
                     return (
                       <span key={r.id} className="pr-cell">
@@ -111,8 +120,8 @@ export default function HomePage() {
         </div>
         <p className="hint">
           Big number = net, small = gross (·n = thru n holes). Net uses each
-          player's full course handicap for that round's tees; in the scramble
-          it's the team's score with the team handicap.
+          player's full course handicap for that round's tees. The scramble
+          round isn't shown — one team ball, no individual scores.
         </p>
       </section>
     </>
