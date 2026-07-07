@@ -1,14 +1,14 @@
 import type { Course, Match, Player, Round, Team, TournamentState } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
 
 // Retro clubhouse palette: burnt orange, forest green, sky blue, mustard.
 export const teams: Team[] = [
-  { id: "t1", name: "Team 1", color: "#de4f2c" },
-  { id: "t2", name: "Team 2", color: "#2e6b3e" },
-  { id: "t3", name: "Team 3", color: "#4586a8" },
-  { id: "t4", name: "Team 4", color: "#c98a2f" },
+  { id: "t1", name: "Team 01", color: "#de4f2c" },
+  { id: "t2", name: "Team 02", color: "#2e6b3e" },
+  { id: "t3", name: "Team 03", color: "#4586a8" },
+  { id: "t4", name: "Team 04", color: "#c98a2f" },
 ];
 
 // Handicaps straight off the team sheet (the number in parentheses).
