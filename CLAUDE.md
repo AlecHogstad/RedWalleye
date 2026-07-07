@@ -36,12 +36,15 @@ environment only allows deploys from `main`, so work merges before it ships.
 All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
 `engine.test.ts`. Don't change scoring behavior without updating tests.
 
+- **Course handicap**: when a round has tees selected, the USGA formula —
+  `index × (slope ÷ 113) + (rating − par)`, rounded. Without a tee (round not
+  started) it falls back to the rounded index. See `courseHandicap(hi, ctx)`.
 - **Stroke allocation**: strokes are given hole-by-hole using each hole's
-  stroke index (SI 1 = hardest). `strokesOnHole(total, si)` handles totals
+  stroke index (HDCP 1 = hardest). `strokesOnHole(total, si)` handles totals
   over 18 (second stroke rolls onto hardest holes).
 - **Four-Ball / 4-Man Best Ball**: every player gets match strokes equal to
-  their course handicap minus the LOWEST handicap in the match. Best net ball
-  per side wins the hole.
+  their course handicap minus the LOWEST course handicap in the match. Best
+  net ball per side wins the hole.
 - **Scramble**: individual strokes are impossible (one team ball), so each
   team gets a scramble handicap — 35%/15% of low/high for 2-man,
   25/20/15/10 for 4-man — and the higher team receives the difference as
@@ -51,17 +54,27 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
   points lock when a match completes. Standings roll up in
   `computeStandings`.
 
+## Rounds: start gate
+
+Rounds are `pending → active → final` (`Round.status`). One person taps
+Start Round and picks the **course + tees** — that fixes every player's
+course handicap for the round. While a round is active, all other rounds are
+locked (matches untappable). Finish Round unlocks; a final round is
+view-only, with a Reopen escape hatch. Because the app is local-first the
+gate is per-phone: each scorekeeper's phone starts the round with the same
+course/tees.
+
 ## Data
 
 `src/data/seed.ts` holds the four teams (Team 01–04), all 16 players with
 real handicaps from the trip sheet, Round 1 (Four-Ball), Round 2 (Scramble),
-Round 3 (4-Man Best Ball) matchups, and a placeholder par-72 course.
+Round 3 (4-Man Best Ball) matchups, and the courses. **Big Fish Golf Club is
+real data from the scorecard**: pars, yardages, all 5 tee sets
+(rating/slope), and the actual HDCP ranks. "Course 2" is an editable
+placeholder with a neutral tee (slope 113, rating = par).
 **Bump `STATE_VERSION` whenever seed shape/content changes** — it invalidates
 stored localStorage state on users' phones (fine before the trip, destructive
 during it).
-
-The course pars/stroke indexes are placeholders — the group edits real ones in
-the Course tab, or bake them into the seed if someone sends a scorecard.
 
 ## Design system (vintage country-club theme)
 
@@ -91,7 +104,9 @@ posts). Defined in `src/index.css`:
 
 ## Ideas parked for later
 
-- Real course pars/stroke indexes baked into the seed
-- Optional live score sync (Firebase/Supabase)
+- Second course's real scorecard baked into the seed (like Big Fish)
+- Optional live score sync (Firebase/Supabase) — would also make the round
+  start gate truly one-person-locks-everyone
+- Per-player tee selection within a round (currently one tee set per round)
 - Editable team names in the Teams tab
 - Stack long 4-man team names on match cards (they truncate on narrow phones)

@@ -7,7 +7,7 @@ import {
   strokesOnHole,
   teamScoreKey,
 } from "../scoring/engine";
-import { usePlayerMap, useStore } from "../store/store";
+import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 
 interface ScoreEntity {
@@ -45,19 +45,22 @@ export default function MatchPage() {
   const { matchId } = useParams();
   const { state, setScore } = useStore();
   const players = usePlayerMap();
+  const contexts = useRoundContexts();
   const match = state.matches.find((m) => m.id === matchId);
+  const round = state.rounds.find((r) => r.id === match?.roundId);
+  const ctx = match ? contexts[match.roundId] : undefined;
   const [hole, setHole] = useState(1);
 
   const st = useMemo(
-    () => (match ? computeMatchState(match, state.players, state.course) : null),
-    [match, state.players, state.course],
+    () => (match && ctx ? computeMatchState(match, state.players, ctx) : null),
+    [match, state.players, ctx],
   );
   const alloc = useMemo(
-    () => (match ? allocateStrokes(match, state.players) : null),
-    [match, state.players],
+    () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
+    [match, state.players, ctx],
   );
 
-  if (!match || !st || !alloc) {
+  if (!match || !round || !ctx || !st || !alloc) {
     return (
       <div className="section">
         <p>Match not found.</p>
@@ -68,8 +71,25 @@ export default function MatchPage() {
     );
   }
 
+  if (round.status === "pending") {
+    return (
+      <div className="section">
+        <div className="card" style={{ padding: 16 }}>
+          <p style={{ marginTop: 0 }}>
+            {round.name} hasn't started yet — the course and tees get picked when
+            the round is started.
+          </p>
+          <Link className="btn" to="/">
+            Back to tournament
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const readOnly = round.status === "final";
   const teamMap = Object.fromEntries(state.teams.map((t) => [t.id, t]));
-  const holeInfo = state.course.holes.find((h) => h.number === hole)!;
+  const holeInfo = ctx.course.holes.find((h) => h.number === hole)!;
   const entitiesA = entitiesForSide(match, match.sideA, players);
   const entitiesB = entitiesForSide(match, match.sideB, players);
 
@@ -82,6 +102,7 @@ export default function MatchPage() {
   };
 
   const bump = (key: string, delta: number) => {
+    if (readOnly) return;
     const current = match.scores[key]?.[hole];
     if (current == null) {
       setScore(match.id, key, hole, holeInfo.par); // first tap = par, then adjust
@@ -114,11 +135,11 @@ export default function MatchPage() {
           {val != null ? `net ${val - s}` : ""}
         </span>
         <div className="stepper">
-          <button onClick={() => bump(e.key, -1)} aria-label="minus">
+          <button onClick={() => bump(e.key, -1)} disabled={readOnly} aria-label="minus">
             −
           </button>
           <span className={`val ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
-          <button onClick={() => bump(e.key, +1)} aria-label="plus">
+          <button onClick={() => bump(e.key, +1)} disabled={readOnly} aria-label="plus">
             +
           </button>
         </div>
@@ -133,6 +154,11 @@ export default function MatchPage() {
           ← Tournament
         </Link>
         <h2 style={{ marginTop: 10 }}>{FORMAT_LABELS[match.format]}</h2>
+        <p className="round-where">
+          {ctx.course.name}
+          {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
+          {readOnly ? " · round is final (view only)" : ""}
+        </p>
       </div>
 
       {/* Running status banner */}
@@ -170,13 +196,14 @@ export default function MatchPage() {
         <div className="center">
           <div className="hole-num">Hole {hole}</div>
           <div className="meta">
-            Par {holeInfo.par} · SI {holeInfo.strokeIndex}
+            Par {holeInfo.par} · HDCP {holeInfo.strokeIndex}
+            {holeInfo.yards ? ` · ${holeInfo.yards} yds` : ""}
           </div>
         </div>
         <button
           className="navbtn"
-          disabled={hole >= state.course.holes.length}
-          onClick={() => setHole((h) => Math.min(state.course.holes.length, h + 1))}
+          disabled={hole >= ctx.course.holes.length}
+          onClick={() => setHole((h) => Math.min(ctx.course.holes.length, h + 1))}
         >
           ›
         </button>
@@ -184,7 +211,7 @@ export default function MatchPage() {
 
       <div className="card" style={{ margin: "0 16px" }}>
         {entitiesA.map(renderRow)}
-        <div style={{ height: 6, background: "var(--paper)" }} />
+        <div style={{ height: 6, background: "var(--cream)" }} />
         {entitiesB.map(renderRow)}
       </div>
 
@@ -193,7 +220,7 @@ export default function MatchPage() {
         <h2>Holes</h2>
         <div className="card" style={{ paddingBottom: 12 }}>
           <div className="holegrid">
-            {state.course.holes.map((h) => {
+            {ctx.course.holes.map((h) => {
               const res = st.perHole.find((p) => p.hole === h.number);
               const win =
                 res?.winner === "A"
