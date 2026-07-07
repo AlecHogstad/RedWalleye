@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { FORMAT_LABELS, type Match, type Side } from "../types";
+import { FORMAT_LABELS, FORMAT_RULES, type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
@@ -177,6 +177,7 @@ export default function MatchPage() {
           {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
           {readOnly ? " · round is final (view only)" : ""}
         </p>
+        <div className="rules">{FORMAT_RULES[match.format]}</div>
       </div>
 
       {/* Running status banner */}
