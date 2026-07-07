@@ -68,10 +68,10 @@ course/tees.
 
 `src/data/seed.ts` holds the four teams (Team 01–04), all 16 players with
 real handicaps from the trip sheet, Round 1 (Four-Ball), Round 2 (Scramble),
-Round 3 (4-Man Best Ball) matchups, and the courses. **Big Fish Golf Club is
-real data from the scorecard**: pars, yardages, all 5 tee sets
-(rating/slope), and the actual HDCP ranks. "Course 2" is an editable
-placeholder with a neutral tee (slope 113, rating = par).
+Round 3 (4-Man Best Ball) matchups, and the courses. **Both courses are real
+data from their scorecards** — Big Fish Golf Club (5 tees, Tournament
+74.1/134) and Hayward Golf Club (5 tees, Black 72.4/126) — pars, yardages,
+tee ratings/slopes, and actual HDCP ranks.
 **Bump `STATE_VERSION` whenever seed shape/content changes** — it invalidates
 stored localStorage state on users' phones (fine before the trip, destructive
 during it).
@@ -104,7 +104,6 @@ posts). Defined in `src/index.css`:
 
 ## Ideas parked for later
 
-- Second course's real scorecard baked into the seed (like Big Fish)
 - Optional live score sync (Firebase/Supabase) — would also make the round
   start gate truly one-person-locks-everyone
 - Per-player tee selection within a round (currently one tee set per round)

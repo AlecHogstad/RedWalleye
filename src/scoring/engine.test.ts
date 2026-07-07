@@ -272,15 +272,30 @@ describe("computeStandings", () => {
   });
 });
 
-describe("Big Fish seed data", () => {
-  it("has 18 holes, par 72, and a valid HDCP permutation", () => {
-    const bigFish = seedState().courses.find((c) => c.id === "bigfish")!;
-    expect(bigFish.holes).toHaveLength(18);
-    expect(bigFish.holes.reduce((s, h) => s + h.par, 0)).toBe(72);
-    const sis = bigFish.holes.map((h) => h.strokeIndex).sort((a, b) => a - b);
+describe("course seed data", () => {
+  it.each([
+    ["bigfish", 7231], // hole yardages on the card = Tournament tees
+    ["hayward", 6678], // hole yardages on the card = Black tees
+  ])("%s has 18 holes, par 72, valid HDCP permutation, card yardage %i", (id, totalYards) => {
+    const c = seedState().courses.find((x) => x.id === id)!;
+    expect(c.holes).toHaveLength(18);
+    expect(c.holes.reduce((s, h) => s + h.par, 0)).toBe(72);
+    const sis = c.holes.map((h) => h.strokeIndex).sort((a, b) => a - b);
     expect(sis).toEqual(Array.from({ length: 18 }, (_, i) => i + 1));
-    expect(bigFish.tees).toHaveLength(5);
-    // Total yardage on the card = Tournament tees.
-    expect(bigFish.holes.reduce((s, h) => s + (h.yards ?? 0), 0)).toBe(7231);
+    expect(c.tees).toHaveLength(5);
+    expect(c.holes.reduce((s, h) => s + (h.yards ?? 0), 0)).toBe(totalYards);
+  });
+
+  it("computes Hayward White-tee course handicaps", () => {
+    const hayward = seedState().courses.find((c) => c.id === "hayward")!;
+    const white: ScoringContext = {
+      course: hayward,
+      tee: hayward.tees.find((t) => t.name === "White")!,
+    };
+    // 69.2 rating / 121 slope, par 72.
+    // 27 × (121/113) + (69.2 − 72) = 28.91 − 2.8 = 26.1 → 26
+    expect(courseHandicap(27, white)).toBe(26);
+    // 3 × (121/113) − 2.8 = 3.21 − 2.8 = 0.41 → 0
+    expect(courseHandicap(3, white)).toBe(0);
   });
 });
