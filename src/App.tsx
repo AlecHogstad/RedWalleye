@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import HomePage from "./pages/HomePage";
+import RoundsPage from "./pages/RoundsPage";
 import MatchPage from "./pages/MatchPage";
 import TeamsPage from "./pages/TeamsPage";
 import CoursePage from "./pages/CoursePage";
@@ -48,6 +49,7 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/rounds" element={<RoundsPage />} />
           <Route path="/start/:roundId" element={<StartRoundPage />} />
           <Route path="/match/:matchId" element={<MatchPage />} />
           <Route path="/teams" element={<TeamsPage />} />
@@ -58,7 +60,10 @@ export default function App() {
       {showTabs && (
         <nav className="tabbar">
           <NavLink to="/" end>
-            <span className="tab-label">Tournament</span>
+            <span className="tab-label">Leaderboard</span>
+          </NavLink>
+          <NavLink to="/rounds">
+            <span className="tab-label">Rounds</span>
           </NavLink>
           <NavLink to="/teams">
             <span className="tab-label">Teams</span>

@@ -331,6 +331,59 @@ export function computeStrokePlay(
   };
 }
 
+// --- Individual round totals (player leaderboard) ---------------------------
+
+export interface RoundTotals {
+  gross: number;
+  net: number;
+  thru: number;
+}
+
+/**
+ * A player's gross and net totals for one match/entry, summed over the
+ * holes actually played. Net uses the player's FULL course handicap for
+ * the round's tees (not the match-relative allocation); in a scramble the
+ * player's score is their team's scramble score, netted with the team
+ * scramble handicap.
+ */
+export function computePlayerTotals(
+  match: Match,
+  playerId: string,
+  players: Player[],
+  ctx: ScoringContext,
+): RoundTotals | null {
+  const player = players.find((p) => p.id === playerId);
+  if (!player) return null;
+
+  const onA = match.sideA.playerIds.includes(playerId);
+  const onB = match.sideB.playerIds.includes(playerId);
+  if (!onA && !onB) return null;
+
+  let key = playerId;
+  let hcp: number;
+  if (match.format === "scramble") {
+    const side = onA ? match.sideA : match.sideB;
+    key = teamScoreKey(side.teamId);
+    hcp = scrambleTeamHandicap(
+      sidePlayers(side, players).map((p) => courseHandicap(p.handicap, ctx)),
+    );
+  } else {
+    hcp = courseHandicap(player.handicap, ctx);
+  }
+
+  let gross = 0;
+  let net = 0;
+  let thru = 0;
+  for (const h of ctx.course.holes) {
+    const g = match.scores[key]?.[h.number];
+    if (g == null) continue;
+    thru += 1;
+    gross += g;
+    net += g - strokesOnHole(hcp, h.strokeIndex);
+  }
+  return thru > 0 ? { gross, net, thru } : null;
+}
+
 export interface TeamStanding {
   teamId: string;
   points: number;

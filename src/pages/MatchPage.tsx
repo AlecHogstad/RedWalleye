@@ -73,8 +73,8 @@ export default function MatchPage() {
     return (
       <div className="section">
         <p>Match not found.</p>
-        <Link className="btn" to="/">
-          Back to tournament
+        <Link className="btn" to="/rounds">
+          Back to rounds
         </Link>
       </div>
     );
@@ -88,8 +88,8 @@ export default function MatchPage() {
             {round.name} hasn't started yet — the course and tees get picked when
             the round is started.
           </p>
-          <Link className="btn" to="/">
-            Back to tournament
+          <Link className="btn" to="/rounds">
+            Back to rounds
           </Link>
         </div>
       </div>
@@ -166,8 +166,8 @@ export default function MatchPage() {
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <Link className="badge" to="/">
-          ← Tournament
+        <Link className="badge" to="/rounds">
+          ← Rounds
         </Link>
         <h2 style={{ marginTop: 10 }}>
           {strokePlay ? `${teamA?.name} — team card` : FORMAT_LABELS[match.format]}
