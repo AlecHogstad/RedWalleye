@@ -94,18 +94,33 @@ posts). Defined in `src/index.css`:
   markers (`src/components/CheckFlag.tsx`) on finished matches and the
   leaderboard leader.
 
+## Live sync (Supabase)
+
+`src/sync/sync.ts` syncs the tournament delta (scores, round statuses,
+player/hole edits) across every phone via one Supabase key/value table
+(`rw_kv`), namespaced by `STATE_VERSION`. Writes are fine-grained rows
+(one score = one row) applied optimistically to a local mirror and queued
+in localStorage, flushing whenever there's signal — dead zones on the
+course lose nothing. The round start gate becomes global in this mode:
+one person starting/finishing a round locks/unlocks every phone. A
+live/offline indicator replaces "est. 2026" in the header.
+
+Sync activates when `src/sync/supabaseConfig.ts` has the project URL +
+anon key (public identifiers, safe to commit; access is governed by RLS
+policies). While it's `null` the app is local-only per phone. The table
+DDL to run in the Supabase SQL editor is in the header comment of
+`sync.ts`. Reset in synced mode wipes the shared table for everyone.
+
 ## Decisions already made (don't relitigate without asking Alec)
 
-- Local-first, no backend/auth — chosen over Firebase live-sync for
-  zero-setup reliability on the course. Live sync is a possible future add.
+- Started local-first; live sync added via Alec's existing Supabase
+  account (chosen over Firebase because the account already existed).
 - Formats: Four-Ball, Scramble, 4-Man Best Ball. Alternate Shot was
   deliberately dropped (group chat vetoed it).
 - Hosting: GitHub Pages (repo is public to allow it on the free plan).
 
 ## Ideas parked for later
 
-- Optional live score sync (Firebase/Supabase) — would also make the round
-  start gate truly one-person-locks-everyone
 - Per-player tee selection within a round (currently one tee set per round)
 - Editable team names in the Teams tab
 - Stack long 4-man team names on match cards (they truncate on narrow phones)

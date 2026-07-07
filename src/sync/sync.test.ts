@@ -1,0 +1,107 @@
+import { describe, expect, it } from "vitest";
+import { applyRemote, kvToRemote, type RemoteData } from "./sync";
+import { seedState, STATE_VERSION } from "../data/seed";
+
+describe("applyRemote", () => {
+  it("returns the base unchanged for null remote", () => {
+    const base = seedState();
+    expect(applyRemote(base, null)).toBe(base);
+  });
+
+  it("merges scores onto the seeded matches", () => {
+    const remote: RemoteData = {
+      scores: { r1m1: { hunter: { h1: 5, h2: 4 }, "team:t1": { h1: 4 } } },
+    };
+    const state = applyRemote(seedState(), remote);
+    const match = state.matches.find((m) => m.id === "r1m1")!;
+    expect(match.scores.hunter[1]).toBe(5);
+    expect(match.scores.hunter[2]).toBe(4);
+    expect(match.scores["team:t1"][1]).toBe(4);
+    // untouched entries stay empty
+    expect(match.scores.nick).toEqual({});
+  });
+
+  it("applies round status, course and tee", () => {
+    const remote: RemoteData = {
+      rounds: { r2: { status: "active", courseId: "bigfish", teeName: "Member" } },
+    };
+    const state = applyRemote(seedState(), remote);
+    const r2 = state.rounds.find((r) => r.id === "r2")!;
+    expect(r2.status).toBe("active");
+    expect(r2.courseId).toBe("bigfish");
+    expect(r2.teeName).toBe("Member");
+    expect(state.rounds.find((r) => r.id === "r1")!.status).toBe("pending");
+  });
+
+  it("applies player and hole edits", () => {
+    const remote: RemoteData = {
+      players: { jeff: { handicap: 9.2 } },
+      holes: { hayward: { h6: { strokeIndex: 2 } } },
+    };
+    const state = applyRemote(seedState(), remote);
+    expect(state.players.find((p) => p.id === "jeff")!.handicap).toBe(9.2);
+    const hole6 = state.courses
+      .find((c) => c.id === "hayward")!
+      .holes.find((h) => h.number === 6)!;
+    expect(hole6.strokeIndex).toBe(2);
+    expect(hole6.par).toBe(4); // untouched field survives
+  });
+
+  it("ignores unknown ids and null leaves without crashing", () => {
+    const remote = {
+      scores: { ghost: { nobody: { h1: 4 } }, r1m1: { hunter: { h3: null } } },
+      rounds: { ghost: { status: "active" } },
+      players: { ghost: { handicap: 1 } },
+      holes: { ghost: { h1: { par: 4 } } },
+    } as unknown as RemoteData;
+    const state = applyRemote(seedState(), remote);
+    expect(state.matches.find((m) => m.id === "r1m1")!.scores.hunter[3]).toBeUndefined();
+  });
+
+  it("does not mutate the base state", () => {
+    const base = seedState();
+    applyRemote(base, { rounds: { r1: { status: "final" } } });
+    expect(base.rounds.find((r) => r.id === "r1")!.status).toBe("pending");
+  });
+});
+
+describe("kvToRemote", () => {
+  const V = `v${STATE_VERSION}`;
+
+  it("rebuilds the delta tree from flat rows", () => {
+    const kv = new Map<string, unknown>([
+      [`${V}|scores|r1m1|hunter|h3`, 5],
+      [`${V}|scores|r1m1|team:t1|h1`, 4],
+      [`${V}|rounds|r1`, { status: "active", courseId: "bigfish", teeName: "Member" }],
+      [`${V}|players|jeff`, { handicap: 9.2 }],
+      [`${V}|holes|hayward|h6`, { strokeIndex: 2 }],
+    ]);
+    const remote = kvToRemote(kv);
+    expect(remote.scores?.r1m1?.hunter?.h3).toBe(5);
+    expect(remote.scores?.r1m1?.["team:t1"]?.h1).toBe(4);
+    expect(remote.rounds?.r1?.teeName).toBe("Member");
+    expect(remote.players?.jeff?.handicap).toBe(9.2);
+    expect(remote.holes?.hayward?.h6?.strokeIndex).toBe(2);
+  });
+
+  it("ignores rows from other seed versions and null values", () => {
+    const kv = new Map<string, unknown>([
+      [`v999|scores|r1m1|hunter|h3`, 8],
+      [`${V}|scores|r1m1|hunter|h4`, null],
+    ]);
+    const remote = kvToRemote(kv);
+    expect(remote.scores).toBeUndefined();
+  });
+
+  it("round-trips into applyRemote", () => {
+    const kv = new Map<string, unknown>([
+      [`${V}|scores|r1m1|hunter|h3`, 5],
+      [`${V}|rounds|r1`, { status: "active", courseId: "hayward", teeName: "White" }],
+    ]);
+    const state = applyRemote(seedState(), kvToRemote(kv));
+    expect(state.matches.find((m) => m.id === "r1m1")!.scores.hunter[3]).toBe(5);
+    const r1 = state.rounds.find((r) => r.id === "r1")!;
+    expect(r1.status).toBe("active");
+    expect(r1.courseId).toBe("hayward");
+  });
+});

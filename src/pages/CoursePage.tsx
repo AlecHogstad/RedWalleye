@@ -2,15 +2,19 @@ import { useState } from "react";
 import { useStore } from "../store/store";
 
 export default function CoursePage() {
-  const { state, updateHole, resetAll } = useStore();
+  const { state, updateHole, resetAll, syncStatus } = useStore();
   const [courseId, setCourseId] = useState(state.courses[0]?.id ?? "");
   const course = state.courses.find((c) => c.id === courseId) ?? state.courses[0];
   const totalPar = course.holes.reduce((s, h) => s + h.par, 0);
 
   const confirmReset = () => {
+    const scope =
+      syncStatus === "local"
+        ? "on this phone"
+        : "for EVERYONE — every phone on the trip";
     if (
       window.confirm(
-        "Reset everything — all scores, round starts, edited handicaps and course info — back to the starting setup?",
+        `Reset everything ${scope}? All scores, round starts, and edits go back to the starting setup.`,
       )
     ) {
       resetAll();
