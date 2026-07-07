@@ -76,6 +76,9 @@ a {
   padding: 0 0 92px;
   min-height: 100vh;
 }
+.app.no-tabs {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 28px);
+}
 
 /* Header — RWGC lockup with the flag through it ---------------------------- */
 .topbar {
