@@ -39,9 +39,17 @@ const TABLE = "rw_kv";
 const V = `v${STATE_VERSION}`;
 const PENDING_KEY = "red-walleye-pending-v1";
 
-let supabase: SupabaseClient | null = null;
-if (supabaseConfig) {
-  supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
+// Created lazily on first use so importing this module (e.g. from unit
+// tests that only need the pure merge helpers) never touches the network
+// stack — the realtime client requires a WebSocket implementation.
+let _client: SupabaseClient | null | undefined;
+function getClient(): SupabaseClient | null {
+  if (_client === undefined) {
+    _client = supabaseConfig
+      ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
+      : null;
+  }
+  return _client;
 }
 
 // --- Remote data shape (all optional deltas) --------------------------------
@@ -183,6 +191,7 @@ function write(id: string, value: unknown | null): void {
 
 let flushing = false;
 async function flush(): Promise<void> {
+  const supabase = getClient();
   if (!supabase || flushing) return;
   flushing = true;
   try {
@@ -207,6 +216,7 @@ async function flush(): Promise<void> {
 /** Stream the merged event delta. Fires immediately with the local mirror
  *  (cached optimistic writes included), then on every remote change. */
 export function subscribeRemote(cb: (data: RemoteData | null) => void): () => void {
+  const supabase = getClient();
   if (!supabase) return () => {};
   notifyData = cb;
 
@@ -307,13 +317,9 @@ export const remoteWrite = {
 
   /** Wipes the shared event data for EVERYONE. */
   resetAll(): void {
-    const ids = [...kv.keys()];
     kv.clear();
     savePending([]);
     emit();
-    if (supabase) {
-      void supabase.from(TABLE).delete().like("id", `${V}|%`);
-    }
-    void ids;
+    void getClient()?.from(TABLE).delete().like("id", `${V}|%`);
   },
 };
