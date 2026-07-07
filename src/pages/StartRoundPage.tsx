@@ -35,8 +35,8 @@ export default function StartRoundPage() {
               ? "Another round is live — finish it before starting a new one."
               : "This round can't be started."}
           </p>
-          <Link className="btn" to="/">
-            Back to tournament
+          <Link className="btn" to="/rounds">
+            Back to rounds
           </Link>
         </div>
       </div>
@@ -51,15 +51,15 @@ export default function StartRoundPage() {
       )
     ) {
       startRound(round.id, course.id, tee.name);
-      navigate("/");
+      navigate("/rounds");
     }
   };
 
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <Link className="badge" to="/">
-          ← Tournament
+        <Link className="badge" to="/rounds">
+          ← Rounds
         </Link>
         <h2 style={{ marginTop: 10 }}>Start {round.name}</h2>
         <div className="rules">

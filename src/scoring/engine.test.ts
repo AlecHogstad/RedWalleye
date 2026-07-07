@@ -3,6 +3,7 @@ import type { CourseDef, Match, Player } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
+  computePlayerTotals,
   computeStandings,
   computeStrokePlay,
   contextForRound,
@@ -365,6 +366,40 @@ describe("computeStandings — stroke-play round points", () => {
     const standings = computeStandings([e1, e2], twoTeams, { r3: ctx });
     expect(standings.every((s) => s.points === 0)).toBe(true);
     expect(standings.find((s) => s.teamId === "t2")!.matchesPlayed).toBe(1);
+  });
+});
+
+describe("computePlayerTotals — player leaderboard", () => {
+  it("sums gross and nets with the player's full course handicap", () => {
+    const match: Match = {
+      id: "m1",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "t1", playerIds: ["jay"] },
+      sideB: { teamId: "t2", playerIds: ["nick"] },
+      scores: { jay: { 1: 5, 2: 4 }, nick: {} },
+    };
+    // Jay CH 6 (neutral tee): strokes on SI 1..6 -> one each on holes 1 and 2.
+    const t = computePlayerTotals(match, "jay", players, ctx);
+    expect(t).toEqual({ gross: 9, net: 7, thru: 2 });
+    // Nick has no scores -> null.
+    expect(computePlayerTotals(match, "nick", players, ctx)).toBeNull();
+  });
+
+  it("uses the team scramble score and team handicap in a scramble", () => {
+    const match: Match = {
+      id: "s1",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "t1", playerIds: ["hunter", "nick"] },
+      sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
+      scores: { [teamScoreKey("t1")]: { 1: 4 }, [teamScoreKey("t2")]: {} },
+    };
+    // Team t1 scramble hcp: 35% of 3 + 15% of 27 = 5.1 -> 5; SI 1 gets a stroke.
+    const t = computePlayerTotals(match, "hunter", players, ctx);
+    expect(t).toEqual({ gross: 4, net: 3, thru: 1 });
+    // Same value for the teammate.
+    expect(computePlayerTotals(match, "nick", players, ctx)).toEqual(t);
   });
 });
 

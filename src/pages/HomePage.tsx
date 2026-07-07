@@ -1,25 +1,12 @@
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { FORMAT_SHORT, type Match, type Round, type Side } from "../types";
-import {
-  computeMatchState,
-  computeStandings,
-  computeStrokePlay,
-  type ScoringContext,
-} from "../scoring/engine";
-import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
+import { computePlayerTotals, computeStandings, type RoundTotals } from "../scoring/engine";
+import { useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 
-function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string {
-  return side.playerIds
-    .map((id) => players[id]?.name ?? "?")
-    .join(" / ");
-}
-
+/** Leaderboard: team standings on top, all 16 players with per-round
+ *  gross & net below. */
 export default function HomePage() {
-  const { state, finishRound, reopenRound } = useStore();
-  const navigate = useNavigate();
-  const players = usePlayerMap();
+  const { state } = useStore();
   const contexts = useRoundContexts();
   const teamMap = useMemo(
     () => Object.fromEntries(state.teams.map((t) => [t.id, t])),
@@ -31,21 +18,24 @@ export default function HomePage() {
     [state.matches, state.players, contexts],
   );
 
-  const anyActive = state.rounds.some((r) => r.status === "active");
-
-  const confirmFinish = (round: Round) => {
-    const matches = state.matches.filter((m) => m.roundId === round.id);
-    const incomplete = matches.filter((m) =>
-      round.format === "fourman"
-        ? !computeStrokePlay(m, state.players, contexts[round.id]).complete
-        : !computeMatchState(m, state.players, contexts[round.id]).complete,
-    ).length;
-    const what = round.format === "fourman" ? "team card(s)" : "match(es)";
-    const warn = incomplete > 0 ? `\n\n${incomplete} ${what} aren't finished.` : "";
-    if (window.confirm(`Finish ${round.name}? This unlocks the other rounds.${warn}`)) {
-      finishRound(round.id);
+  // player id -> per-round totals
+  const totals = useMemo(() => {
+    const byPlayer: Record<string, Record<string, RoundTotals | null>> = {};
+    for (const p of state.players) {
+      byPlayer[p.id] = {};
+      for (const r of state.rounds) {
+        const match = state.matches.find(
+          (m) =>
+            m.roundId === r.id &&
+            (m.sideA.playerIds.includes(p.id) || m.sideB.playerIds.includes(p.id)),
+        );
+        byPlayer[p.id][r.id] = match
+          ? computePlayerTotals(match, p.id, state.players, contexts[r.id])
+          : null;
+      }
     }
-  };
+    return byPlayer;
+  }, [state.players, state.rounds, state.matches, contexts]);
 
   return (
     <>
@@ -77,228 +67,54 @@ export default function HomePage() {
         </p>
       </section>
 
-      {state.rounds.map((round) => {
-        const matches = state.matches.filter((m) => m.roundId === round.id);
-        const ctx = contexts[round.id];
-        const locked = round.status === "pending" && anyActive;
-        const startable = round.status === "pending" && !anyActive;
-
-        return (
-          <section className="section" key={round.id}>
-            <h2>
-              {round.name}
-              <span className="oval">{FORMAT_SHORT[round.format]}</span>
-              {round.status === "active" && <span className="oval live">Live</span>}
-              {round.status === "final" && (
-                <span className="oval">
-                  <CheckFlag size={9} /> Final
-                </span>
-              )}
-              {locked && <span className="oval muted-oval">Locked</span>}
-            </h2>
-
-            {round.status !== "pending" && (
-              <p className="round-where">
-                {ctx.course.name}
-                {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
-              </p>
-            )}
-            {round.format === "fourman" && (
-              <p className="round-where">
-                Every team tees off as its own group — best net ball per hole,
-                low team total wins the round.
-              </p>
-            )}
-
-            <div className={`card ${round.status === "pending" ? "dimmed" : ""}`}>
-              {matches.map((m) =>
-                round.format === "fourman" ? (
-                  <TeamEntryRow
-                    key={m.id}
-                    match={m}
-                    players={players}
-                    teamMap={teamMap}
-                    ctx={ctx}
-                    clickable={round.status !== "pending"}
-                  />
-                ) : (
-                  <MatchRow
-                    key={m.id}
-                    match={m}
-                    players={players}
-                    teamMap={teamMap}
-                    ctx={ctx}
-                    clickable={round.status !== "pending"}
-                  />
-                ),
-              )}
-            </div>
-
-            {startable && (
-              <button className="btn start" onClick={() => navigate(`/start/${round.id}`)}>
-                Start {round.name}
-              </button>
-            )}
-            {locked && (
-              <p className="hint center" style={{ paddingTop: 8 }}>
-                Locked while another round is live.
-              </p>
-            )}
-            {round.status === "active" && (
-              <button className="btn ghost start" onClick={() => confirmFinish(round)}>
-                Finish {round.name}
-              </button>
-            )}
-            {round.status === "final" && !anyActive && (
-              <p className="hint center" style={{ paddingTop: 8 }}>
-                Round is final.{" "}
-                <button className="linklike" onClick={() => reopenRound(round.id)}>
-                  Reopen
-                </button>{" "}
-                if something needs fixing.
-              </p>
-            )}
-          </section>
-        );
-      })}
-
-      <p className="hint center">
-        One person starts each round (that's when the course and tees get picked).
-        Scores sync live to every phone.
-      </p>
+      <section className="section" style={{ paddingTop: 0 }}>
+        <h2>Players</h2>
+        <div className="card">
+          <div className="ptable-row ptable-head">
+            <span>Player</span>
+            {state.rounds.map((r) => (
+              <span key={r.id} className="pr-cell">
+                {r.name.replace("Round ", "R")}
+              </span>
+            ))}
+          </div>
+          {state.teams.map((team) =>
+            state.players
+              .filter((p) => p.teamId === team.id)
+              .map((p) => (
+                <div className="ptable-row" key={p.id}>
+                  <span className="pt-name">
+                    <span className="dot" style={{ background: team.color }} />
+                    {p.name}
+                  </span>
+                  {state.rounds.map((r) => {
+                    const t = totals[p.id]?.[r.id];
+                    return (
+                      <span key={r.id} className="pr-cell">
+                        {t ? (
+                          <>
+                            <b>{t.net}</b>
+                            <span className="pr-gross">
+                              {t.gross}
+                              {t.thru < 18 ? ` ·${t.thru}` : ""}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="pr-empty">—</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              )),
+          )}
+        </div>
+        <p className="hint">
+          Big number = net, small = gross (·n = thru n holes). Net uses each
+          player's full course handicap for that round's tees; in the scramble
+          it's the team's score with the team handicap.
+        </p>
+      </section>
     </>
-  );
-}
-
-function MatchRow({
-  match,
-  players,
-  teamMap,
-  ctx,
-  clickable,
-}: {
-  match: Match;
-  players: ReturnType<typeof usePlayerMap>;
-  teamMap: Record<string, { name: string; color: string }>;
-  ctx: ScoringContext;
-  clickable: boolean;
-}) {
-  const { state } = useStore();
-  const st = useMemo(
-    () => computeMatchState(match, state.players, ctx),
-    [match, state.players, ctx],
-  );
-
-  const leadClass = st.leader === "A" ? "leadA" : st.leader === "B" ? "leadB" : "";
-  const colorA = teamMap[match.sideA.teamId]?.color;
-  const colorB = teamMap[match.sideB.teamId]?.color;
-
-  const body = (
-    <div className="sides">
-      <div className="side a">
-        <div className="row" style={{ gap: 6 }}>
-          <span className="dot" style={{ background: colorA }} />
-          <span className="names">{sideNames(match.sideA, players)}</span>
-        </div>
-      </div>
-      <div className="status">
-        <div className={`result ${leadClass}`}>
-          {st.thru === 0 ? "—" : st.resultText.replace(/ thru.*/, "")}
-        </div>
-        <div className="lead">
-          {st.thru === 0 ? (
-            "not started"
-          ) : st.complete ? (
-            <>
-              <CheckFlag size={10} /> final
-            </>
-          ) : (
-            `thru ${st.thru}`
-          )}
-        </div>
-      </div>
-      <div className="side b">
-        <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
-          <span className="names">{sideNames(match.sideB, players)}</span>
-          <span className="dot" style={{ background: colorB }} />
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!clickable) {
-    return <div className={`match ${st.complete ? "won" : ""}`}>{body}</div>;
-  }
-  return (
-    <Link className={`match ${st.complete ? "won" : ""}`} to={`/match/${match.id}`}>
-      {body}
-    </Link>
-  );
-}
-
-/** One team's stroke-play card in the fourman round. */
-function TeamEntryRow({
-  match,
-  players,
-  teamMap,
-  ctx,
-  clickable,
-}: {
-  match: Match;
-  players: ReturnType<typeof usePlayerMap>;
-  teamMap: Record<string, { name: string; color: string }>;
-  ctx: ScoringContext;
-  clickable: boolean;
-}) {
-  const { state } = useStore();
-  const st = useMemo(
-    () => computeStrokePlay(match, state.players, ctx),
-    [match, state.players, ctx],
-  );
-  const team = teamMap[match.sideA.teamId];
-
-  const body = (
-    <div className="sides">
-      <div className="side a" style={{ minWidth: 0 }}>
-        <div className="row" style={{ gap: 8 }}>
-          <span className="dot" style={{ background: team?.color }} />
-          <span style={{ fontWeight: 700, flex: "none" }}>{team?.name}</span>
-          <span
-            className="muted"
-            style={{
-              fontSize: 12.5,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {sideNames(match.sideA, players)}
-          </span>
-        </div>
-      </div>
-      <div className="status">
-        <div className="result">{st.thru === 0 ? "—" : st.toParText}</div>
-        <div className="lead">
-          {st.thru === 0 ? (
-            "not started"
-          ) : st.complete ? (
-            <>
-              <CheckFlag size={10} /> net {st.netTotal}
-            </>
-          ) : (
-            `thru ${st.thru}`
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!clickable) {
-    return <div className={`match ${st.complete ? "won" : ""}`}>{body}</div>;
-  }
-  return (
-    <Link className={`match ${st.complete ? "won" : ""}`} to={`/match/${match.id}`}>
-      {body}
-    </Link>
   );
 }
