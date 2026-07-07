@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
@@ -85,23 +85,42 @@ const bigFish: CourseDef = {
   ],
 };
 
-// Placeholder second course — edit everything in the Course tab (or send
-// Claude the scorecard and it gets baked in like Big Fish).
-const genericPars = [4, 4, 5, 3, 4, 4, 4, 3, 5, 4, 4, 5, 3, 4, 4, 4, 3, 5];
-const genericSI = [5, 11, 1, 15, 3, 13, 7, 17, 9, 6, 12, 2, 16, 4, 8, 14, 18, 10];
-const course2: CourseDef = {
-  id: "course2",
-  name: "Course 2 (edit me)",
-  holes: genericPars.map((par, i) => ({
-    number: i + 1,
-    par,
-    strokeIndex: genericSI[i],
-  })),
-  // Neutral tee: slope 113 and rating = par means course handicap = index.
-  tees: [{ name: "White", yardage: 6100, rating: 72.0, slope: 113 }],
+// Hayward Golf Club — pars, yardages (Black tees), HCP ranks, and tee
+// ratings all from the real scorecard.
+const hayward: CourseDef = {
+  id: "hayward",
+  name: "Hayward Golf Club",
+  holes: holes([
+    // [par, yards, HCP]
+    [4, 382, 7],
+    [4, 336, 15],
+    [3, 176, 17],
+    [5, 512, 13],
+    [4, 377, 9],
+    [4, 441, 1],
+    [4, 414, 3],
+    [3, 186, 11],
+    [5, 533, 5],
+    [4, 451, 2],
+    [4, 395, 10],
+    [3, 209, 12],
+    [5, 494, 14],
+    [3, 195, 16],
+    [5, 511, 8],
+    [4, 285, 18],
+    [4, 395, 6],
+    [4, 386, 4],
+  ]),
+  tees: [
+    { name: "Black", yardage: 6678, rating: 72.4, slope: 126 },
+    { name: "Blue", yardage: 6469, rating: 71.3, slope: 125 },
+    { name: "White", yardage: 6071, rating: 69.2, slope: 121 },
+    { name: "Gold", yardage: 5271, rating: 65.5, slope: 110 },
+    { name: "Red", yardage: 5156, rating: 69.8, slope: 118 },
+  ],
 };
 
-export const courses: CourseDef[] = [bigFish, course2];
+export const courses: CourseDef[] = [bigFish, hayward];
 
 export const rounds: Round[] = [
   { id: "r1", name: "Round 1", format: "fourball", status: "pending" },
