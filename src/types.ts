@@ -61,6 +61,27 @@ export const FORMAT_SHORT: Record<Format, string> = {
   scramble: "Scramble",
 };
 
+/** How each game works — shown on the start page and the scorecard. */
+export const FORMAT_RULES: Record<Format, string> = {
+  fourball:
+    "Match play, 2-man teams. Everyone plays their own ball and the best net " +
+    "score on each hole counts for your side — lower net ball wins the hole. " +
+    "Strokes come off the lowest course handicap in the match, given on the " +
+    "hardest holes first. Most holes wins the match: 1 point, ½ for a halve.",
+  scramble:
+    "Match play, team scramble. Everyone hits, you pick the best shot, and " +
+    "everyone plays from there — one team ball, one score per hole. Each team " +
+    "gets a scramble handicap (35% of the low + 15% of the high) and the " +
+    "higher team takes the difference as strokes on the hardest holes. Lower " +
+    "net wins the hole. Most holes wins the match: 1 point, ½ for a halve.",
+  fourman:
+    "Team stroke play — every team tees off as its own foursome, no " +
+    "head-to-head. Everyone plays their own ball and the team's best net " +
+    "score on each hole counts. Strokes come off the field's low handicap so " +
+    "totals compare. Lowest team total to par wins the round: 2 points, " +
+    "split on a tie.",
+};
+
 /** One side of a match — a set of player ids playing together. */
 export interface Side {
   teamId: Id;
