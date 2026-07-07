@@ -42,7 +42,7 @@ function entitiesForSide(
 }
 
 export default function MatchPage() {
-  const { matchId } = useParams();
+  const { matchId, side } = useParams();
   const { state, setScore } = useStore();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
@@ -90,6 +90,18 @@ export default function MatchPage() {
   const readOnly = round.status === "final";
   const teamMap = Object.fromEntries(state.teams.map((t) => [t.id, t]));
   const holeInfo = ctx.course.holes.find((h) => h.number === hole)!;
+
+  // Group view (4-man best ball plays as one foursome per team): show only
+  // this team's players; the other group's scores stream in via live sync.
+  const groupSide =
+    match.format === "fourman" && (side === "a" || side === "b") ? side : null;
+  const groupTeam =
+    groupSide === "a"
+      ? teamMap[match.sideA.teamId]
+      : groupSide === "b"
+        ? teamMap[match.sideB.teamId]
+        : null;
+
   const entitiesA = entitiesForSide(match, match.sideA, players);
   const entitiesB = entitiesForSide(match, match.sideB, players);
 
@@ -153,7 +165,9 @@ export default function MatchPage() {
         <Link className="badge" to="/">
           ← Tournament
         </Link>
-        <h2 style={{ marginTop: 10 }}>{FORMAT_LABELS[match.format]}</h2>
+        <h2 style={{ marginTop: 10 }}>
+          {groupTeam ? `${groupTeam.name} group` : FORMAT_LABELS[match.format]}
+        </h2>
         <p className="round-where">
           {ctx.course.name}
           {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
@@ -210,10 +224,25 @@ export default function MatchPage() {
       </div>
 
       <div className="card" style={{ margin: "0 16px" }}>
-        {entitiesA.map(renderRow)}
-        <div style={{ height: 6, background: "var(--cream)" }} />
-        {entitiesB.map(renderRow)}
+        {groupSide === "a" && entitiesA.map(renderRow)}
+        {groupSide === "b" && entitiesB.map(renderRow)}
+        {!groupSide && (
+          <>
+            {entitiesA.map(renderRow)}
+            <div style={{ height: 6, background: "var(--cream)" }} />
+            {entitiesB.map(renderRow)}
+          </>
+        )}
       </div>
+      {groupSide && (
+        <p className="hint" style={{ padding: "8px 18px 0" }}>
+          Enter just your group's scores here. The other team's group enters
+          theirs — the match result above combines both, live.{" "}
+          <Link to={`/match/${match.id}`} style={{ fontWeight: 700, textDecoration: "underline" }}>
+            View full match
+          </Link>
+        </p>
+      )}
 
       {/* Hole jump grid with per-hole winners */}
       <div className="section">

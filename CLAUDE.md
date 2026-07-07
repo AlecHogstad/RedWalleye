@@ -44,7 +44,10 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
   over 18 (second stroke rolls onto hardest holes).
 - **Four-Ball / 4-Man Best Ball**: every player gets match strokes equal to
   their course handicap minus the LOWEST course handicap in the match. Best
-  net ball per side wins the hole.
+  net ball per side wins the hole. 4-man plays as one foursome per team —
+  each team's group scores its own side (`/match/:id/a|b` group views on
+  the fourman round) and the match combines both sides via live sync; a
+  hole only counts once both sides have scored it.
 - **Scramble**: individual strokes are impossible (one team ball), so each
   team gets a scramble handicap — 35%/15% of low/high for 2-man,
   25/20/15/10 for 4-man — and the higher team receives the difference as
