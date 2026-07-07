@@ -128,6 +128,18 @@ a {
   font-size: 13px;
   opacity: 0.8;
 }
+.sync {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.sync.online {
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.sync.offline {
+  opacity: 0.55;
+}
 
 /* Bottom nav — letterspaced caps, oval on the active tab ------------------- */
 .tabbar {

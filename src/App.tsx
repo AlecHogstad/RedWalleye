@@ -5,6 +5,7 @@ import TeamsPage from "./pages/TeamsPage";
 import CoursePage from "./pages/CoursePage";
 import StartRoundPage from "./pages/StartRoundPage";
 import { PoleFlag } from "./components/CheckFlag";
+import { useStore } from "./store/store";
 
 /** Each screen gets its own block color, like the inspo phones. */
 function themeFor(pathname: string): string {
@@ -16,6 +17,7 @@ function themeFor(pathname: string): string {
 
 export default function App() {
   const { pathname } = useLocation();
+  const { syncStatus } = useStore();
 
   return (
     <div className={`app ${themeFor(pathname)}`}>
@@ -31,7 +33,13 @@ export default function App() {
           Golf Club
         </div>
         <span className="spacer" />
-        <span className="est">est. 2026</span>
+        {syncStatus === "local" ? (
+          <span className="est">est. 2026</span>
+        ) : (
+          <span className={`sync ${syncStatus}`}>
+            ● {syncStatus === "online" ? "live" : "offline"}
+          </span>
+        )}
       </header>
 
       <main>
