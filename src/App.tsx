@@ -18,9 +18,12 @@ function themeFor(pathname: string): string {
 export default function App() {
   const { pathname } = useLocation();
   const { syncStatus } = useStore();
+  // Scoring pages drop the tab bar — the ← Tournament pill is the way back,
+  // and the reclaimed space keeps steppers clear of accidental tab taps.
+  const showTabs = !pathname.startsWith("/match");
 
   return (
-    <div className={`app ${themeFor(pathname)}`}>
+    <div className={`app ${themeFor(pathname)} ${showTabs ? "" : "no-tabs"}`}>
       <header className="topbar">
         <div className="lockup" aria-label="RWGC — Red Walleye Golf Club">
           <PoleFlag />
@@ -52,17 +55,19 @@ export default function App() {
         </Routes>
       </main>
 
-      <nav className="tabbar">
-        <NavLink to="/" end>
-          <span className="tab-label">Tournament</span>
-        </NavLink>
-        <NavLink to="/teams">
-          <span className="tab-label">Teams</span>
-        </NavLink>
-        <NavLink to="/course">
-          <span className="tab-label">Course</span>
-        </NavLink>
-      </nav>
+      {showTabs && (
+        <nav className="tabbar">
+          <NavLink to="/" end>
+            <span className="tab-label">Tournament</span>
+          </NavLink>
+          <NavLink to="/teams">
+            <span className="tab-label">Teams</span>
+          </NavLink>
+          <NavLink to="/course">
+            <span className="tab-label">Course</span>
+          </NavLink>
+        </nav>
+      )}
     </div>
   );
 }
