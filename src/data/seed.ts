@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;
 
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
@@ -196,22 +196,27 @@ const round2: Match[] = [
   ),
 ];
 
-// Round 3 — 4-Man Best Ball, full teams head to head.
-function fourman(id: string, teamA: string, teamB: string): Match {
-  const idsFor = (t: string) => players.filter((p) => p.teamId === t).map((p) => p.id);
-  const a = idsFor(teamA);
-  const b = idsFor(teamB);
+// Round 3 — 4-Man Best Ball team stroke play: every team tees off as its own
+// foursome (no head-to-head). One entry per team; sideB stays empty. Low
+// team net wins the round.
+function teamEntry(id: string, teamId: string): Match {
+  const ids = players.filter((p) => p.teamId === teamId).map((p) => p.id);
   return {
     id,
     roundId: "r3",
     format: "fourman",
-    sideA: { teamId: teamA, playerIds: a },
-    sideB: { teamId: teamB, playerIds: b },
-    scores: emptyScores([...a, ...b]),
+    sideA: { teamId, playerIds: ids },
+    sideB: { teamId: "", playerIds: [] },
+    scores: emptyScores(ids),
   };
 }
 
-const round3: Match[] = [fourman("r3m1", "t1", "t2"), fourman("r3m2", "t3", "t4")];
+const round3: Match[] = [
+  teamEntry("r3t1", "t1"),
+  teamEntry("r3t2", "t2"),
+  teamEntry("r3t3", "t3"),
+  teamEntry("r3t4", "t4"),
+];
 
 export const seedMatches: Match[] = [...round1, ...round2, ...round3];
 

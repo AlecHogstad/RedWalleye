@@ -42,20 +42,23 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
 - **Stroke allocation**: strokes are given hole-by-hole using each hole's
   stroke index (HDCP 1 = hardest). `strokesOnHole(total, si)` handles totals
   over 18 (second stroke rolls onto hardest holes).
-- **Four-Ball / 4-Man Best Ball**: every player gets match strokes equal to
-  their course handicap minus the LOWEST course handicap in the match. Best
-  net ball per side wins the hole. 4-man plays as one foursome per team —
-  each team's group scores its own side (`/match/:id/a|b` group views on
-  the fourman round) and the match combines both sides via live sync; a
-  hole only counts once both sides have scored it.
+- **Four-Ball**: every player gets match strokes equal to their course
+  handicap minus the LOWEST course handicap in the match. Best net ball per
+  side wins the hole.
+- **4-Man Best Ball (Round 3) is TEAM STROKE PLAY, not match play**: every
+  team tees off as its own foursome (one Match entry per team, sideB
+  empty). Best net ball per hole, cumulative to par; strokes are given off
+  the WHOLE FIELD's low course handicap so team totals compare. Once all
+  teams finish 18, the low-net team gets 2 points (split on ties). See
+  `computeStrokePlay` + the fourman branch in `computeStandings`.
 - **Scramble**: individual strokes are impossible (one team ball), so each
   team gets a scramble handicap — 35%/15% of low/high for 2-man,
   25/20/15/10 for 4-man — and the higher team receives the difference as
   match strokes. Scramble scores are stored under the key `team:<teamId>`.
-- **Match play**: running status ("2 UP thru 7"), early closeout ("3&2" when
-  margin > holes remaining), halves. 1 point per win, ½ per halved match;
-  points lock when a match completes. Standings roll up in
-  `computeStandings`.
+- **Match play** (four-ball, scramble): running status ("2 UP thru 7"),
+  early closeout ("3&2" when margin > holes remaining), halves. 1 point per
+  win, ½ per halved match; points lock when a match completes. Standings
+  roll up in `computeStandings`. Total pot: 4 + 4 + 2 = 10 points.
 
 ## Rounds: start gate
 

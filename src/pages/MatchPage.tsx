@@ -4,6 +4,7 @@ import { FORMAT_LABELS, type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
+  computeStrokePlay,
   strokesOnHole,
   teamScoreKey,
 } from "../scoring/engine";
@@ -42,7 +43,7 @@ function entitiesForSide(
 }
 
 export default function MatchPage() {
-  const { matchId, side } = useParams();
+  const { matchId } = useParams();
   const { state, setScore } = useStore();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
@@ -51,16 +52,24 @@ export default function MatchPage() {
   const ctx = match ? contexts[match.roundId] : undefined;
   const [hole, setHole] = useState(1);
 
-  const st = useMemo(
-    () => (match && ctx ? computeMatchState(match, state.players, ctx) : null),
-    [match, state.players, ctx],
+  const strokePlay = match?.format === "fourman";
+
+  const matchState = useMemo(
+    () =>
+      match && ctx && !strokePlay ? computeMatchState(match, state.players, ctx) : null,
+    [match, state.players, ctx, strokePlay],
+  );
+  const teamState = useMemo(
+    () =>
+      match && ctx && strokePlay ? computeStrokePlay(match, state.players, ctx) : null,
+    [match, state.players, ctx, strokePlay],
   );
   const alloc = useMemo(
     () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
     [match, state.players, ctx],
   );
 
-  if (!match || !round || !ctx || !st || !alloc) {
+  if (!match || !round || !ctx || !alloc || (!matchState && !teamState)) {
     return (
       <div className="section">
         <p>Match not found.</p>
@@ -90,20 +99,9 @@ export default function MatchPage() {
   const readOnly = round.status === "final";
   const teamMap = Object.fromEntries(state.teams.map((t) => [t.id, t]));
   const holeInfo = ctx.course.holes.find((h) => h.number === hole)!;
-
-  // Group view (4-man best ball plays as one foursome per team): show only
-  // this team's players; the other group's scores stream in via live sync.
-  const groupSide =
-    match.format === "fourman" && (side === "a" || side === "b") ? side : null;
-  const groupTeam =
-    groupSide === "a"
-      ? teamMap[match.sideA.teamId]
-      : groupSide === "b"
-        ? teamMap[match.sideB.teamId]
-        : null;
-
   const entitiesA = entitiesForSide(match, match.sideA, players);
-  const entitiesB = entitiesForSide(match, match.sideB, players);
+  const entitiesB = strokePlay ? [] : entitiesForSide(match, match.sideB, players);
+  const teamA = teamMap[match.sideA.teamId];
 
   const strokesFor = (key: string) => {
     const total =
@@ -127,7 +125,13 @@ export default function MatchPage() {
     setScore(match.id, key, hole, Math.min(15, Math.max(1, current + delta)));
   };
 
-  const leadClass = st.leader === "A" ? "leadA" : st.leader === "B" ? "leadB" : "";
+  const leadClass = matchState
+    ? matchState.leader === "A"
+      ? "leadA"
+      : matchState.leader === "B"
+        ? "leadB"
+        : ""
+    : "";
 
   const renderRow = (e: ScoreEntity) => {
     const val = match.scores[e.key]?.[hole];
@@ -166,7 +170,7 @@ export default function MatchPage() {
           ← Tournament
         </Link>
         <h2 style={{ marginTop: 10 }}>
-          {groupTeam ? `${groupTeam.name} group` : FORMAT_LABELS[match.format]}
+          {strokePlay ? `${teamA?.name} — team card` : FORMAT_LABELS[match.format]}
         </h2>
         <p className="round-where">
           {ctx.course.name}
@@ -178,22 +182,48 @@ export default function MatchPage() {
       {/* Running status banner */}
       <div className="section" style={{ paddingTop: 4 }}>
         <div className="card banner">
-          <div className={`result ${leadClass}`}>
-            {st.complete && (
+          {teamState ? (
+            <>
+              <div className="result">
+                {teamState.complete && (
+                  <>
+                    <CheckFlag size={16} />{" "}
+                  </>
+                )}
+                {teamState.thru === 0
+                  ? "Ready to start"
+                  : `${teamA?.name} ${teamState.toParText}`}
+              </div>
+              {teamState.thru > 0 && (
+                <div className="sub">
+                  {teamState.complete
+                    ? `net ${teamState.netTotal} · final`
+                    : `net ${teamState.netTotal} thru ${teamState.thru}`}
+                </div>
+              )}
+            </>
+          ) : (
+            matchState && (
               <>
-                <CheckFlag size={16} />{" "}
+                <div className={`result ${leadClass}`}>
+                  {matchState.complete && (
+                    <>
+                      <CheckFlag size={16} />{" "}
+                    </>
+                  )}
+                  {matchState.thru === 0
+                    ? "Ready to start"
+                    : matchState.complete
+                      ? `${leaderName(matchState.leader, match, teamMap)} win ${matchState.resultText}`
+                      : matchState.leader === null
+                        ? matchState.resultText
+                        : `${leaderName(matchState.leader, match, teamMap)} ${matchState.resultText}`}
+                </div>
+                {!matchState.complete && matchState.thru > 0 && (
+                  <div className="sub">{matchState.holesRemaining} to play</div>
+                )}
               </>
-            )}
-            {st.thru === 0
-              ? "Ready to start"
-              : st.complete
-                ? `${leaderName(st.leader, match, teamMap)} win ${st.resultText}`
-                : st.leader === null
-                  ? st.resultText
-                  : `${leaderName(st.leader, match, teamMap)} ${st.resultText}`}
-          </div>
-          {!st.complete && st.thru > 0 && (
-            <div className="sub">{st.holesRemaining} to play</div>
+            )
           )}
         </div>
       </div>
@@ -224,41 +254,43 @@ export default function MatchPage() {
       </div>
 
       <div className="card" style={{ margin: "0 16px" }}>
-        {groupSide === "a" && entitiesA.map(renderRow)}
-        {groupSide === "b" && entitiesB.map(renderRow)}
-        {!groupSide && (
+        {entitiesA.map(renderRow)}
+        {entitiesB.length > 0 && (
           <>
-            {entitiesA.map(renderRow)}
             <div style={{ height: 6, background: "var(--cream)" }} />
             {entitiesB.map(renderRow)}
           </>
         )}
       </div>
-      {groupSide && (
-        <p className="hint" style={{ padding: "8px 18px 0" }}>
-          Enter just your group's scores here. The other team's group enters
-          theirs — the match result above combines both, live.{" "}
-          <Link to={`/match/${match.id}`} style={{ fontWeight: 700, textDecoration: "underline" }}>
-            View full match
-          </Link>
-        </p>
-      )}
 
-      {/* Hole jump grid with per-hole winners */}
+      {/* Hole jump grid */}
       <div className="section">
         <h2>Holes</h2>
         <div className="card" style={{ paddingBottom: 12 }}>
           <div className="holegrid">
             {ctx.course.holes.map((h) => {
-              const res = st.perHole.find((p) => p.hole === h.number);
-              const win =
-                res?.winner === "A"
-                  ? teamMap[match.sideA.teamId]?.color
-                  : res?.winner === "B"
-                    ? teamMap[match.sideB.teamId]?.color
-                    : res?.winner === "halve"
-                      ? "var(--muted)"
-                      : undefined;
+              let win: string | undefined;
+              if (teamState) {
+                const res = teamState.perHole.find((p) => p.hole === h.number);
+                if (res?.net != null) {
+                  win =
+                    res.net < res.par
+                      ? "var(--green-bright)"
+                      : res.net > res.par
+                        ? "var(--orange)"
+                        : "var(--muted)";
+                }
+              } else if (matchState) {
+                const res = matchState.perHole.find((p) => p.hole === h.number);
+                win =
+                  res?.winner === "A"
+                    ? teamMap[match.sideA.teamId]?.color
+                    : res?.winner === "B"
+                      ? teamMap[match.sideB.teamId]?.color
+                      : res?.winner === "halve"
+                        ? "var(--muted)"
+                        : undefined;
+              }
               return (
                 <button
                   key={h.number}
@@ -277,9 +309,20 @@ export default function MatchPage() {
           </div>
         </div>
         <p className="hint">
-          Tap <b>+</b> to start a hole at par, then adjust. Red dots mean that
-          player (or the higher team, in a scramble) gets a handicap stroke here —
-          it's already baked into the net score and the match result.
+          {strokePlay ? (
+            <>
+              Tap <b>+</b> to start a hole at par, then adjust. Your team's best
+              net ball counts on every hole; strokes (red dots) are given off the
+              field's low handicap so team totals compare fairly. Dots on the
+              hole grid: green = net under par, grey = par, orange = over.
+            </>
+          ) : (
+            <>
+              Tap <b>+</b> to start a hole at par, then adjust. Red dots mean that
+              player (or the higher team, in a scramble) gets a handicap stroke
+              here — it's already baked into the net score and the match result.
+            </>
+          )}
         </p>
       </div>
     </>

@@ -118,9 +118,11 @@ function sidePlayers(side: Side, players: Player[]): Player[] {
 }
 
 /**
- * Compute how many match strokes each scoring entity receives. Best-ball
- * formats work off the lowest course handicap in the match; scramble works
- * off the lower team handicap.
+ * Compute how many match strokes each scoring entity receives.
+ *  - Four-ball works off the lowest course handicap in the match.
+ *  - Scramble works off the lower team handicap.
+ *  - 4-man (team stroke play, teams tee off alone) works off the lowest
+ *    course handicap in the WHOLE FIELD so team totals are comparable.
  */
 export function allocateStrokes(
   match: Match,
@@ -141,11 +143,13 @@ export function allocateStrokes(
     return { byPlayer, byTeam };
   }
 
-  const everyone = [...sidePlayers(match.sideA, players), ...sidePlayers(match.sideB, players)];
-  const chs = everyone.map((p) => courseHandicap(p.handicap, ctx));
-  const low = chs.length ? Math.min(...chs) : 0;
-  everyone.forEach((p, i) => {
-    byPlayer[p.id] = Math.max(0, chs[i] - low);
+  const inMatch = [...sidePlayers(match.sideA, players), ...sidePlayers(match.sideB, players)];
+  const lowPool = match.format === "fourman" ? players : inMatch;
+  const low = lowPool.length
+    ? Math.min(...lowPool.map((p) => courseHandicap(p.handicap, ctx)))
+    : 0;
+  inMatch.forEach((p) => {
+    byPlayer[p.id] = Math.max(0, courseHandicap(p.handicap, ctx) - low);
   });
   return { byPlayer, byTeam };
 }
@@ -272,6 +276,61 @@ export function computeMatchState(
   };
 }
 
+// --- Team stroke play (4-man best ball, teams tee off alone) ----------------
+
+export interface StrokePlayHole {
+  hole: number;
+  par: number;
+  net: number | null; // best net ball of the team, null until scored
+}
+
+export interface StrokePlayState {
+  perHole: StrokePlayHole[];
+  thru: number;
+  netTotal: number; // sum of best nets over completed holes
+  toPar: number; // netTotal - par of completed holes
+  toParText: string; // "E", "+3", "-2"
+  complete: boolean;
+}
+
+/** Best-net-ball stroke play for one team entry (sideA; sideB is empty). */
+export function computeStrokePlay(
+  match: Match,
+  players: Player[],
+  ctx: ScoringContext,
+): StrokePlayState {
+  const alloc = allocateStrokes(match, players, ctx);
+  let thru = 0;
+  let netTotal = 0;
+  let parTotal = 0;
+
+  const perHole: StrokePlayHole[] = ctx.course.holes.map((h) => {
+    let best: number | null = null;
+    for (const playerId of match.sideA.playerIds) {
+      const gross = match.scores[playerId]?.[h.number];
+      if (gross == null) continue;
+      const net = gross - strokesOnHole(alloc.byPlayer[playerId] ?? 0, h.strokeIndex);
+      if (best === null || net < best) best = net;
+    }
+    if (best !== null) {
+      thru += 1;
+      netTotal += best;
+      parTotal += h.par;
+    }
+    return { hole: h.number, par: h.par, net: best };
+  });
+
+  const toPar = netTotal - parTotal;
+  return {
+    perHole,
+    thru,
+    netTotal,
+    toPar,
+    toParText: toPar === 0 ? "E" : toPar > 0 ? `+${toPar}` : `${toPar}`,
+    complete: thru === ctx.course.holes.length && thru > 0,
+  };
+}
+
 export interface TeamStanding {
   teamId: string;
   points: number;
@@ -279,8 +338,10 @@ export interface TeamStanding {
   matchesComplete: number;
 }
 
-/** Roll all matches up into team points for the tournament leaderboard.
- *  Each match scores against its own round's course + tees. */
+/** Roll everything up into team points for the tournament leaderboard.
+ *  Match-play formats award 1 per win / ½ per halve. A stroke-play round
+ *  (fourman) awards 2 points to the low-net team — split on ties — once
+ *  every team in the round has finished all 18. */
 export function computeStandings(
   matches: Match[],
   players: Player[],
@@ -294,9 +355,19 @@ export function computeStandings(
     return table.get(teamId)!;
   };
 
+  const strokePlayByRound = new Map<string, Match[]>();
+
   for (const match of matches) {
     const ctx = ctxByRound[match.roundId];
     if (!ctx) continue;
+
+    if (match.format === "fourman") {
+      const list = strokePlayByRound.get(match.roundId) ?? [];
+      list.push(match);
+      strokePlayByRound.set(match.roundId, list);
+      continue;
+    }
+
     const state = computeMatchState(match, players, ctx);
     const a = ensure(match.sideA.teamId);
     const b = ensure(match.sideB.teamId);
@@ -309,6 +380,26 @@ export function computeStandings(
       b.matchesComplete += 1;
       a.points += state.points.a;
       b.points += state.points.b;
+    }
+  }
+
+  for (const [roundId, entries] of strokePlayByRound) {
+    const ctx = ctxByRound[roundId];
+    const states = entries.map((e) => ({
+      teamId: e.sideA.teamId,
+      st: computeStrokePlay(e, players, ctx),
+    }));
+    for (const { teamId, st } of states) {
+      const row = ensure(teamId);
+      if (st.thru > 0) row.matchesPlayed += 1;
+      if (st.complete) row.matchesComplete += 1;
+    }
+    if (states.length > 0 && states.every(({ st }) => st.complete)) {
+      const best = Math.min(...states.map(({ st }) => st.toPar));
+      const winners = states.filter(({ st }) => st.toPar === best);
+      for (const w of winners) {
+        ensure(w.teamId).points += 2 / winners.length;
+      }
     }
   }
 
