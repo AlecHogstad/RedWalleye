@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Side } from "../types";
 import {
@@ -7,6 +7,7 @@ import {
   computeStrokePlay,
   strokesOnHole,
   teamScoreKey,
+  type ScoringContext,
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
@@ -50,7 +51,15 @@ export default function MatchPage() {
   const match = state.matches.find((m) => m.id === matchId);
   const round = state.rounds.find((r) => r.id === match?.roundId);
   const ctx = match ? contexts[match.roundId] : undefined;
-  const [hole, setHole] = useState(1);
+
+  // Open at the first hole with no scores yet, so re-entering a match
+  // mid-round drops you where you left off (not back at hole 1). Runs once.
+  const [hole, setHole] = useState(() =>
+    match && ctx ? firstUnscoredHole(match, ctx) : 1,
+  );
+
+  // Keep the screen awake while scoring — no re-tapping between shots.
+  useWakeLock();
 
   const strokePlay = match?.format === "fourman";
 
@@ -270,10 +279,13 @@ export default function MatchPage() {
                         ? "var(--muted)"
                         : undefined;
               }
+              const scored = win !== undefined;
               return (
                 <button
                   key={h.number}
                   className={h.number === hole ? "active" : ""}
+                  aria-label={`Hole ${h.number}${scored ? ", scored" : ""}`}
+                  aria-current={h.number === hole ? "true" : undefined}
                   onClick={() => setHole(h.number)}
                 >
                   {h.number}
@@ -316,4 +328,52 @@ function leaderName(
   if (leader === "A") return teamMap[match.sideA.teamId]?.name ?? "A";
   if (leader === "B") return teamMap[match.sideB.teamId]?.name ?? "B";
   return "";
+}
+
+/** The first hole with no scores entered — where a re-opened match resumes.
+ *  Falls back to the last hole when everything's been played. */
+function firstUnscoredHole(match: Match, ctx: ScoringContext): number {
+  for (const h of ctx.course.holes) {
+    const anyScore = Object.values(match.scores).some(
+      (byHole) => byHole?.[h.number] != null,
+    );
+    if (!anyScore) return h.number;
+  }
+  return ctx.course.holes.length;
+}
+
+/** Hold a Screen Wake Lock while the scorecard is open so phones don't
+ *  sleep between shots. Re-acquires when the tab becomes visible again
+ *  (the lock is dropped on tab-hide by the platform). No-ops where the
+ *  API is unsupported. */
+function useWakeLock(): void {
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> };
+    };
+    if (!nav.wakeLock) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    let cancelled = false;
+
+    const acquire = async () => {
+      try {
+        if (document.visibilityState === "visible" && !cancelled) {
+          lock = await nav.wakeLock!.request("screen");
+        }
+      } catch {
+        /* denied (e.g. low battery) — nothing to do */
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void acquire();
+    };
+
+    void acquire();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
 }
