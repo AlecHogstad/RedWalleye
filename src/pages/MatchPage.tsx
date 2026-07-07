@@ -8,6 +8,7 @@ import {
   teamScoreKey,
 } from "../scoring/engine";
 import { usePlayerMap, useStore } from "../store/store";
+import { CheckFlag } from "../components/CheckFlag";
 
 interface ScoreEntity {
   key: string; // playerId or team:<id>
@@ -136,8 +137,13 @@ export default function MatchPage() {
 
       {/* Running status banner */}
       <div className="section" style={{ paddingTop: 4 }}>
-        <div className="card" style={{ padding: "12px 16px", textAlign: "center" }}>
-          <div className={`result ${leadClass}`} style={{ fontSize: 22, fontWeight: 800 }}>
+        <div className="card banner">
+          <div className={`result ${leadClass}`}>
+            {st.complete && (
+              <>
+                <CheckFlag size={16} />{" "}
+              </>
+            )}
             {st.thru === 0
               ? "Ready to start"
               : st.complete
@@ -147,9 +153,7 @@ export default function MatchPage() {
                   : `${leaderName(st.leader, match, teamMap)} ${st.resultText}`}
           </div>
           {!st.complete && st.thru > 0 && (
-            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-              {st.holesRemaining} to play
-            </div>
+            <div className="sub">{st.holesRemaining} to play</div>
           )}
         </div>
       </div>

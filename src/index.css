@@ -1,20 +1,50 @@
+/* ---------------------------------------------------------------------------
+   Red Walleye Golf Club — vintage country-club theme.
+   Cream paper, burnt orange, forest green, sky blue, sand. Chunky slab
+   display type (Alfa Slab One) + italic serif accents (Fraunces).
+--------------------------------------------------------------------------- */
+
 :root {
-  --green-900: #0b3d2e;
-  --green-700: #14603f;
-  --green-500: #1f8a5b;
-  --green-300: #55c08a;
-  --sand: #e8dcc0;
-  --ink: #14201a;
-  --paper: #f7f5ef;
-  --card: #ffffff;
-  --line: #e2e0d6;
-  --muted: #6b7770;
-  --red: #d1495b;
-  --gold: #e9a13b;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 14px rgba(0, 0, 0, 0.06);
+  --cream: #f4eddb;
+  --cream-card: #fbf7ea;
+  --ink: #26301f;
+  --orange: #de4f2c;
+  --green: #1e4a2b;
+  --green-bright: #2e6b3e;
+  --blue-pale: #bfe2ef;
+  --blue-deep: #4586a8;
+  --sand: #e2c77e;
+  --sand-deep: #a97d2b;
+  --line: #ddd3b8;
+  --muted: #7d7a63;
+  --shadow: 0 1px 2px rgba(38, 48, 31, 0.05), 0 4px 14px rgba(38, 48, 31, 0.07);
   --radius: 14px;
+  --font-display: "Alfa Slab One", "Rockwell", "Courier New", serif;
+  --font-serif: "Fraunces", Georgia, serif;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
+}
+
+/* Per-screen block colors, like the three inspo phones. */
+.theme-orange {
+  --hero: var(--orange);
+  --hero-ink: #f7efdc;
+  --accent: var(--orange);
+}
+.theme-green {
+  --hero: var(--green);
+  --hero-ink: #f7efdc;
+  --accent: var(--green);
+}
+.theme-blue {
+  --hero: var(--blue-pale);
+  --hero-ink: var(--green);
+  --accent: var(--blue-deep);
+}
+.theme-sand {
+  --hero: var(--sand);
+  --hero-ink: #3a2f14;
+  --accent: var(--sand-deep);
 }
 
 * {
@@ -30,7 +60,7 @@ body,
 }
 
 body {
-  background: var(--paper);
+  background: var(--cream);
   color: var(--ink);
   overscroll-behavior-y: none;
 }
@@ -43,39 +73,63 @@ a {
 .app {
   max-width: 560px;
   margin: 0 auto;
-  padding: 0 0 88px;
+  padding: 0 0 92px;
   min-height: 100vh;
 }
 
-/* Header ------------------------------------------------------------------ */
+/* Header — RWGC lockup with the flag through it ---------------------------- */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: linear-gradient(135deg, var(--green-900), var(--green-700));
-  color: #fff;
-  padding: calc(env(safe-area-inset-top) + 14px) 18px 14px;
+  background: var(--hero);
+  color: var(--hero-ink);
+  padding: calc(env(safe-area-inset-top) + 12px) 18px 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   box-shadow: var(--shadow);
 }
-.topbar h1 {
-  font-size: 18px;
-  margin: 0;
-  letter-spacing: 0.3px;
-  font-weight: 700;
+
+.lockup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+  padding: 6px 5px 2px;
 }
-.topbar .sub {
-  font-size: 12px;
-  opacity: 0.8;
-  margin-left: auto;
+.lockup svg {
+  position: absolute;
+  left: 50%;
+  top: -7px;
+  transform: translateX(-50%);
+  height: calc(100% + 13px);
+  opacity: 0.95;
 }
-.topbar .flag {
-  font-size: 20px;
+.lockup span {
+  position: relative;
+  text-shadow: 2px 2px 0 rgba(38, 48, 31, 0.3);
 }
 
-/* Bottom nav -------------------------------------------------------------- */
+.wordmark {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+.est {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* Bottom nav — letterspaced caps, oval on the active tab ------------------- */
 .tabbar {
   position: fixed;
   left: 0;
@@ -83,51 +137,56 @@ a {
   bottom: 0;
   z-index: 30;
   display: flex;
-  background: var(--card);
+  background: var(--cream-card);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tabbar a {
   flex: 1;
-  text-align: center;
-  padding: 10px 4px 8px;
-  font-size: 11px;
-  color: var(--muted);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  padding: 15px 4px 13px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.tabbar a .tab-label {
+  padding: 5px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
 }
 .tabbar a.active {
-  color: var(--green-700);
-  font-weight: 700;
+  color: var(--accent);
 }
-.tabbar .ico {
-  font-size: 20px;
+.tabbar a.active .tab-label {
+  border-color: currentColor;
 }
 
-/* Generic ----------------------------------------------------------------- */
+/* Generic ------------------------------------------------------------------ */
 .section {
   padding: 16px 16px 4px;
 }
 .section h2 {
-  font-size: 13px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 17px;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--muted);
-  margin: 8px 2px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin: 10px 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .card {
-  background: var(--card);
+  background: var(--cream-card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
-}
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 .row {
   display: flex;
@@ -140,35 +199,33 @@ a {
 .muted {
   color: var(--muted);
 }
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--sand);
-  color: var(--green-900);
-}
 .dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   flex: none;
 }
+
+/* Oval badge — the MICHIGAN GOLF CLUB pill --------------------------------- */
+.oval,
 .badge {
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  color: var(--muted);
+  font-family: inherit;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.14em;
+  padding: 4px 12px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  color: var(--accent);
+  background: transparent;
+  white-space: nowrap;
 }
 
-/* Leaderboard ------------------------------------------------------------- */
+/* Leaderboard --------------------------------------------------------------- */
 .standing {
   display: flex;
   align-items: center;
@@ -180,24 +237,27 @@ a {
   border-bottom: none;
 }
 .standing .rank {
-  font-weight: 800;
-  width: 20px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  width: 22px;
   color: var(--muted);
 }
 .standing .pts {
-  font-size: 22px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--accent);
 }
 .standing .team-name {
   font-weight: 700;
 }
 .standing .team-meta {
-  font-size: 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
-/* Match card -------------------------------------------------------------- */
+/* Match card ----------------------------------------------------------------- */
 .match {
   display: block;
   padding: 14px 16px;
@@ -215,9 +275,6 @@ a {
   flex: 1;
   min-width: 0;
 }
-.match .side.b {
-  text-align: right;
-}
 .match .names {
   font-weight: 700;
   font-size: 15px;
@@ -227,27 +284,55 @@ a {
 }
 .match .status {
   text-align: center;
-  min-width: 76px;
+  min-width: 80px;
 }
 .match .status .result {
-  font-weight: 800;
+  font-family: var(--font-display);
   font-size: 15px;
 }
 .match .status .lead {
-  font-size: 11px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
   color: var(--muted);
+  margin-top: 1px;
 }
 .leadA {
-  color: var(--green-700);
+  color: var(--green-bright);
 }
 .leadB {
-  color: var(--red);
+  color: var(--orange);
 }
 .won {
-  background: rgba(31, 138, 91, 0.12);
+  background: rgba(30, 74, 43, 0.06);
 }
 
-/* Scorecard --------------------------------------------------------------- */
+/* Match banner (scorecard status) -------------------------------------------- */
+.banner {
+  background: var(--hero);
+  border-color: transparent;
+  color: var(--hero-ink);
+  padding: 14px 16px;
+  text-align: center;
+}
+.banner .result {
+  font-family: var(--font-display);
+  font-size: 21px;
+  letter-spacing: 0.02em;
+}
+.banner .leadA,
+.banner .leadB {
+  color: inherit;
+}
+.banner .sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 3px;
+}
+
+/* Scorecard ------------------------------------------------------------------ */
 .holebar {
   display: flex;
   align-items: center;
@@ -255,29 +340,33 @@ a {
   gap: 8px;
   padding: 14px 16px;
   position: sticky;
-  top: 58px;
-  background: var(--paper);
+  top: 72px;
+  background: var(--cream);
   z-index: 10;
 }
 .holebar .hole-num {
-  font-size: 26px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.02em;
 }
 .holebar .meta {
-  font-size: 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
   color: var(--muted);
 }
 .navbtn {
-  border: 1px solid var(--line);
-  background: var(--card);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border: 1.5px solid var(--line);
+  background: var(--cream-card);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 10px 16px;
   font-size: 16px;
   font-weight: 700;
-  min-width: 52px;
+  min-width: 54px;
 }
 .navbtn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 .score-row {
@@ -295,7 +384,9 @@ a {
   font-weight: 700;
 }
 .score-row .who .h {
-  font-size: 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
   color: var(--muted);
 }
 .stepper {
@@ -306,12 +397,12 @@ a {
 .stepper button {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--card);
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--cream-card);
   font-size: 22px;
   font-weight: 700;
-  color: var(--green-700);
+  color: var(--accent);
 }
 .stepper button:active {
   background: var(--sand);
@@ -319,22 +410,24 @@ a {
 .stepper .val {
   width: 46px;
   text-align: center;
-  font-size: 24px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-display);
+  font-size: 22px;
 }
 .stepper .val.empty {
   color: var(--line);
 }
 .net-tag {
-  font-size: 11px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
   color: var(--muted);
   min-width: 58px;
   text-align: right;
 }
 .stroke-dot {
-  color: var(--red);
+  color: var(--orange);
   font-weight: 800;
+  font-style: normal;
 }
 
 .holegrid {
@@ -345,26 +438,27 @@ a {
 }
 .holegrid button {
   aspect-ratio: 1;
-  border-radius: 9px;
-  border: 1px solid var(--line);
-  background: var(--card);
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--cream-card);
   font-weight: 700;
   font-size: 13px;
+  color: var(--ink);
   position: relative;
 }
 .holegrid button.active {
-  background: var(--green-700);
-  color: #fff;
-  border-color: var(--green-700);
+  background: var(--accent);
+  color: var(--cream-card);
+  border-color: var(--accent);
 }
 .holegrid button .win {
   position: absolute;
-  right: 2px;
-  bottom: 1px;
+  right: 3px;
+  bottom: 2px;
   font-size: 8px;
 }
 
-/* Inputs / editors -------------------------------------------------------- */
+/* Inputs / editors ------------------------------------------------------------ */
 .field {
   display: flex;
   align-items: center;
@@ -382,11 +476,12 @@ a {
 .field input {
   width: 84px;
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   border-radius: 10px;
   font-size: 16px;
   text-align: center;
-  background: var(--paper);
+  background: var(--cream);
+  color: var(--ink);
 }
 .field input.wide {
   width: 160px;
@@ -399,25 +494,32 @@ a {
   justify-content: center;
   gap: 8px;
   padding: 13px 18px;
-  border-radius: 12px;
+  border-radius: 999px;
   border: none;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  background: var(--green-700);
-  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--accent);
+  color: var(--cream-card);
   width: 100%;
 }
 .btn.ghost {
   background: transparent;
-  color: var(--red);
-  border: 1px solid var(--line);
+  color: var(--orange);
+  border: 1.5px solid currentColor;
 }
 
 .hint {
-  font-size: 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
   color: var(--muted);
   padding: 4px 18px 12px;
-  line-height: 1.5;
+  line-height: 1.55;
+}
+.hint b {
+  font-style: normal;
 }
 .center {
   text-align: center;

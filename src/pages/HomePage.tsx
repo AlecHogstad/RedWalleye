@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { FORMAT_LABELS, type Match, type Side } from "../types";
+import { FORMAT_SHORT, type Match, type Side } from "../types";
 import { computeMatchState, computeStandings } from "../scoring/engine";
 import { usePlayerMap, useStore } from "../store/store";
+import { CheckFlag } from "../components/CheckFlag";
 
 function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string {
   return side.playerIds
@@ -32,7 +33,9 @@ export default function HomePage() {
             const team = teamMap[s.teamId];
             return (
               <div key={s.teamId} className="standing">
-                <span className="rank">{i + 1}</span>
+                <span className="rank">
+                  {i === 0 && s.points > 0 ? <CheckFlag size={14} /> : i + 1}
+                </span>
                 <span className="dot" style={{ background: team?.color }} />
                 <span style={{ flex: 1 }}>
                   <div className="team-name">{team?.name ?? s.teamId}</div>
@@ -56,7 +59,8 @@ export default function HomePage() {
         return (
           <section className="section" key={round.id}>
             <h2>
-              {round.name} — {FORMAT_LABELS[round.format]}
+              {round.name}
+              <span className="oval">{FORMAT_SHORT[round.format]}</span>
             </h2>
             <div className="card">
               {matches.map((m) => (
@@ -107,11 +111,15 @@ function MatchRow({
             {st.thru === 0 ? "—" : st.resultText.replace(/ thru.*/, "")}
           </div>
           <div className="lead">
-            {st.thru === 0
-              ? "not started"
-              : st.complete
-                ? "final"
-                : `thru ${st.thru}`}
+            {st.thru === 0 ? (
+              "not started"
+            ) : st.complete ? (
+              <>
+                <CheckFlag size={10} /> final
+              </>
+            ) : (
+              `thru ${st.thru}`
+            )}
           </div>
         </div>
         <div className="side b">

@@ -42,6 +42,13 @@ export const FORMAT_LABELS: Record<Format, string> = {
   scramble: "Scramble",
 };
 
+/** Short labels that fit inside the oval badges. */
+export const FORMAT_SHORT: Record<Format, string> = {
+  fourball: "Four-Ball",
+  fourman: "4-Man BB",
+  scramble: "Scramble",
+};
+
 /** One side of a match — a set of player ids playing together. */
 export interface Side {
   teamId: Id;

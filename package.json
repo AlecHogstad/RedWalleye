@@ -12,6 +12,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/alfa-slab-one": "^5.2.8",
+    "@fontsource/fraunces": "^5.2.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"
