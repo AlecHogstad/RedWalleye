@@ -177,56 +177,34 @@ export default function MatchPage() {
           {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
           {readOnly ? " · round is final (view only)" : ""}
         </p>
-        <div className="rules">{FORMAT_RULES[match.format]}</div>
-      </div>
 
-      {/* Running status banner */}
-      <div className="section" style={{ paddingTop: 4 }}>
-        <div className="card banner">
-          {teamState ? (
-            <>
-              <div className="result">
-                {teamState.complete && (
-                  <>
-                    <CheckFlag size={16} />{" "}
-                  </>
-                )}
-                {teamState.thru === 0
-                  ? "Ready to start"
-                  : `${teamA?.name} ${teamState.toParText}`}
-              </div>
-              {teamState.thru > 0 && (
-                <div className="sub">
-                  {teamState.complete
-                    ? `net ${teamState.netTotal} · final`
-                    : `net ${teamState.netTotal} thru ${teamState.thru}`}
-                </div>
-              )}
-            </>
-          ) : (
-            matchState && (
-              <>
-                <div className={`result ${leadClass}`}>
-                  {matchState.complete && (
-                    <>
-                      <CheckFlag size={16} />{" "}
-                    </>
-                  )}
-                  {matchState.thru === 0
-                    ? "Ready to start"
-                    : matchState.complete
-                      ? `${leaderName(matchState.leader, match, teamMap)} win ${matchState.resultText}`
-                      : matchState.leader === null
-                        ? matchState.resultText
-                        : `${leaderName(matchState.leader, match, teamMap)} ${matchState.resultText}`}
-                </div>
-                {!matchState.complete && matchState.thru > 0 && (
-                  <div className="sub">{matchState.holesRemaining} to play</div>
-                )}
-              </>
-            )
-          )}
-        </div>
+        {/* Live score, part of the heading — only once there's a score */}
+        {teamState && teamState.thru > 0 && (
+          <div className="score-line">
+            {teamState.complete && <CheckFlag size={15} />}{" "}
+            {teamA?.name} {teamState.toParText}
+            <span className="score-sub">
+              {teamState.complete
+                ? `net ${teamState.netTotal} · final`
+                : `net ${teamState.netTotal} thru ${teamState.thru}`}
+            </span>
+          </div>
+        )}
+        {matchState && matchState.thru > 0 && (
+          <div className={`score-line ${leadClass}`}>
+            {matchState.complete && <CheckFlag size={15} />}{" "}
+            {matchState.complete
+              ? `${leaderName(matchState.leader, match, teamMap)} win ${matchState.resultText}`
+              : matchState.leader === null
+                ? matchState.resultText
+                : `${leaderName(matchState.leader, match, teamMap)} ${matchState.resultText}`}
+            {!matchState.complete && (
+              <span className="score-sub">{matchState.holesRemaining} to play</span>
+            )}
+          </div>
+        )}
+
+        <div className="rules">{FORMAT_RULES[match.format]}</div>
       </div>
 
       {/* Hole navigator */}
