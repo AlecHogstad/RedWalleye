@@ -49,15 +49,15 @@ export interface CourseDef {
 export type Format = "fourball" | "fourman" | "scramble";
 
 export const FORMAT_LABELS: Record<Format, string> = {
-  fourball: "Four-Ball (2-man Best Ball)",
-  fourman: "4-Man Best Ball",
+  fourball: "2-man Best Ball",
+  fourman: "4-man Best Ball",
   scramble: "Scramble",
 };
 
 /** Short labels that fit inside the oval badges. */
 export const FORMAT_SHORT: Record<Format, string> = {
-  fourball: "Four-Ball",
-  fourman: "4-Man BB",
+  fourball: "2-man BB",
+  fourman: "4-man BB",
   scramble: "Scramble",
 };
 
