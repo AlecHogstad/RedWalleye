@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useStore } from "../store/store";
 
 export default function CoursePage() {
-  const { state, updateHole, setCourseName, resetAll } = useStore();
+  const { state, updateHole, resetAll } = useStore();
   const [courseId, setCourseId] = useState(state.courses[0]?.id ?? "");
   const course = state.courses.find((c) => c.id === courseId) ?? state.courses[0];
   const totalPar = course.holes.reduce((s, h) => s + h.par, 0);
@@ -39,14 +39,6 @@ export default function CoursePage() {
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="card">
-          <div className="field">
-            <label>Name</label>
-            <input
-              className="wide"
-              value={course.name}
-              onChange={(e) => setCourseName(course.id, e.target.value)}
-            />
-          </div>
           <div className="field">
             <label>Total par</label>
             <span className="muted">{totalPar}</span>

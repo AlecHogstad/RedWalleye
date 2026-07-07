@@ -34,7 +34,6 @@ interface StoreValue {
     holeNumber: number,
     patch: Partial<Pick<Hole, "par" | "strokeIndex">>,
   ) => void;
-  setCourseName: (courseId: string, name: string) => void;
   startRound: (roundId: string, courseId: string, teeName: string) => void;
   finishRound: (roundId: string) => void;
   reopenRound: (roundId: string) => void;
@@ -119,13 +118,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const setCourseName = useCallback((courseId: string, name: string) => {
-    setState((prev) => ({
-      ...prev,
-      courses: prev.courses.map((c) => (c.id === courseId ? { ...c, name } : c)),
-    }));
-  }, []);
-
   // Starting a round locks the others: only allowed when nothing is active.
   const startRound = useCallback((roundId: string, courseId: string, teeName: string) => {
     setState((prev) => {
@@ -175,7 +167,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setScore,
       updatePlayer,
       updateHole,
-      setCourseName,
       startRound,
       finishRound,
       reopenRound,
@@ -186,7 +177,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setScore,
       updatePlayer,
       updateHole,
-      setCourseName,
       startRound,
       finishRound,
       reopenRound,
