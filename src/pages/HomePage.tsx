@@ -109,6 +109,61 @@ export default function HomePage() {
               ))}
             </div>
 
+            {/* 4-man best ball plays as one foursome per team — each group
+                scores its own card and the matches combine live. */}
+            {round.format === "fourman" && (
+              <>
+                <p className="round-where" style={{ margin: "12px 2px 6px" }}>
+                  Four groups — each team is its own tee time. Tap your group to
+                  enter scores.
+                </p>
+                <div className={`card ${round.status === "pending" ? "dimmed" : ""}`}>
+                  {matches.flatMap((m) =>
+                    (
+                      [
+                        { side: "a" as const, s: m.sideA },
+                        { side: "b" as const, s: m.sideB },
+                      ]
+                    ).map(({ side, s }) => {
+                      const team = teamMap[s.teamId];
+                      const body = (
+                        <div className="row" style={{ gap: 8 }}>
+                          <span className="dot" style={{ background: team?.color }} />
+                          <span style={{ fontWeight: 700 }}>{team?.name}</span>
+                          <span
+                            className="muted"
+                            style={{
+                              fontSize: 12.5,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {sideNames(s, players)}
+                          </span>
+                          <span className="spacer" />
+                          {round.status !== "pending" && <span className="muted">›</span>}
+                        </div>
+                      );
+                      return round.status === "pending" ? (
+                        <div className="match" key={`${m.id}-${side}`}>
+                          {body}
+                        </div>
+                      ) : (
+                        <Link
+                          className="match"
+                          key={`${m.id}-${side}`}
+                          to={`/match/${m.id}/${side}`}
+                        >
+                          {body}
+                        </Link>
+                      );
+                    }),
+                  )}
+                </div>
+              </>
+            )}
+
             {startable && (
               <button className="btn start" onClick={() => navigate(`/start/${round.id}`)}>
                 Start {round.name}
