@@ -18,7 +18,7 @@
 // every round totals 12 points (see NASSAU_SEGMENT_VALUE):
 //    Round 1  four-ball  4 matches × (1+1+1) = 12
 //    Round 2  scramble   2 matches × (2+2+2) = 12
-//    Round 3  4-man      2 matches × (2+2+2) = 12
+//    Round 3  four-ball  4 matches × (1+1+1) = 12   (2-man, new pairings)
 // ---------------------------------------------------------------------------
 
 import type {
@@ -62,9 +62,8 @@ export function teamScoreKey(teamId: string): string {
 /** Points each Nassau segment (front / back / match) is worth, per format, so
  *  that every round adds up to 12 with its match count. */
 const NASSAU_SEGMENT_VALUE: Record<Format, number> = {
-  fourball: 1, // 4 matches × 3 = 12
-  scramble: 2, // 2 matches × 6 = 12
-  fourman: 2, // 2 matches × 6 = 12
+  fourball: 1, // Rounds 1 & 3: 4 matches × 3 = 12
+  scramble: 2, // Round 2: 2 matches × 6 = 12
 };
 
 export function nassauSegmentValue(format: Format): number {

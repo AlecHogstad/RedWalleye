@@ -16,7 +16,7 @@ backend — open the link and keep score.
   the overall 18. Each bet goes to whoever wins more holes in that stretch
   (a halve splits it). Running "who's up" and a team leaderboard update live.
 - **Handicaps done for you** — the hard part the group was stuck on:
-  - **Best ball (Four-Ball & 4-Man):** every player gets strokes off the **low
+  - **Best ball (Rounds 1 & 3, 2-man):** every player gets strokes off the **low
     player in the match**, hole-by-hole by stroke index. Best net ball counts.
   - **Scramble:** each side plays one ball, scored on the **raw team score** —
     no handicap, since a four-man scramble is low enough on its own.
@@ -43,9 +43,9 @@ depends on the round, so every round is worth 12 points:
 
 | Round | Format | Matches | Per bet | Per match | Round |
 | ----- | ------ | ------- | ------- | --------- | ----- |
-| 1 | Four-Ball (2-man best ball) | 4 (2v2) | 1 | 3 | 12 |
+| 1 | 2-man Best Ball | 4 (2v2) | 1 | 3 | 12 |
 | 2 | Scramble (4-man, raw score) | 2 (4v4) | 2 | 6 | 12 |
-| 3 | 4-Man Best Ball | 2 (4v4) | 2 | 6 | 12 |
+| 3 | 2-man Best Ball (new pairings) | 4 (2v2) | 1 | 3 | 12 |
 
 Each bet locks as it finishes (a segment is decided when one side is up by more
 holes than remain in it). **Total pot: 36** — most points across the three

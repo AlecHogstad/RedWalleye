@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 11;
+export const STATE_VERSION = 12;
 
 // Two captain-drafted teams of 8, playing head-to-head every round.
 export const teams: Team[] = [
@@ -126,7 +126,7 @@ export const courses: CourseDef[] = [bigFish, hayward];
 export const rounds: Round[] = [
   { id: "r1", name: "Round 1", format: "fourball", status: "pending" },
   { id: "r2", name: "Round 2", format: "scramble", status: "pending" },
-  { id: "r3", name: "Round 3", format: "fourman", status: "pending" },
+  { id: "r3", name: "Round 3", format: "fourball", status: "pending" },
 ];
 
 // Where each round is played on the trip. Rounds 1 & 2 are at Big Fish,
@@ -152,12 +152,13 @@ const emptyScores = (keys: string[]): Match["scores"] =>
 /** 2-man best-ball match: two A players vs two B players. */
 function fourball(
   id: string,
+  roundId: string,
   a: [string, string],
   b: [string, string],
 ): Match {
   return {
     id,
-    roundId: "r1",
+    roundId,
     format: "fourball",
     sideA: { teamId: "tA", playerIds: a },
     sideB: { teamId: "tB", playerIds: b },
@@ -177,19 +178,7 @@ function scramble(id: string, a: string[], b: string[]): Match {
   };
 }
 
-/** 4-man best-ball match: four A players vs four B players. */
-function fourman(id: string, a: string[], b: string[]): Match {
-  return {
-    id,
-    roundId: "r3",
-    format: "fourman",
-    sideA: { teamId: "tA", playerIds: a },
-    sideB: { teamId: "tB", playerIds: b },
-    scores: emptyScores([...a, ...b]),
-  };
-}
-
-// Placeholder groupings (draft/matchups replace these later).
+// Placeholder scramble groupings (draft/matchups replace these later).
 const A1 = ["hunter", "frank", "brody", "alex"];
 const A2 = ["hank", "jeff", "nikk", "nick"];
 const B1 = ["nated", "mike", "alec", "brady"];
@@ -197,10 +186,10 @@ const B2 = ["joe", "paul", "danny", "jay"];
 
 // Round 1 — four 2-man best-ball matches (Nassau, 3 pts each = 12).
 const round1: Match[] = [
-  fourball("r1m1", ["hunter", "frank"], ["nated", "mike"]),
-  fourball("r1m2", ["brody", "alex"], ["alec", "brady"]),
-  fourball("r1m3", ["hank", "jeff"], ["joe", "paul"]),
-  fourball("r1m4", ["nikk", "nick"], ["danny", "jay"]),
+  fourball("r1m1", "r1", ["hunter", "frank"], ["nated", "mike"]),
+  fourball("r1m2", "r1", ["brody", "alex"], ["alec", "brady"]),
+  fourball("r1m3", "r1", ["hank", "jeff"], ["joe", "paul"]),
+  fourball("r1m4", "r1", ["nikk", "nick"], ["danny", "jay"]),
 ];
 
 // Round 2 — two 4-man scramble matches (Nassau, 6 pts each = 12).
@@ -209,10 +198,13 @@ const round2: Match[] = [
   scramble("r2m2", A2, B2),
 ];
 
-// Round 3 — two 4-man best-ball matches (Nassau, 6 pts each = 12).
+// Round 3 — four 2-man best-ball matches, same format as Round 1 but different
+// pairings (Nassau, 3 pts each = 12).
 const round3: Match[] = [
-  fourman("r3m1", A1, B1),
-  fourman("r3m2", A2, B2),
+  fourball("r3m1", "r3", ["hunter", "nick"], ["nated", "jay"]),
+  fourball("r3m2", "r3", ["frank", "nikk"], ["mike", "danny"]),
+  fourball("r3m3", "r3", ["brody", "jeff"], ["alec", "paul"]),
+  fourball("r3m4", "r3", ["alex", "hank"], ["brady", "joe"]),
 ];
 
 export const seedMatches: Match[] = [...round1, ...round2, ...round3];
