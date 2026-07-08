@@ -7,6 +7,7 @@ const CONFIRM_WORD = "Reset";
 export default function SettingsResetPage() {
   const { resetAll, syncStatus } = useStore();
   const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
 
   const scope =
@@ -14,6 +15,11 @@ export default function SettingsResetPage() {
       ? "on this phone"
       : "for EVERYONE — every phone on the trip";
   const armed = typed.trim() === CONFIRM_WORD;
+
+  const cancel = () => {
+    setConfirming(false);
+    setTyped("");
+  };
 
   const doReset = () => {
     if (!armed) return;
@@ -36,31 +42,57 @@ export default function SettingsResetPage() {
             This wipes all scores, round starts, and edits {scope} and restores
             the original teams, matchups and courses. This can't be undone.
           </p>
-          <label
-            className="reset-label"
-            htmlFor="reset-confirm"
-            style={{ display: "block", margin: "14px 0 6px" }}
-          >
-            Type <b>{CONFIRM_WORD}</b> to confirm
-          </label>
-          <input
-            id="reset-confirm"
-            className="wide"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder={CONFIRM_WORD}
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-          />
-          <button
-            className="btn ghost"
-            style={{ marginTop: 14 }}
-            disabled={!armed}
-            onClick={doReset}
-          >
-            Reset all data
-          </button>
+
+          {!confirming ? (
+            <button
+              className="btn ghost"
+              style={{ marginTop: 14 }}
+              onClick={() => setConfirming(true)}
+            >
+              Reset all data
+            </button>
+          ) : (
+            <>
+              <label
+                className="reset-label"
+                htmlFor="reset-confirm"
+                style={{ display: "block", margin: "14px 0 6px" }}
+              >
+                Still sure? Type <b>{CONFIRM_WORD}</b> to confirm
+              </label>
+              <input
+                id="reset-confirm"
+                className="wide"
+                autoFocus
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder={CONFIRM_WORD}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") doReset();
+                }}
+              />
+              <div className="row" style={{ gap: 10, marginTop: 14 }}>
+                <button
+                  className="btn ghost"
+                  style={{ flex: 1 }}
+                  onClick={cancel}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn"
+                  style={{ flex: 1 }}
+                  disabled={!armed}
+                  onClick={doReset}
+                >
+                  Reset everything
+                </button>
+              </div>
+            </>
+          )}
         </div>
         <p className="hint" style={{ paddingTop: 10 }}>
           {syncStatus === "local"
