@@ -62,9 +62,9 @@ export default function App() {
           <span>5th</span>
         </div>
         <div className="wordmark">
-          5th Annual
+          Hayward
           <br />
-          Hayward Invitational
+          Invitational
         </div>
         <span className="spacer" />
         {syncStatus === "local" ? (
