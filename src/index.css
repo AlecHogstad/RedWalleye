@@ -150,12 +150,16 @@ a {
   font-style: italic;
   font-size: 13px;
   opacity: 0.8;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .sync {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .sync.online {
   animation: pulse 2.4s ease-in-out infinite;
