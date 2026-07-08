@@ -1,6 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { applyRemote, kvToRemote, type RemoteData } from "./sync";
+import type { DraftState } from "../types";
+import { applyRemote, kvToRemote, mergeDraftState, type RemoteData } from "./sync";
 import { seedState } from "../data/seed";
+
+describe("mergeDraftState", () => {
+  const base: DraftState = {
+    status: "active",
+    captainA: "hunter",
+    captainB: "mike",
+    firstPick: "tA",
+    picks: ["nick"],
+  };
+
+  it("ignores a stale row with a lower revision", () => {
+    const current: DraftState = { ...base, picks: ["nick", "jay"], rev: 3 };
+    const stale: DraftState = { ...base, picks: ["nick", "jay", "alec"], rev: 2 };
+    expect(mergeDraftState(current, stale)).toBe(current);
+  });
+
+  it("ignores a stale row with fewer picks", () => {
+    const stale: DraftState = { ...base, picks: [] };
+    expect(mergeDraftState(base, stale)).toBe(base);
+  });
+
+  it("ignores a stale prefix when the draft has moved on", () => {
+    const current: DraftState = { ...base, picks: ["nick", "jay", "alec"], status: "done" };
+    const stale: DraftState = { ...base, picks: ["nick", "jay"], status: "active" };
+    expect(mergeDraftState(current, stale)).toBe(current);
+  });
+
+  it("accepts a row with more picks", () => {
+    const newer: DraftState = { ...base, picks: ["nick", "jay"] };
+    expect(mergeDraftState(base, newer)).toEqual(newer);
+  });
+
+  it("accepts a done status at the same pick count", () => {
+    const done: DraftState = { ...base, status: "done" };
+    expect(mergeDraftState(base, done).status).toBe("done");
+  });
+});
 
 describe("applyRemote", () => {
   it("returns the base unchanged for null remote", () => {

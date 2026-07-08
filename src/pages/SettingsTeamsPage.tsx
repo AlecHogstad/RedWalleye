@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { draftHasRosters, teamRosterIds, type DraftTeam } from "../store/draft";
 import { useStore } from "../store/store";
-import { rosterOf } from "../store/roster";
 import type { Team } from "../types";
 
 function hcp(n: number): string {
@@ -58,11 +58,40 @@ function TeamNameField({
 
 export default function SettingsTeamsPage() {
   const { state, updateTeam } = useStore();
+  const showRosters = draftHasRosters(state);
+  const draftDone = state.draft?.status === "done";
 
   const playerMap = useMemo(
     () => Object.fromEntries(state.players.map((p) => [p.id, p])),
     [state.players],
   );
+
+  if (!draftDone) {
+    return (
+      <>
+        <div className="section" style={{ paddingBottom: 0 }}>
+          <Link className="badge" to="/settings">
+            ← Settings
+          </Link>
+          <h2 style={{ marginTop: 10 }}>Teams</h2>
+        </div>
+        <div className="section" style={{ paddingTop: 4 }}>
+          <div className="card" style={{ padding: 14 }}>
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>
+              Rosters live on the draft board
+            </div>
+            <p className="hint" style={{ padding: "0 0 10px" }}>
+              Team names and rosters are set during the captain draft. Once
+              every pick is in, you can rename the teams here.
+            </p>
+            <Link className="btn start" to="/draft">
+              Go to draft
+            </Link>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -72,14 +101,16 @@ export default function SettingsTeamsPage() {
         </Link>
         <h2 style={{ marginTop: 10 }}>Teams</h2>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
-          Rename the two teams here. Rosters are set by the captains in the
-          Draft — this list shows who's been drafted so far.
+          Rename the two teams. Rosters are locked from the draft results.
         </p>
       </div>
 
       {state.teams.map((team) => {
-        const roster = rosterOf(state, team.id);
-        const captain = team.captainId ? playerMap[team.captainId] : undefined;
+        const roster = showRosters
+          ? teamRosterIds(state, team.id as DraftTeam)
+          : [];
+        const captainId = roster[0];
+        const captain = captainId ? playerMap[captainId] : undefined;
         const total = roster.reduce(
           (s, id) => s + (playerMap[id]?.handicap ?? 0),
           0,
@@ -105,7 +136,7 @@ export default function SettingsTeamsPage() {
                       <span className="dot" style={{ background: team.color }} />
                       <span className="wide" style={{ fontWeight: 600 }}>
                         {p.name}
-                        {team.captainId === id && (
+                        {captainId === id && (
                           <span className="oval" style={{ marginLeft: 8 }}>
                             Captain
                           </span>

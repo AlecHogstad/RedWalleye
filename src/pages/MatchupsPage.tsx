@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FORMAT_LABELS, type Match } from "../types";
 import { useStore } from "../store/store";
-import { rosterOf } from "../store/roster";
+import { teamRosterIds, type DraftTeam } from "../store/draft";
 
 function hcp(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -61,8 +61,8 @@ export default function MatchupsPage() {
   };
 
   const teams = [
-    { key: "A" as const, teamId: "tA" },
-    { key: "B" as const, teamId: "tB" },
+    { teamId: "tA" },
+    { teamId: "tB" },
   ];
 
   // Set one seat on one side of a match, then persist the whole side.
@@ -81,9 +81,12 @@ export default function MatchupsPage() {
     else setMatchup(match.id, match.sideA.playerIds, cleaned);
   };
 
+  const rosterFor = (teamId: string) =>
+    teamRosterIds(state, teamId as DraftTeam);
+
   // Completeness: every seat filled (all 8 per team placed once).
-  const benchA = rosterOf(state, "tA").filter((id) => !usedBy("tA").has(id));
-  const benchB = rosterOf(state, "tB").filter((id) => !usedBy("tB").has(id));
+  const benchA = rosterFor("tA").filter((id) => !usedBy("tA").has(id));
+  const benchB = rosterFor("tB").filter((id) => !usedBy("tB").has(id));
   const emptySeats = matches.reduce(
     (n, m) => n + (seats - m.sideA.playerIds.length) + (seats - m.sideB.playerIds.length),
     0,
@@ -95,16 +98,15 @@ export default function MatchupsPage() {
     const ids = side === "A" ? match.sideA.playerIds : match.sideB.playerIds;
     const value = ids[index] ?? "";
     const used = usedBy(teamId);
-    const available = rosterOf(state, teamId).filter(
+    const available = rosterFor(teamId).filter(
       (id) => id === value || !used.has(id),
     );
+    const team = teamMap[teamId];
     return (
       <select
-        key={`${match.id}-${side}-${index}`}
-        className="roster-select wide"
         value={value}
         disabled={!editable}
-        aria-label={`${teamMap[teamId]?.name} seat ${index + 1} in ${match.id}`}
+        aria-label={`${team?.name} seat ${index + 1} in match ${match.id}`}
         onChange={(e) => setSeat(match, side, index, e.target.value)}
       >
         <option value="">— empty —</option>
@@ -123,10 +125,8 @@ export default function MatchupsPage() {
         <Link className="badge" to="/rounds">
           ← Rounds
         </Link>
-        <h2 style={{ marginTop: 10 }}>
-          {round.name} matchups
-        </h2>
-        <p className="hint" style={{ padding: "0 2px 6px" }}>
+        <h2 style={{ marginTop: 10 }}>{round.name} matchups</h2>
+        <p className="hint" style={{ padding: "0 2px 8px" }}>
           {FORMAT_LABELS[round.format]} — set who plays who. Each golfer plays
           once. {seats} per side.
         </p>
@@ -135,61 +135,63 @@ export default function MatchupsPage() {
             This round has started, so its matchups are locked.
           </p>
         )}
+      </div>
 
-        {/* Bench: who's not slotted yet, per team */}
-        <div className="card" style={{ padding: "10px 14px" }}>
+      <section className="section" style={{ paddingTop: 0 }}>
+        <h2>Bench</h2>
+        <div className="card">
           {teams.map(({ teamId }) => {
             const bench = teamId === "tA" ? benchA : benchB;
             const team = teamMap[teamId];
             return (
-              <div className="field" key={teamId} style={{ alignItems: "flex-start" }}>
-                <span className="dot" style={{ background: team?.color, marginTop: 4 }} />
-                <span className="wide">
-                  <strong>{team?.name}</strong>{" "}
-                  <span className="muted" style={{ fontSize: 12.5 }}>
-                    {bench.length === 0
-                      ? "all slotted"
-                      : `bench: ${bench.map((id) => playerMap[id]?.name ?? id).join(", ")}`}
-                  </span>
+              <div className="field" key={teamId}>
+                <span className="dot" style={{ background: team?.color }} />
+                <span className="wide" style={{ fontWeight: 600 }}>
+                  {team?.name}
+                </span>
+                <span className="muted" style={{ fontSize: 12.5, textAlign: "right" }}>
+                  {bench.length === 0
+                    ? "all slotted"
+                    : bench.map((id) => playerMap[id]?.name ?? id).join(", ")}
                 </span>
               </div>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {matches.map((m, i) => (
-        <section className="section" key={m.id} style={{ paddingTop: 0 }}>
-          <div className="card">
-            <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
-              <strong>Match {i + 1}</strong>
-              <span className="muted" style={{ fontSize: 12.5 }}>
+      {matches.map((m, i) => {
+        const teamA = teamMap[m.sideA.teamId];
+        const teamB = teamMap[m.sideB.teamId];
+        return (
+          <section className="section" key={m.id} style={{ paddingTop: 0 }}>
+            <h2>
+              Match {i + 1}
+              <span className="oval muted-oval">
                 {seats} v {seats}
               </span>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="hint" style={{ margin: "0 0 4px" }}>
-                  {teamMap[m.sideA.teamId]?.name}
+            </h2>
+            <div className="card">
+              <div className="field" style={{ fontWeight: 700, color: "var(--muted)" }}>
+                <span className="dot" style={{ background: teamA?.color, opacity: 0.45 }} />
+                <span className="wide">{teamA?.name}</span>
+                <span className="matchup-vs">vs</span>
+                <span className="dot" style={{ background: teamB?.color, opacity: 0.45 }} />
+                <span className="wide">{teamB?.name}</span>
+              </div>
+              {Array.from({ length: seats }, (_, s) => (
+                <div className="field" key={s}>
+                  <span className="dot" style={{ background: teamA?.color }} />
+                  {seatSelect(m, "A", s)}
+                  <span className="matchup-vs">vs</span>
+                  <span className="dot" style={{ background: teamB?.color }} />
+                  {seatSelect(m, "B", s)}
                 </div>
-                {Array.from({ length: seats }, (_, s) => seatSelect(m, "A", s))}
-              </div>
-              <div
-                className="muted"
-                style={{ alignSelf: "center", fontWeight: 700, fontSize: 12 }}
-              >
-                vs
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="hint" style={{ margin: "0 0 4px" }}>
-                  {teamMap[m.sideB.teamId]?.name}
-                </div>
-                {Array.from({ length: seats }, (_, s) => seatSelect(m, "B", s))}
-              </div>
+              ))}
             </div>
-          </div>
-        </section>
-      ))}
+          </section>
+        );
+      })}
 
       <div className="section" style={{ paddingTop: 0 }}>
         <p className="hint center">
@@ -200,7 +202,7 @@ export default function MatchupsPage() {
                 benchA.length + benchB.length === 1 ? "" : "s"
               } on the bench.`}
         </p>
-        <Link className="btn ghost" to="/rounds">
+        <Link className="btn" to="/rounds">
           Done
         </Link>
       </div>

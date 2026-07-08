@@ -157,6 +157,8 @@ export interface DraftState {
   captainB?: Id;
   firstPick?: "tA" | "tB";
   picks: Id[]; // playerIds in the order they were drafted
+  /** Bumped on every pick/undo so stale sync rows can't roll back progress. */
+  rev?: number;
 }
 
 export interface TournamentState {
