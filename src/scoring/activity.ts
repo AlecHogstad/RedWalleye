@@ -17,9 +17,7 @@ import type { Match, Player, TournamentState } from "../types";
 import {
   computeMatchState,
   computeStandings,
-  computeStrokePlay,
   courseHandicap,
-  isStrokePlay,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -85,9 +83,7 @@ function classify(netToPar: number): FeedKind | null {
 
 /** How many holes of a match have been played (for placing snake/mulligan). */
 function matchThru(match: Match, players: Player[], ctx: ScoringContext): number {
-  return isStrokePlay(match.format)
-    ? computeStrokePlay(match, players, ctx).thru
-    : computeMatchState(match, players, ctx).thru;
+  return computeMatchState(match, players, ctx).thru;
 }
 
 // --- Per-hole scoring highlights --------------------------------------------
@@ -168,7 +164,6 @@ function matchProgressEvents(
   ctx: ScoringContext,
   roundIndex: number,
 ): FeedItem[] {
-  if (isStrokePlay(match.format)) return []; // stroke play, no head-to-head
   const st = computeMatchState(match, players, ctx);
   const items: FeedItem[] = [];
 

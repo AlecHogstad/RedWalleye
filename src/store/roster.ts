@@ -38,13 +38,9 @@ function capacityFor(match: Match): number {
   return match.format === "fourball" ? 2 : 4;
 }
 
-/** A team's roster in canonical order: the 4-man entry when present (it holds
- *  the whole team), otherwise every player tagged with the team. */
+/** A team's roster: every player tagged with the team. (Teams now span
+ *  several match slots per round, so membership is read off the players.) */
 export function rosterOf(state: TournamentState, teamId: string): string[] {
-  const fourman = state.matches.find(
-    (m) => m.format === "fourman" && m.sideA.teamId === teamId,
-  );
-  if (fourman) return [...fourman.sideA.playerIds];
   return state.players.filter((p) => p.teamId === teamId).map((p) => p.id);
 }
 

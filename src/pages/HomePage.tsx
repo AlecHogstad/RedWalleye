@@ -71,9 +71,10 @@ export default function HomePage() {
           })}
         </div>
         <p className="hint">
-          Round 1: 1 point per match won, ½ for a halve. Round 2 (scramble):
-          lowest net round wins 3 points, 1 for second. Round 3: low team net
-          wins 2 points (split on a tie). Points lock in as play finishes.
+          Every match is a Nassau — front 9, back 9, and the match each score
+          points (halved bets split). Round 1: 1 point per bet (12 total).
+          Rounds 2 &amp; 3: 2 points per bet (12 each). 36 points on the trip;
+          each bet locks as it finishes.
         </p>
       </section>
 

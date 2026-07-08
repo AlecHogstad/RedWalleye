@@ -10,15 +10,15 @@ describe("applyRemote", () => {
 
   it("merges scores onto the seeded matches", () => {
     const remote: RemoteData = {
-      scores: { r1m1: { hunter: { h1: 5, h2: 4 }, "team:t1": { h1: 4 } } },
+      scores: { r1m1: { hunter: { h1: 5, h2: 4 }, "team:tA": { h1: 4 } } },
     };
     const state = applyRemote(seedState(), remote);
     const match = state.matches.find((m) => m.id === "r1m1")!;
     expect(match.scores.hunter[1]).toBe(5);
     expect(match.scores.hunter[2]).toBe(4);
-    expect(match.scores["team:t1"][1]).toBe(4);
+    expect(match.scores["team:tA"][1]).toBe(4);
     // untouched entries stay empty
-    expect(match.scores.nick).toEqual({});
+    expect(match.scores.frank).toEqual({});
   });
 
   it("applies round status, course and tee", () => {
@@ -48,10 +48,10 @@ describe("applyRemote", () => {
   });
 
   it("renames a team", () => {
-    const remote: RemoteData = { teams: { t1: { name: "Walleye Crushers" } } };
+    const remote: RemoteData = { teams: { tA: { name: "Walleye Crushers" } } };
     const state = applyRemote(seedState(), remote);
-    expect(state.teams.find((t) => t.id === "t1")!.name).toBe("Walleye Crushers");
-    expect(state.teams.find((t) => t.id === "t2")!.name).toBe("Team 02");
+    expect(state.teams.find((t) => t.id === "tA")!.name).toBe("Walleye Crushers");
+    expect(state.teams.find((t) => t.id === "tB")!.name).toBe("Team B");
   });
 
   it("reassigns a player's team", () => {
@@ -81,7 +81,7 @@ describe("applyRemote", () => {
     const remote: RemoteData = {
       matches: {
         r1m1: {
-          sideA: { teamId: "t1", playerIds: ["hunter", "alex"] },
+          sideA: { teamId: "tA", playerIds: ["hunter", "alex"] },
         },
       },
     };
@@ -89,7 +89,7 @@ describe("applyRemote", () => {
     const m = state.matches.find((x) => x.id === "r1m1")!;
     expect(m.sideA.playerIds).toEqual(["hunter", "alex"]);
     // sideB untouched by a sideA-only patch
-    expect(m.sideB.teamId).toBe("t2");
+    expect(m.sideB.teamId).toBe("tB");
   });
 
   it("merges side-game opt-ins and the snake holder", () => {

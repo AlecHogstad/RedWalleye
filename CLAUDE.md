@@ -42,32 +42,27 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
 - **Stroke allocation**: strokes are given hole-by-hole using each hole's
   stroke index (HDCP 1 = hardest). `strokesOnHole(total, si)` handles totals
   over 18 (second stroke rolls onto hardest holes).
-- **Four-Ball (Round 1) is MATCH PLAY**: every player gets match strokes equal
-  to their course handicap minus the LOWEST course handicap in the match. Best
-  net ball per side wins the hole. It *also* carries a stroke-play sub-result
-  (`MatchState.strokePlay`): the lower total of those same best net balls wins
-  on strokes — bragging rights only, no tournament points. A side can win the
-  match yet lose on strokes.
-- **Scramble (Round 2) is TEAM STROKE PLAY on the RAW score, not match play**:
-  all four of a team play one scramble ball (one Match entry per team, sideB
-  empty, score under `team:<teamId>`). **No handicap** — a four-man scramble is
-  low enough that strokes aren't needed, so the team is ranked on gross to par
-  (`allocateStrokes` returns 0 strokes for the team). Once all teams finish 18,
-  points are placement based: **3 / 1 / 0 / 0** by finish (ties pool the
-  positions' points and split). See the scramble branch in
-  `computeStrokePlay` and `awardStrokePlayPoints`.
-- **4-Man Best Ball (Round 3) is TEAM STROKE PLAY, not match play**: every
-  team tees off as its own foursome (one Match entry per team, sideB
-  empty). Best net ball per hole, cumulative to par; strokes are given off
-  the WHOLE FIELD's low course handicap so team totals compare. Once all
-  teams finish 18, the low-net team gets 2 points (split on ties). See
-  `computeStrokePlay` + the fourman branch in `computeStandings`.
-- **Match play** (four-ball only): running status ("2 UP thru 7"), early
-  closeout ("3&2" when margin > holes remaining), halves. 1 point per win,
-  ½ per halved match; points lock when a match completes. Stroke-play rounds
-  award their prize (see above) once every team finishes. Standings roll up in
-  `computeStandings`. Total pot: 4 (R1) + 4 (R2: 3+1) + 2 (R3) = 10 points.
-  `isStrokePlay(format)` distinguishes the two families throughout the code.
+**Two captain-drafted teams (A vs B) play head-to-head every round.** Every
+match is a NASSAU — three separate bets: the front nine (holes 1–9), the back
+nine (holes 10–18), and the overall 18. Each bet goes to whoever wins more holes
+in that stretch; a halved bet splits 50/50. `computeMatchState` returns the
+per-hole winners plus a `SegmentResult` for `front`, `back`, and `overall`
+(headline fields alias the overall bet). Bets lock as they complete, so
+`computeStandings` just sums `MatchState.points` for live standings.
+
+- **How many holes count per side**: best net ball for the best-ball rounds
+  (four-ball, 4-man), the single raw team ball for the scramble.
+- **Stroke allocation** (`allocateStrokes`): best-ball rounds give strokes off
+  the LOWEST course handicap in that match, hole-by-hole by stroke index. The
+  scramble gives **no** strokes — both team balls are raw.
+- **Segment value varies by format** so every round totals 12 points
+  (`nassauSegmentValue`): four-ball = 1 pt/bet (4 matches × 3 = 12); scramble &
+  4-man = 2 pts/bet (2 matches × 6 = 12). **Total pot: 36** (12 per round).
+- **Match structure**: Round 1 = four 2-man best-ball matches; Round 2 = two
+  4-man scramble matches (score keys `team:tA` / `team:tB`); Round 3 = two 4-man
+  best-ball matches. All are Team A vs Team B — `sideA.teamId` is always `tA`,
+  `sideB.teamId` always `tB`. Match slots are seeded with placeholder rosters
+  until the matchup builder / draft (later phases) fill them.
 
 ## Activity feed (derived, not stored)
 
@@ -93,9 +88,11 @@ course/tees.
 
 ## Data
 
-`src/data/seed.ts` holds the four teams (Team 01–04), all 16 players with
-real handicaps from the trip sheet, Round 1 (Four-Ball), Round 2 (Scramble),
-Round 3 (4-Man Best Ball) matchups, and the courses. **Both courses are real
+`src/data/seed.ts` holds the two teams (A / B, each with a `captainId`), all 16
+players with real handicaps from the trip sheet, the head-to-head match slots
+for Round 1 (Four-Ball ×4), Round 2 (Scramble ×2), Round 3 (4-Man Best Ball ×2),
+and the courses. Rosters/matchups are placeholders until the draft/matchup
+builder fill them. **Both courses are real
 data from their scorecards** — Big Fish Golf Club (5 tees, Tournament
 74.1/134) and Hayward Golf Club (5 tees, Black 72.4/126) — pars, yardages,
 tee ratings/slopes, and actual HDCP ranks.

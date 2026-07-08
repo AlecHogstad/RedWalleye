@@ -1,14 +1,24 @@
 // ---------------------------------------------------------------------------
 // Scoring engine — pure functions, no React, fully unit-tested.
 //
-// This is where the "different handicaps" problem actually gets solved:
+// The tournament is two drafted teams (A vs B) playing head-to-head every
+// round. Every match is a NASSAU — three separate bets: the front nine
+// (holes 1–9), the back nine (holes 10–18), and the overall 18. Each bet is
+// won by whoever wins more holes in that stretch (a halve splits it).
+//
 //  - Course handicaps come from the round's tees via the USGA formula
-//    (handicap index × slope/113 + rating − par), so long tees give more
-//    strokes than short ones.
-//  - Best-ball formats give each player strokes off the LOW player in the
-//    match, allocated hole-by-hole using each hole's stroke index.
-//  - Scramble is a team stroke-play round scored on the RAW team ball — one
-//    score per hole, no handicap (a four-man scramble is low enough already).
+//    (handicap index × slope/113 + rating − par).
+//  - Best-ball formats (four-ball, 4-man) give each player strokes off the
+//    LOW player in the match, allocated hole-by-hole by stroke index; the
+//    best net ball on each hole is the side's score.
+//  - Scramble is scored on the RAW team ball — one score per hole, no
+//    handicap (a four-man scramble is low enough already).
+//
+// How many points each Nassau segment is worth depends on the format, so that
+// every round totals 12 points (see NASSAU_SEGMENT_VALUE):
+//    Round 1  four-ball  4 matches × (1+1+1) = 12
+//    Round 2  scramble   2 matches × (2+2+2) = 12
+//    Round 3  4-man      2 matches × (2+2+2) = 12
 // ---------------------------------------------------------------------------
 
 import type {
@@ -44,19 +54,21 @@ export function contextForRound(
   return { course, tee };
 }
 
-/** Key used to store a scramble team's single score. */
+/** Key used to store a scramble side's single team score. */
 export function teamScoreKey(teamId: string): string {
   return `team:${teamId}`;
 }
 
-/**
- * Formats where every team tees off on its own (one entry per team, sideB
- * empty) and is scored against the whole field, not head-to-head:
- *  - fourman: best net ball of the foursome
- *  - scramble: the single team scramble ball
- */
-export function isStrokePlay(format: Format): boolean {
-  return format === "fourman" || format === "scramble";
+/** Points each Nassau segment (front / back / match) is worth, per format, so
+ *  that every round adds up to 12 with its match count. */
+const NASSAU_SEGMENT_VALUE: Record<Format, number> = {
+  fourball: 1, // 4 matches × 3 = 12
+  scramble: 2, // 2 matches × 6 = 12
+  fourman: 2, // 2 matches × 6 = 12
+};
+
+export function nassauSegmentValue(format: Format): number {
+  return NASSAU_SEGMENT_VALUE[format];
 }
 
 export function coursePar(course: CourseDef): number {
@@ -105,11 +117,9 @@ function sidePlayers(side: Side, players: Player[]): Player[] {
 
 /**
  * Compute how many match strokes each scoring entity receives.
- *  - Four-ball works off the lowest course handicap in the match.
- *  - Scramble (team stroke play, teams tee off alone) is scored on the raw
- *    team ball — no strokes given.
- *  - 4-man (team stroke play, teams tee off alone) works off the lowest
- *    course handicap in the WHOLE FIELD so team totals are comparable.
+ *  - Best-ball (four-ball, 4-man) works off the lowest course handicap in the
+ *    match, given hole-by-hole on the hardest holes.
+ *  - Scramble is scored on the raw team ball — no strokes given.
  */
 export function allocateStrokes(
   match: Match,
@@ -120,15 +130,18 @@ export function allocateStrokes(
   const byTeam: Record<string, number> = {};
 
   if (match.format === "scramble") {
-    // A team scramble is scored on the RAW team ball — no handicap.
+    // Raw team ball, both sides — no handicap.
     byTeam[teamScoreKey(match.sideA.teamId)] = 0;
+    byTeam[teamScoreKey(match.sideB.teamId)] = 0;
     return { byPlayer, byTeam };
   }
 
-  const inMatch = [...sidePlayers(match.sideA, players), ...sidePlayers(match.sideB, players)];
-  const lowPool = match.format === "fourman" ? players : inMatch;
-  const low = lowPool.length
-    ? Math.min(...lowPool.map((p) => courseHandicap(p.handicap, ctx)))
+  const inMatch = [
+    ...sidePlayers(match.sideA, players),
+    ...sidePlayers(match.sideB, players),
+  ];
+  const low = inMatch.length
+    ? Math.min(...inMatch.map((p) => courseHandicap(p.handicap, ctx)))
     : 0;
   inMatch.forEach((p) => {
     byPlayer[p.id] = Math.max(0, courseHandicap(p.handicap, ctx) - low);
@@ -143,30 +156,36 @@ export interface HoleResult {
   winner: "A" | "B" | "halve" | null;
 }
 
-export interface MatchState {
-  perHole: HoleResult[];
-  thru: number; // holes both sides have completed
-  leader: "A" | "B" | null;
+/** One Nassau bet (front 9, back 9, or the overall 18). */
+export interface SegmentResult {
+  thru: number; // holes decided in this stretch
+  total: number; // holes in this stretch (9 or 18)
   margin: number; // holes the leader is up (>= 0)
-  holesRemaining: number;
-  decided: boolean; // closed out early
-  complete: boolean; // decided or all 18 scored
-  resultText: string; // "3&2", "AS thru 7", "2 UP", "Halved"
-  points: { a: number; b: number }; // tournament points once complete
-  /**
-   * Stroke-play sub-result over the holes both sides have completed — the SAME
-   * best-net-ball figures that decide the holes, totalled. Bragging rights
-   * only (no tournament points); a side can win the match yet lose on strokes.
-   */
-  strokePlay: {
-    netA: number;
-    netB: number;
-    thru: number; // holes counted (both sides scored)
-    winner: "A" | "B" | "halve" | null; // lower total wins; null until any hole
-  };
+  leader: "A" | "B" | null;
+  decided: boolean; // closed out early (margin > holes remaining)
+  complete: boolean; // decided or every hole in the stretch played
+  winner: "A" | "B" | "halve" | null; // set once complete
+  resultText: string; // "3&2", "2 UP", "AS thru 7", "Halved", "—"
+  points: { a: number; b: number }; // locked once complete
 }
 
-/** Net score for one side on a single hole (best net, or team net for scramble). */
+export interface MatchState {
+  perHole: HoleResult[];
+  thru: number; // holes both sides have completed (overall)
+  front: SegmentResult;
+  back: SegmentResult;
+  overall: SegmentResult;
+  // Headline aliases (the overall 18 bet) for status displays:
+  leader: "A" | "B" | null;
+  margin: number;
+  holesRemaining: number;
+  decided: boolean;
+  complete: boolean; // overall bet complete
+  resultText: string;
+  points: { a: number; b: number }; // total across front + back + overall
+}
+
+/** Net score for one side on a single hole (best net, or team ball for scramble). */
 function sideNetForHole(
   match: Match,
   side: Side,
@@ -191,8 +210,52 @@ function sideNetForHole(
   return best;
 }
 
+/** Resolve one Nassau bet from the holes in its stretch. */
+function segmentResult(holes: HoleResult[], segValue: number): SegmentResult {
+  let running = 0; // + means A is up
+  let thru = 0;
+  for (const h of holes) {
+    if (h.winner == null) continue;
+    thru += 1;
+    if (h.winner === "A") running += 1;
+    else if (h.winner === "B") running -= 1;
+  }
+  const total = holes.length;
+  const remaining = total - thru;
+  const margin = Math.abs(running);
+  const leader: SegmentResult["leader"] =
+    running > 0 ? "A" : running < 0 ? "B" : null;
+  const decided = margin > remaining && thru > 0;
+  const complete = decided || (thru === total && total > 0);
+
+  let winner: SegmentResult["winner"] = null;
+  let resultText = "—";
+  let points = { a: 0, b: 0 };
+
+  if (thru === 0) {
+    resultText = "—";
+  } else if (complete) {
+    if (margin === 0) {
+      winner = "halve";
+      points = { a: segValue / 2, b: segValue / 2 };
+      resultText = "Halved";
+    } else {
+      winner = leader;
+      points = leader === "A" ? { a: segValue, b: 0 } : { a: 0, b: segValue };
+      resultText = decided && remaining > 0 ? `${margin}&${remaining}` : `${margin} UP`;
+    }
+  } else if (margin === 0) {
+    resultText = `AS thru ${thru}`;
+  } else {
+    resultText = `${margin} UP thru ${thru}`;
+  }
+
+  return { thru, total, margin, leader, decided, complete, winner, resultText, points };
+}
+
 /**
- * Compute the full match-play state (running status + result).
+ * Compute the full head-to-head Nassau state for a match: per-hole winners
+ * plus the three bets (front, back, overall) and the total points.
  */
 export function computeMatchState(
   match: Match,
@@ -200,152 +263,41 @@ export function computeMatchState(
   ctx: ScoringContext,
 ): MatchState {
   const alloc = allocateStrokes(match, players, ctx);
-  const perHole: HoleResult[] = [];
-  let runningMargin = 0; // + means A is up
-  let thru = 0;
-  let spNetA = 0; // stroke-play running totals over the compared holes
-  let spNetB = 0;
+  const segValue = nassauSegmentValue(match.format);
 
-  for (const hole of ctx.course.holes) {
+  const perHole: HoleResult[] = ctx.course.holes.map((hole) => {
     const netA = sideNetForHole(match, match.sideA, hole.number, hole.strokeIndex, alloc);
     const netB = sideNetForHole(match, match.sideB, hole.number, hole.strokeIndex, alloc);
-
     let winner: HoleResult["winner"] = null;
     if (netA !== null && netB !== null) {
-      thru += 1;
-      spNetA += netA;
-      spNetB += netB;
-      if (netA < netB) {
-        winner = "A";
-        runningMargin += 1;
-      } else if (netB < netA) {
-        winner = "B";
-        runningMargin -= 1;
-      } else {
-        winner = "halve";
-      }
+      winner = netA < netB ? "A" : netB < netA ? "B" : "halve";
     }
-    perHole.push({ hole: hole.number, netA, netB, winner });
-  }
-
-  const totalHoles = ctx.course.holes.length;
-  const holesRemaining = totalHoles - thru;
-  const margin = Math.abs(runningMargin);
-  const leader: MatchState["leader"] =
-    runningMargin > 0 ? "A" : runningMargin < 0 ? "B" : null;
-
-  const decided = margin > holesRemaining && thru > 0;
-  const complete = decided || (thru === totalHoles && totalHoles > 0);
-
-  let resultText: string;
-  let points = { a: 0, b: 0 };
-
-  if (thru === 0) {
-    resultText = "Not started";
-  } else if (decided) {
-    resultText = `${margin}&${holesRemaining}`;
-    points = leader === "A" ? { a: 1, b: 0 } : { a: 0, b: 1 };
-  } else if (thru === totalHoles) {
-    if (margin === 0) {
-      resultText = "Halved (AS)";
-      points = { a: 0.5, b: 0.5 };
-    } else {
-      resultText = `${margin} UP`;
-      points = leader === "A" ? { a: 1, b: 0 } : { a: 0, b: 1 };
-    }
-  } else if (margin === 0) {
-    resultText = `AS thru ${thru}`;
-  } else {
-    // dormie (margin === holesRemaining) reads naturally with the same text
-    resultText = `${margin} UP thru ${thru}`;
-  }
-
-  const strokePlay: MatchState["strokePlay"] = {
-    netA: spNetA,
-    netB: spNetB,
-    thru,
-    winner:
-      thru === 0 ? null : spNetA < spNetB ? "A" : spNetB < spNetA ? "B" : "halve",
-  };
-
-  return {
-    perHole,
-    thru,
-    leader,
-    margin,
-    holesRemaining,
-    decided,
-    complete,
-    resultText,
-    points,
-    strokePlay,
-  };
-}
-
-// --- Team stroke play (4-man best ball, teams tee off alone) ----------------
-
-export interface StrokePlayHole {
-  hole: number;
-  par: number;
-  net: number | null; // best net ball of the team, null until scored
-}
-
-export interface StrokePlayState {
-  perHole: StrokePlayHole[];
-  thru: number;
-  netTotal: number; // sum of best nets over completed holes
-  toPar: number; // netTotal - par of completed holes
-  toParText: string; // "E", "+3", "-2"
-  complete: boolean;
-}
-
-/**
- * Team stroke play for one team entry (sideA; sideB is empty). For fourman the
- * team score on a hole is its best net ball; for a scramble it's the single
- * team scramble ball, netted with the team's field-relative scramble strokes.
- */
-export function computeStrokePlay(
-  match: Match,
-  players: Player[],
-  ctx: ScoringContext,
-): StrokePlayState {
-  const alloc = allocateStrokes(match, players, ctx);
-  const isScramble = match.format === "scramble";
-  const teamKey = teamScoreKey(match.sideA.teamId);
-  const teamStrokes = alloc.byTeam[teamKey] ?? 0;
-  let thru = 0;
-  let netTotal = 0;
-  let parTotal = 0;
-
-  const perHole: StrokePlayHole[] = ctx.course.holes.map((h) => {
-    let best: number | null = null;
-    if (isScramble) {
-      const gross = match.scores[teamKey]?.[h.number];
-      if (gross != null) best = gross - strokesOnHole(teamStrokes, h.strokeIndex);
-    } else {
-      for (const playerId of match.sideA.playerIds) {
-        const gross = match.scores[playerId]?.[h.number];
-        if (gross == null) continue;
-        const net = gross - strokesOnHole(alloc.byPlayer[playerId] ?? 0, h.strokeIndex);
-        if (best === null || net < best) best = net;
-      }
-    }
-    if (best !== null) {
-      thru += 1;
-      netTotal += best;
-      parTotal += h.par;
-    }
-    return { hole: h.number, par: h.par, net: best };
+    return { hole: hole.number, netA, netB, winner };
   });
 
-  const toPar = netTotal - parTotal;
+  const front = segmentResult(perHole.filter((h) => h.hole <= 9), segValue);
+  const back = segmentResult(perHole.filter((h) => h.hole >= 10), segValue);
+  const overall = segmentResult(perHole, segValue);
+
+  const thru = overall.thru;
+  const points = {
+    a: front.points.a + back.points.a + overall.points.a,
+    b: front.points.b + back.points.b + overall.points.b,
+  };
+
   return {
     perHole,
     thru,
-    netTotal,
-    toPar,
-    toParText: toPar === 0 ? "E" : toPar > 0 ? `+${toPar}` : `${toPar}`,
-    complete: thru === ctx.course.holes.length && thru > 0,
+    front,
+    back,
+    overall,
+    leader: overall.leader,
+    margin: overall.margin,
+    holesRemaining: overall.total - overall.thru,
+    decided: overall.decided,
+    complete: overall.complete,
+    resultText: thru === 0 ? "Not started" : overall.resultText,
+    points,
   };
 }
 
@@ -358,11 +310,10 @@ export interface RoundTotals {
 }
 
 /**
- * A player's gross and net totals for one match/entry, summed over the
- * holes actually played. Net uses the player's FULL course handicap for
- * the round's tees (not the match-relative allocation); in a scramble the
- * player's score is their team's raw scramble score (no handicap, so net
- * equals gross).
+ * A player's gross and net totals for one match, summed over the holes
+ * actually played. Net uses the player's FULL course handicap for the round's
+ * tees (not the match-relative allocation); in a scramble the player's score
+ * is their team's raw scramble ball (no handicap, so net equals gross).
  */
 export function computePlayerTotals(
   match: Match,
@@ -461,40 +412,13 @@ export interface TeamStanding {
   matchesComplete: number;
 }
 
-/** Points a stroke-play round puts on the table, awarded once every team in
- *  the round has finished all 18:
- *   - fourman: 2 to the low-net team, split on ties (winner-take-all).
- *   - scramble: placement points 3 / 1 / 0 / 0 by finish; teams tied at a
- *     score pool the points for the positions they occupy and split them. */
-function awardStrokePlayPoints(
-  states: { teamId: string; toPar: number }[],
-  format: Format,
-  add: (teamId: string, pts: number) => void,
-): void {
-  if (format === "scramble") {
-    const placement = [3, 1, 0, 0];
-    const sorted = [...states].sort((a, b) => a.toPar - b.toPar);
-    let i = 0;
-    while (i < sorted.length) {
-      let j = i;
-      while (j < sorted.length && sorted[j].toPar === sorted[i].toPar) j += 1;
-      const pool = placement.slice(i, j).reduce((s, p) => s + (p ?? 0), 0);
-      const share = pool / (j - i);
-      for (let k = i; k < j; k += 1) add(sorted[k].teamId, share);
-      i = j;
-    }
-    return;
-  }
-  // fourman: 2 to the low team, split on ties.
-  const best = Math.min(...states.map((s) => s.toPar));
-  const winners = states.filter((s) => s.toPar === best);
-  for (const w of winners) add(w.teamId, 2 / winners.length);
-}
-
-/** Roll everything up into team points for the tournament leaderboard.
- *  Match-play formats (four-ball) award 1 per win / ½ per halve. Stroke-play
- *  rounds (scramble, fourman) award their prize once every team in the round
- *  has finished all 18 — see `awardStrokePlayPoints`. */
+/**
+ * Roll every match up into team points for the tournament leaderboard. Each
+ * match is a Nassau: its front / back / overall bets each lock in points as
+ * they complete (a bet is won by the side up in that stretch, halved 50/50).
+ * `computeMatchState.points` already reflects only the completed bets, so
+ * summing it gives live, correct standings.
+ */
 export function computeStandings(
   matches: Match[],
   players: Player[],
@@ -508,18 +432,9 @@ export function computeStandings(
     return table.get(teamId)!;
   };
 
-  const strokePlayByRound = new Map<string, Match[]>();
-
   for (const match of matches) {
     const ctx = ctxByRound[match.roundId];
     if (!ctx) continue;
-
-    if (isStrokePlay(match.format)) {
-      const list = strokePlayByRound.get(match.roundId) ?? [];
-      list.push(match);
-      strokePlayByRound.set(match.roundId, list);
-      continue;
-    }
 
     const state = computeMatchState(match, players, ctx);
     const a = ensure(match.sideA.teamId);
@@ -531,31 +446,9 @@ export function computeStandings(
     if (state.complete) {
       a.matchesComplete += 1;
       b.matchesComplete += 1;
-      a.points += state.points.a;
-      b.points += state.points.b;
     }
-  }
-
-  for (const [roundId, entries] of strokePlayByRound) {
-    const ctx = ctxByRound[roundId];
-    const states = entries.map((e) => ({
-      teamId: e.sideA.teamId,
-      st: computeStrokePlay(e, players, ctx),
-    }));
-    for (const { teamId, st } of states) {
-      const row = ensure(teamId);
-      if (st.thru > 0) row.matchesPlayed += 1;
-      if (st.complete) row.matchesComplete += 1;
-    }
-    if (states.length > 0 && states.every(({ st }) => st.complete)) {
-      awardStrokePlayPoints(
-        states.map(({ teamId, st }) => ({ teamId, toPar: st.toPar })),
-        entries[0].format,
-        (teamId, pts) => {
-          ensure(teamId).points += pts;
-        },
-      );
-    }
+    a.points += state.points.a;
+    b.points += state.points.b;
   }
 
   return [...table.values()].sort((x, y) => y.points - x.points);

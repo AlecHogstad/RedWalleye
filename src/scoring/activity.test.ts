@@ -29,7 +29,7 @@ describe("buildFeed — per-hole highlights", () => {
 
   it("flags a gross ace on a par 3", () => {
     const s = startedState();
-    const m = s.matches.find((x) => x.id === "r1m1")!;
+    const m = s.matches.find((x) => x.id === "r1m1")!; // Team A: hunter/frank
     // Hole 3 at Big Fish is a par 3. A gross 1 is an ace.
     m.scores.hunter[3] = 1;
     const feed = buildFeed(s, contexts(s));
@@ -42,33 +42,29 @@ describe("buildFeed — per-hole highlights", () => {
   it("flags a net birdie and a net blow-up, and ignores pars", () => {
     const s = startedState();
     const m = s.matches.find((x) => x.id === "r1m1")!;
-    // Nick is a 3 handicap → ~ course handicap of a few strokes; give him a
-    // clean gross on holes that land as birdie / double / par.
-    // Hole 1 is par 4. Score the extremes so the classification is unambiguous
-    // regardless of his exact stroke on that hole.
-    m.scores.nick[1] = 2; // well under par → birdie or better
-    m.scores.nick[2] = 9; // par 5, +4 gross → blow-up even with a stroke
+    // Score the extremes so the classification is unambiguous.
+    m.scores.frank[1] = 2; // well under par → birdie or better
+    m.scores.frank[2] = 9; // par 5, +4 gross → blow-up even with a stroke
     const feed = buildFeed(s, contexts(s));
-    const forNick = feed.filter((f) => f.playerId === "nick");
-    expect(forNick.some((f) => f.kind === "birdie" || f.kind === "eagle")).toBe(true);
-    expect(forNick.some((f) => f.kind === "blowup")).toBe(true);
+    const forFrank = feed.filter((f) => f.playerId === "frank");
+    expect(forFrank.some((f) => f.kind === "birdie" || f.kind === "eagle")).toBe(true);
+    expect(forFrank.some((f) => f.kind === "blowup")).toBe(true);
   });
 });
 
 describe("buildFeed — match drama", () => {
   it("emits a match-lead change when a side goes ahead", () => {
     const s = startedState();
-    const m = s.matches.find((x) => x.id === "r1m1")!; // t1 (hunter/nick) v t2 (nated/jay)
-    // Give side A a clearly winning net on hole 1, side B a clearly worse one.
+    const m = s.matches.find((x) => x.id === "r1m1")!; // tA (hunter/frank) v tB (nated/mike)
     m.scores.hunter[1] = 3;
-    m.scores.nick[1] = 3;
+    m.scores.frank[1] = 3;
     m.scores.nated[1] = 8;
-    m.scores.jay[1] = 8;
+    m.scores.mike[1] = 8;
     const feed = buildFeed(s, contexts(s));
     const lead = feed.find((f) => f.kind === "matchLead");
     expect(lead).toBeDefined();
-    expect(lead!.teamId).toBe("t1");
-    expect(lead!.otherTeamId).toBe("t2");
+    expect(lead!.teamId).toBe("tA");
+    expect(lead!.otherTeamId).toBe("tB");
     expect(lead!.hole).toBe(1);
   });
 
@@ -78,35 +74,35 @@ describe("buildFeed — match drama", () => {
     // Side A wins holes 1..10 outright → 10 up with 8 to play → closed out.
     for (let h = 1; h <= 10; h++) {
       m.scores.hunter[h] = 2;
-      m.scores.nick[h] = 2;
+      m.scores.frank[h] = 2;
       m.scores.nated[h] = 9;
-      m.scores.jay[h] = 9;
+      m.scores.mike[h] = 9;
     }
     const feed = buildFeed(s, contexts(s));
     const fin = feed.find((f) => f.kind === "matchFinal");
     expect(fin).toBeDefined();
-    expect(fin!.teamId).toBe("t1");
-    expect(fin!.text).toMatch(/&/); // e.g. "9&8"
+    expect(fin!.teamId).toBe("tA");
+    expect(fin!.text).toMatch(/&/); // e.g. "10&8"
   });
 });
 
 describe("buildFeed — snake & mulligans", () => {
   it("surfaces the current snake holder with the pot size", () => {
     const s = startedState();
-    const m = s.matches.find((x) => x.id === "r2t1")!; // scramble team entry
-    m.scores["team:t1"][1] = 5; // give the group a hole so it has a 'thru'
-    s.sideGames[m.id] = { snake: true, snakeHolder: "nick", snakeChanges: 3 };
+    const m = s.matches.find((x) => x.id === "r2m1")!; // scramble, Team A group 1
+    m.scores["team:tA"][1] = 5; // give the group a hole so it has a 'thru'
+    s.sideGames[m.id] = { snake: true, snakeHolder: "hunter", snakeChanges: 3 };
     const feed = buildFeed(s, contexts(s));
     const snake = feed.find((f) => f.kind === "snake");
     expect(snake).toBeDefined();
-    expect(snake!.playerId).toBe("nick");
+    expect(snake!.playerId).toBe("hunter");
     expect(snake!.value).toBe(3);
   });
 
   it("includes stored booze mulligans, ordered by their hole", () => {
     const s = startedState();
     s.activity = [
-      { id: "a1", type: "mulligan", matchId: "r2t1", playerId: "hunter", ts: 100, hole: 4 },
+      { id: "a1", type: "mulligan", matchId: "r2m1", playerId: "hunter", ts: 100, hole: 4 },
     ];
     const feed = buildFeed(s, contexts(s));
     const mull = feed.find((f) => f.kind === "mulligan");
@@ -119,12 +115,10 @@ describe("buildFeed — snake & mulligans", () => {
 describe("buildFeed — overall lead", () => {
   it("announces the trip leader once a round is final", () => {
     const s = startedState();
-    // Round 1 only; finalize it. Sweep all four matches for team 1 & 3 sides.
+    // Finalize Round 1 only; Team A sweeps all four matches → strict leader.
     s.rounds = s.rounds.map((r) =>
       r.id === "r1" ? { ...r, status: "final" } : { ...r, status: "pending" },
     );
-    // t1 sweeps both its matches (r1m1, r1m2); the t3-v-t4 matches split
-    // (t3 wins r1m3, t4 wins r1m4) so t1 is the strict leader at 2 pts.
     const winFor = (matchId: string, side: "A" | "B") => {
       const m = s.matches.find((x) => x.id === matchId)!;
       const win = side === "A" ? m.sideA : m.sideB;
@@ -134,13 +128,13 @@ describe("buildFeed — overall lead", () => {
         for (const pid of lose.playerIds) m.scores[pid][h] = 8;
       }
     };
-    winFor("r1m1", "A"); // t1
-    winFor("r1m2", "A"); // t1
-    winFor("r1m3", "A"); // t3
-    winFor("r1m4", "B"); // t4
+    winFor("r1m1", "A");
+    winFor("r1m2", "A");
+    winFor("r1m3", "A");
+    winFor("r1m4", "A");
     const feed = buildFeed(s, contexts(s));
     const lead = feed.find((f) => f.kind === "overallLead");
     expect(lead).toBeDefined();
-    expect(lead!.teamId).toBe("t1");
+    expect(lead!.teamId).toBe("tA");
   });
 });

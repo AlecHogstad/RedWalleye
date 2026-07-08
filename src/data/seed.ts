@@ -9,36 +9,37 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 10;
+export const STATE_VERSION = 11;
 
+// Two captain-drafted teams of 8, playing head-to-head every round.
 export const teams: Team[] = [
-  { id: "t1", name: "Team 01", color: "#de4f2c" },
-  { id: "t2", name: "Team 02", color: "#2e6b3e" },
-  { id: "t3", name: "Team 03", color: "#4586a8" },
-  { id: "t4", name: "Team 04", color: "#c98a2f" },
+  { id: "tA", name: "Team A", color: "#de4f2c", captainId: "hunter" },
+  { id: "tB", name: "Team B", color: "#2e6b3e", captainId: "mike" },
 ];
 
-// Handicaps straight off the team sheet (the number in parentheses).
+// Handicaps straight off the team sheet (the number in parentheses). The
+// split below is a placeholder balance — the draft (a later phase) sets the
+// real rosters; until then these let every round score end to end.
 export const players: Player[] = [
-  { id: "hunter", name: "Hunter", handicap: 27, teamId: "t1" },
-  { id: "alex", name: "Alex", handicap: 13, teamId: "t1" },
-  { id: "jeff", name: "Jeff", handicap: 8.7, teamId: "t1" },
-  { id: "nick", name: "Nick", handicap: 3, teamId: "t1" },
+  // Team A
+  { id: "hunter", name: "Hunter", handicap: 27, teamId: "tA" },
+  { id: "frank", name: "Frank", handicap: 20, teamId: "tA" },
+  { id: "brody", name: "Brody", handicap: 15, teamId: "tA" },
+  { id: "alex", name: "Alex", handicap: 13, teamId: "tA" },
+  { id: "hank", name: "Hank", handicap: 12, teamId: "tA" },
+  { id: "jeff", name: "Jeff", handicap: 8.7, teamId: "tA" },
+  { id: "nikk", name: "Nikk", handicap: 8, teamId: "tA" },
+  { id: "nick", name: "Nick", handicap: 3, teamId: "tA" },
 
-  { id: "nated", name: "Nate D", handicap: 21, teamId: "t2" },
-  { id: "brody", name: "Brody", handicap: 15, teamId: "t2" },
-  { id: "paul", name: "Paul", handicap: 10, teamId: "t2" },
-  { id: "jay", name: "Jay", handicap: 6, teamId: "t2" },
-
-  { id: "mike", name: "Mike", handicap: 20, teamId: "t3" },
-  { id: "alec", name: "Alec", handicap: 15, teamId: "t3" },
-  { id: "joe", name: "Joe", handicap: 11, teamId: "t3" },
-  { id: "danny", name: "Danny", handicap: 7, teamId: "t3" },
-
-  { id: "frank", name: "Frank", handicap: 20, teamId: "t4" },
-  { id: "brady", name: "Brady", handicap: 13, teamId: "t4" },
-  { id: "hank", name: "Hank", handicap: 12, teamId: "t4" },
-  { id: "nikk", name: "Nikk", handicap: 8, teamId: "t4" },
+  // Team B
+  { id: "nated", name: "Nate D", handicap: 21, teamId: "tB" },
+  { id: "mike", name: "Mike", handicap: 20, teamId: "tB" },
+  { id: "alec", name: "Alec", handicap: 15, teamId: "tB" },
+  { id: "brady", name: "Brady", handicap: 13, teamId: "tB" },
+  { id: "joe", name: "Joe", handicap: 11, teamId: "tB" },
+  { id: "paul", name: "Paul", handicap: 10, teamId: "tB" },
+  { id: "danny", name: "Danny", handicap: 7, teamId: "tB" },
+  { id: "jay", name: "Jay", handicap: 6, teamId: "tB" },
 ];
 
 function holes(rows: [par: number, yards: number, strokeIndex: number][]): Hole[] {
@@ -142,73 +143,76 @@ export const ROUND_DEFAULTS: Record<string, { courseId: string; teeName: string 
 const emptyScores = (keys: string[]): Match["scores"] =>
   Object.fromEntries(keys.map((k) => [k, {}]));
 
+// --- Match slots (A vs B, head-to-head) -------------------------------------
+// Every match is Team A vs Team B. Rosters/matchups are placeholders here so
+// scoring runs end to end; the matchup builder (a later phase) rewrites the
+// player ids in each slot. Score keys: a playerId per golfer for best-ball
+// rounds, a `team:<teamId>` key per side for the scramble team ball.
+
+/** 2-man best-ball match: two A players vs two B players. */
 function fourball(
   id: string,
-  roundId: string,
-  a: [string, string, string],
-  b: [string, string, string],
+  a: [string, string],
+  b: [string, string],
 ): Match {
-  // a/b = [teamId, playerId, playerId]
   return {
     id,
-    roundId,
+    roundId: "r1",
     format: "fourball",
-    sideA: { teamId: a[0], playerIds: [a[1], a[2]] },
-    sideB: { teamId: b[0], playerIds: [b[1], b[2]] },
-    scores: emptyScores([a[1], a[2], b[1], b[2]]),
+    sideA: { teamId: "tA", playerIds: a },
+    sideB: { teamId: "tB", playerIds: b },
+    scores: emptyScores([...a, ...b]),
   };
 }
 
-// Round 1 — Four-Ball, exactly the matchups from the screenshots.
-const round1: Match[] = [
-  fourball("r1m1", "r1", ["t1", "hunter", "nick"], ["t2", "nated", "jay"]),
-  fourball("r1m2", "r1", ["t1", "alex", "jeff"], ["t2", "brody", "paul"]),
-  fourball("r1m3", "r1", ["t3", "mike", "danny"], ["t4", "frank", "nikk"]),
-  fourball("r1m4", "r1", ["t3", "alec", "joe"], ["t4", "brady", "hank"]),
-];
-
-// Round 2 — Scramble (chat: "scramble the 2nd round at big fish"). Field-wide
-// team stroke play: all four of a team go out as one group and play a single
-// scramble ball, one score per hole under the team key. Lowest net round wins.
-function scrambleTeam(id: string, teamId: string): Match {
-  const ids = players.filter((p) => p.teamId === teamId).map((p) => p.id);
+/** 4-man scramble match: one team ball per side (raw score). */
+function scramble(id: string, a: string[], b: string[]): Match {
   return {
     id,
     roundId: "r2",
     format: "scramble",
-    sideA: { teamId, playerIds: ids },
-    sideB: { teamId: "", playerIds: [] },
-    scores: emptyScores([`team:${teamId}`]),
+    sideA: { teamId: "tA", playerIds: a },
+    sideB: { teamId: "tB", playerIds: b },
+    scores: emptyScores([`team:tA`, `team:tB`]),
   };
 }
 
-const round2: Match[] = [
-  scrambleTeam("r2t1", "t1"),
-  scrambleTeam("r2t2", "t2"),
-  scrambleTeam("r2t3", "t3"),
-  scrambleTeam("r2t4", "t4"),
-];
-
-// Round 3 — 4-Man Best Ball team stroke play: every team tees off as its own
-// foursome (no head-to-head). One entry per team; sideB stays empty. Low
-// team net wins the round.
-function teamEntry(id: string, teamId: string): Match {
-  const ids = players.filter((p) => p.teamId === teamId).map((p) => p.id);
+/** 4-man best-ball match: four A players vs four B players. */
+function fourman(id: string, a: string[], b: string[]): Match {
   return {
     id,
     roundId: "r3",
     format: "fourman",
-    sideA: { teamId, playerIds: ids },
-    sideB: { teamId: "", playerIds: [] },
-    scores: emptyScores(ids),
+    sideA: { teamId: "tA", playerIds: a },
+    sideB: { teamId: "tB", playerIds: b },
+    scores: emptyScores([...a, ...b]),
   };
 }
 
+// Placeholder groupings (draft/matchups replace these later).
+const A1 = ["hunter", "frank", "brody", "alex"];
+const A2 = ["hank", "jeff", "nikk", "nick"];
+const B1 = ["nated", "mike", "alec", "brady"];
+const B2 = ["joe", "paul", "danny", "jay"];
+
+// Round 1 — four 2-man best-ball matches (Nassau, 3 pts each = 12).
+const round1: Match[] = [
+  fourball("r1m1", ["hunter", "frank"], ["nated", "mike"]),
+  fourball("r1m2", ["brody", "alex"], ["alec", "brady"]),
+  fourball("r1m3", ["hank", "jeff"], ["joe", "paul"]),
+  fourball("r1m4", ["nikk", "nick"], ["danny", "jay"]),
+];
+
+// Round 2 — two 4-man scramble matches (Nassau, 6 pts each = 12).
+const round2: Match[] = [
+  scramble("r2m1", A1, B1),
+  scramble("r2m2", A2, B2),
+];
+
+// Round 3 — two 4-man best-ball matches (Nassau, 6 pts each = 12).
 const round3: Match[] = [
-  teamEntry("r3t1", "t1"),
-  teamEntry("r3t2", "t2"),
-  teamEntry("r3t3", "t3"),
-  teamEntry("r3t4", "t4"),
+  fourman("r3m1", A1, B1),
+  fourman("r3m2", A2, B2),
 ];
 
 export const seedMatches: Match[] = [...round1, ...round2, ...round3];
