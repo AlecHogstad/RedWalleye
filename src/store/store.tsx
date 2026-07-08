@@ -17,7 +17,12 @@ import type {
 } from "../types";
 import { contextForRound, teamScoreKey, type ScoringContext } from "../scoring/engine";
 import { reconcileRoster } from "./roster";
-import { currentPickTeam, PICKS_TOTAL, type DraftTeam } from "./draft";
+import {
+  currentPickTeam,
+  PICKS_TOTAL,
+  reconcileDraftTeams,
+  type DraftTeam,
+} from "./draft";
 import { seedState, STATE_VERSION } from "../data/seed";
 import {
   applyRemote,
@@ -118,10 +123,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [remote, setRemote] = useState<RemoteData | null>(loadRemoteCache);
   const [connected, setConnected] = useState(false);
 
-  const state = useMemo(
-    () => (syncEnabled ? applyRemote(seedState(), remote) : localState),
-    [remote, localState],
-  );
+  const state = useMemo(() => {
+    const merged = syncEnabled ? applyRemote(seedState(), remote) : structuredClone(localState);
+    reconcileDraftTeams(merged);
+    return merged;
+  }, [remote, localState]);
 
   // Persist whichever mode we're in so a refresh never loses the card.
   useEffect(() => {
@@ -428,6 +434,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         captainB: captainBId,
         firstPick,
         picks: [],
+        rev: 0,
       };
       // Captains go to their team; everyone else back to the pool.
       const teamFor = (id: string) =>
@@ -464,61 +471,90 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const draftPick = useCallback(
     (playerId: string) => {
       if (!rostersEditable) return;
-      const draft = state.draft;
-      if (!draft || draft.status !== "active" || !draft.firstPick) return;
-      const player = state.players.find((p) => p.id === playerId);
-      if (!player || player.teamId !== "") return; // must be a pool player
-      const team = currentPickTeam(draft.picks, draft.firstPick);
-      if (!team) return;
-      const picks = [...draft.picks, playerId];
-      const next: DraftState = {
-        ...draft,
-        picks,
-        status: picks.length >= PICKS_TOTAL ? "done" : "active",
-      };
       if (syncEnabled) {
-        remoteWrite.draft(next);
-        remoteWrite.player(playerId, { teamId: team });
+        const draft = state.draft;
+        if (!draft || draft.status !== "active" || !draft.firstPick) return;
+        const player = state.players.find((p) => p.id === playerId);
+        if (!player || player.teamId !== "") return;
+        const team = currentPickTeam(draft.picks, draft.firstPick);
+        if (!team) return;
+        const picks = [...draft.picks, playerId];
+        const next: DraftState = {
+          ...draft,
+          picks,
+          status: picks.length >= PICKS_TOTAL ? "done" : "active",
+          rev: (draft.rev ?? 0) + 1,
+        };
+        remoteWrite.draftPick(next, playerId, team);
         return;
       }
-      setLocalState((prev) => ({
-        ...prev,
-        draft: next,
-        players: prev.players.map((p) =>
-          p.id === playerId ? { ...p, teamId: team } : p,
-        ),
-      }));
+      setLocalState((prev) => {
+        const draft = prev.draft;
+        if (!draft || draft.status !== "active" || !draft.firstPick) return prev;
+        const player = prev.players.find((p) => p.id === playerId);
+        if (!player || player.teamId !== "") return prev;
+        const team = currentPickTeam(draft.picks, draft.firstPick);
+        if (!team) return prev;
+        const picks = [...draft.picks, playerId];
+        return {
+          ...prev,
+          draft: {
+            ...draft,
+            picks,
+            status: picks.length >= PICKS_TOTAL ? "done" : "active",
+            rev: (draft.rev ?? 0) + 1,
+          },
+          players: prev.players.map((p) =>
+            p.id === playerId ? { ...p, teamId: team } : p,
+          ),
+        };
+      });
     },
     [rostersEditable, state],
   );
 
   const undoLastPick = useCallback(() => {
     if (!rostersEditable) return;
-    const draft = state.draft;
-    if (!draft || draft.picks.length === 0) return;
-    const last = draft.picks[draft.picks.length - 1];
-    const next: DraftState = {
-      ...draft,
-      picks: draft.picks.slice(0, -1),
-      status: "active",
-    };
     if (syncEnabled) {
-      remoteWrite.draft(next);
-      remoteWrite.player(last, { teamId: "" });
+      const draft = state.draft;
+      if (!draft || draft.picks.length === 0) return;
+      const last = draft.picks[draft.picks.length - 1];
+      const next: DraftState = {
+        ...draft,
+        picks: draft.picks.slice(0, -1),
+        status: "active",
+        rev: (draft.rev ?? 0) + 1,
+      };
+      remoteWrite.undoDraftPick(next, last);
       return;
     }
-    setLocalState((prev) => ({
-      ...prev,
-      draft: next,
-      players: prev.players.map((p) => (p.id === last ? { ...p, teamId: "" } : p)),
-    }));
+    setLocalState((prev) => {
+      const draft = prev.draft;
+      if (!draft || draft.picks.length === 0) return prev;
+      const last = draft.picks[draft.picks.length - 1];
+      return {
+        ...prev,
+        draft: {
+          ...draft,
+          picks: draft.picks.slice(0, -1),
+          status: "active",
+          rev: (draft.rev ?? 0) + 1,
+        },
+        players: prev.players.map((p) => (p.id === last ? { ...p, teamId: "" } : p)),
+      };
+    });
   }, [rostersEditable, state]);
 
   const resetDraft = useCallback(() => {
     if (!rostersEditable) return;
     const draft = state.draft;
     if (!draft) return;
-    const next: DraftState = { ...draft, status: "setup", picks: [] };
+    const next: DraftState = {
+      ...draft,
+      status: "setup",
+      picks: [],
+      rev: (draft.rev ?? 0) + 1,
+    };
     const teamFor = (id: string) =>
       id === draft.captainA ? "tA" : id === draft.captainB ? "tB" : "";
     if (syncEnabled) {

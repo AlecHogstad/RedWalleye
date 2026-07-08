@@ -4,6 +4,7 @@ import { useStore } from "../store/store";
 import {
   currentPickTeam,
   picksLeftFor,
+  rosterFromDraft,
   type DraftTeam,
 } from "../store/draft";
 import type { Player } from "../types";
@@ -224,52 +225,50 @@ function DraftBoard({
   const pool = useMemo(
     () =>
       players
-        .filter((p) => !p.teamId)
+        .filter((p) => !p.teamId && !picks.includes(p.id))
         .sort((a, b) => a.handicap - b.handicap),
-    [players],
+    [players, picks],
   );
 
-  // Roster of a team: captain first, then their picks in order.
-  const rosterFor = (team: DraftTeam): string[] => {
-    const captain = team === "tA" ? captainA : captainB;
-    const drafted = picks.filter((id) => map[id]?.teamId === team);
-    return [captain, ...drafted];
-  };
+  const rosterFor = (team: DraftTeam): string[] =>
+    rosterFromDraft(team, picks, firstPick, captainA, captainB);
 
   const clockColor = onClock ? teamMap[onClock]?.color : undefined;
 
-  const column = (team: DraftTeam) => {
+  const teamSection = (team: DraftTeam) => {
     const roster = rosterFor(team);
     const t = teamMap[team];
     const left = picksLeftFor(team, picks, firstPick);
     return (
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="row" style={{ gap: 6, marginBottom: 4 }}>
-          <span className="dot" style={{ background: t?.color }} />
-          <strong style={{ fontSize: 13 }}>{t?.name}</strong>
-          <span className="muted" style={{ fontSize: 11.5 }}>
+      <section className="section" key={team} style={{ paddingTop: 0 }}>
+        <h2>
+          {t?.name}
+          <span className="oval muted-oval">
             {roster.length}/8
           </span>
+        </h2>
+        <div className="card">
+          {roster.map((id, i) => (
+            <div className="field" key={id}>
+              <span className="dot" style={{ background: t?.color }} />
+              <span className="wide" style={{ fontWeight: 600 }}>
+                {map[id]?.name ?? id}
+                {i === 0 && (
+                  <span className="oval" style={{ marginLeft: 8 }}>
+                    Captain
+                  </span>
+                )}
+              </span>
+              <span className="muted">{map[id] ? hcp(map[id].handicap) : ""}</span>
+            </div>
+          ))}
         </div>
-        {roster.map((id, i) => (
-          <div className="field" key={id} style={{ padding: "5px 6px" }}>
-            <span className="muted" style={{ width: 16, fontSize: 11 }}>
-              {i === 0 ? "C" : i}
-            </span>
-            <span className="wide" style={{ fontSize: 13 }}>
-              {map[id]?.name ?? id}
-            </span>
-            <span className="muted" style={{ fontSize: 12 }}>
-              {map[id] ? hcp(map[id].handicap) : ""}
-            </span>
-          </div>
-        ))}
         {left > 0 && (
-          <div className="hint" style={{ margin: "2px 6px" }}>
+          <p className="hint" style={{ paddingTop: 6 }}>
             {left} pick{left === 1 ? "" : "s"} left
-          </div>
+          </p>
         )}
-      </div>
+      </section>
     );
   };
 
@@ -278,13 +277,13 @@ function DraftBoard({
       {status === "active" ? (
         <div className="section" style={{ paddingTop: 4 }}>
           <div
-            className="card"
-            style={{ padding: 12, borderLeft: `5px solid ${clockColor}` }}
+            className="card draft-clock-card"
+            style={{ "--draft-team-color": clockColor } as React.CSSProperties}
           >
-            <div style={{ fontWeight: 800, fontSize: 15 }}>
+            <div className="draft-clock-title">
               {teamMap[onClock ?? ""]?.name} on the clock
             </div>
-            <div className="muted" style={{ fontSize: 12.5 }}>
+            <div className="draft-clock-sub">
               Pick {picks.length + 1} of 14 · tap a golfer below to draft
             </div>
           </div>
@@ -303,19 +302,21 @@ function DraftBoard({
         </div>
       )}
 
-      {/* Team columns */}
-      <div className="section" style={{ paddingTop: 0 }}>
-        <div className="card" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          {column("tA")}
-          {column("tB")}
-        </div>
-      </div>
+      {/* Active: only the team on the clock. Done: both rosters. */}
+      {status === "done" ? (
+        <>
+          {teamSection("tA")}
+          {teamSection("tB")}
+        </>
+      ) : (
+        onClock && teamSection(onClock)
+      )}
 
       {/* Pool */}
       {pool.length > 0 && (
         <div className="section" style={{ paddingTop: 0 }}>
           <h2>Pool ({pool.length})</h2>
-          <div className="card" style={{ padding: 10 }}>
+          <div className="card">
             {pool.map((p) => (
               <button
                 key={p.id}
@@ -332,23 +333,20 @@ function DraftBoard({
       )}
 
       {/* Controls */}
-      <div className="section" style={{ paddingTop: 0 }}>
-        {picks.length > 0 && (
-          <button
-            className="btn ghost"
-            disabled={disabled}
-            onClick={onUndo}
-            style={{ marginBottom: 8 }}
-          >
-            Undo last pick
-          </button>
-        )}
-        <p className="hint center">
-          <button className="linklike" disabled={disabled} onClick={onReset}>
-            Start over
-          </button>{" "}
-          to re-pick captains or redo the draft.
-        </p>
+      <div className="section" style={{ paddingTop: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {picks.length > 0 && (
+            <button className="btn ghost" disabled={disabled} onClick={onUndo}>
+              Undo last pick
+            </button>
+          )}
+          <p className="hint center" style={{ margin: 0, padding: 0 }}>
+            <button className="linklike" disabled={disabled} onClick={onReset}>
+              Start over
+            </button>{" "}
+            to re-pick captains or redo the draft.
+          </p>
+        </div>
       </div>
     </>
   );

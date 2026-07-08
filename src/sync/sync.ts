@@ -98,6 +98,23 @@ export interface RemoteData {
 
 const holeKey = (n: number) => `h${n}`;
 const holeNum = (k: string) => Number(k.replace(/^h/, ""));
+const DRAFT_ROW_ID = `${V}|draft|state`;
+
+/** Never let a lagging fetch/realtime row roll back draft progress. */
+export function mergeDraftState(
+  current: DraftState | undefined,
+  incoming: DraftState,
+): DraftState {
+  if (!current) return incoming;
+  const curRev = current.rev ?? 0;
+  const incRev = incoming.rev ?? 0;
+  if (incRev < curRev) return current;
+  if (incRev > curRev) return incoming;
+  if (incoming.picks.length < current.picks.length) return current;
+  if (incoming.picks.length > current.picks.length) return incoming;
+  if (incoming.status === "done" && current.status !== "done") return incoming;
+  return incoming;
+}
 
 /** Merge the remote delta over a fresh seed. Pure — unit tested. */
 export function applyRemote(base: TournamentState, remote: RemoteData | null): TournamentState {
@@ -234,6 +251,30 @@ let notifyData: ((data: RemoteData) => void) | null = null;
 let notifyConnected: ((connected: boolean) => void) | null = null;
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 
+function writeLocal(id: string, value: unknown | null): void {
+  if (value == null) kv.delete(id);
+  else kv.set(id, value);
+}
+
+/** Apply a server row — draft uses merge rules; local writes bypass this. */
+function mergeIncomingRow(id: string, value: unknown | null): void {
+  if (value == null) {
+    kv.delete(id);
+    return;
+  }
+  if (id === DRAFT_ROW_ID) {
+    kv.set(id, mergeDraftState(kv.get(id) as DraftState | undefined, value as DraftState));
+    return;
+  }
+  kv.set(id, value);
+}
+
+function queueWrite(id: string, value: unknown | null): void {
+  const ops = loadPending().filter((op) => op.id !== id);
+  ops.push({ id, value });
+  savePending(ops);
+}
+
 interface PendingOp {
   id: string;
   value: unknown | null; // null = delete
@@ -261,12 +302,19 @@ function emit(): void {
 
 /** Apply an op to the local mirror and queue it for the server. */
 function write(id: string, value: unknown | null): void {
-  if (value == null) kv.delete(id);
-  else kv.set(id, value);
+  writeLocal(id, value);
   emit();
-  const ops = loadPending().filter((op) => op.id !== id); // newest write wins
-  ops.push({ id, value });
-  savePending(ops);
+  queueWrite(id, value);
+  void flush();
+}
+
+/** Several rows that must land together (draft pick + player team). */
+function writeMany(rows: { id: string; value: unknown | null }[]): void {
+  for (const { id, value } of rows) {
+    writeLocal(id, value);
+    queueWrite(id, value);
+  }
+  emit();
   void flush();
 }
 
@@ -313,12 +361,12 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
 
   // Optimistic boot: replay any pending offline writes onto the mirror.
   for (const op of loadPending()) {
-    if (op.value == null) kv.delete(op.id);
-    else kv.set(op.id, op.value);
+    writeLocal(op.id, op.value);
   }
   emit();
 
-  // Full fetch, then live changes.
+  // Full fetch, then live changes. Merge into the mirror — never kv.clear(),
+  // so optimistic picks made while the fetch was in flight aren't wiped.
   void supabase
     .from(TABLE)
     .select("id,value")
@@ -330,11 +378,9 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
       }
       if (!data) return;
       console.info(`[rw-sync] initial fetch: ${data.length} row(s)`);
-      kv.clear();
-      for (const row of data) kv.set(row.id as string, row.value);
+      for (const row of data) mergeIncomingRow(row.id as string, row.value);
       for (const op of loadPending()) {
-        if (op.value == null) kv.delete(op.id);
-        else kv.set(op.id, op.value);
+        writeLocal(op.id, op.value);
       }
       emit();
     });
@@ -354,7 +400,7 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
         if (payload.eventType === "DELETE") {
           if (oldRow?.id) kv.delete(oldRow.id);
         } else if (newRow?.id) {
-          kv.set(newRow.id, newRow.value);
+          mergeIncomingRow(newRow.id, newRow.value);
         }
         emit();
       },
@@ -465,6 +511,26 @@ export const remoteWrite = {
   /** The draft singleton — the whole object is written atomically. */
   draft(draft: DraftState): void {
     write(`${V}|draft|state`, draft);
+  },
+
+  /** Draft a player to a team — draft row + team assignment in one emit. */
+  draftPick(draft: DraftState, playerId: string, teamId: string): void {
+    const playerRow = `${V}|players|${playerId}`;
+    const current = (kv.get(playerRow) as object | undefined) ?? {};
+    writeMany([
+      { id: DRAFT_ROW_ID, value: draft },
+      { id: playerRow, value: { ...current, teamId } },
+    ]);
+  },
+
+  /** Undo the last draft pick — shrink picks and return player to the pool. */
+  undoDraftPick(draft: DraftState, playerId: string): void {
+    const playerRow = `${V}|players|${playerId}`;
+    const current = (kv.get(playerRow) as object | undefined) ?? {};
+    writeMany([
+      { id: DRAFT_ROW_ID, value: draft },
+      { id: playerRow, value: { ...current, teamId: "" } },
+    ]);
   },
 
   /** Wipes the shared event data for EVERYONE. */

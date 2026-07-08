@@ -7,6 +7,8 @@
 // going second isn't a disadvantage.
 // ---------------------------------------------------------------------------
 
+import type { TournamentState } from "../types";
+
 export type DraftTeam = "tA" | "tB";
 
 /** Players drafted after the two captains (7 per team). */
@@ -39,4 +41,61 @@ export function picksLeftFor(
     if (pickTeam(i, firstPick) === team) n += 1;
   }
   return n;
+}
+
+/** Draft has started (captains set, snake underway or finished). */
+export function draftHasRosters(state: TournamentState): boolean {
+  const d = state.draft;
+  return !!(
+    d &&
+    d.status !== "setup" &&
+    d.firstPick &&
+    d.captainA &&
+    d.captainB
+  );
+}
+
+/** Team roster for UI — from the draft when one is running, never the seed split. */
+export function teamRosterIds(state: TournamentState, team: DraftTeam): string[] {
+  const d = state.draft;
+  if (!draftHasRosters(state) || !d) return [];
+  return rosterFromDraft(
+    team,
+    d.picks,
+    d.firstPick!,
+    d.captainA!,
+    d.captainB!,
+  );
+}
+
+/** Captain + snake-ordered picks for one team — authoritative for draft UI. */
+export function rosterFromDraft(
+  team: DraftTeam,
+  picks: string[],
+  firstPick: DraftTeam,
+  captainA: string,
+  captainB: string,
+): string[] {
+  const captain = team === "tA" ? captainA : captainB;
+  const drafted = picks.filter((_, i) => pickTeam(i, firstPick) === team);
+  return [captain, ...drafted];
+}
+
+/** Align `Player.teamId` with the draft order (fixes sync rows that lag). */
+export function reconcileDraftTeams(state: TournamentState): void {
+  const draft = state.draft;
+  if (!draft || draft.status === "setup" || !draft.firstPick) return;
+
+  const assign = (playerId: string | undefined, team: DraftTeam) => {
+    if (!playerId) return;
+    const p = state.players.find((pl) => pl.id === playerId);
+    if (p && p.teamId !== team) p.teamId = team;
+  };
+
+  assign(draft.captainA, "tA");
+  assign(draft.captainB, "tB");
+
+  for (let i = 0; i < draft.picks.length; i++) {
+    assign(draft.picks[i], pickTeam(i, draft.firstPick));
+  }
 }

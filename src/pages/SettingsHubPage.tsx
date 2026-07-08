@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useStore } from "../store/store";
 
 interface HubLink {
   to: string;
@@ -8,13 +9,17 @@ interface HubLink {
 
 const LINKS: HubLink[] = [
   { to: "/draft", title: "Draft", desc: "Captains draft the two teams" },
-  { to: "/settings/teams", title: "Teams", desc: "Team names and rosters" },
+  { to: "/settings/teams", title: "Teams", desc: "Rename teams after the draft" },
   { to: "/settings/players", title: "Players", desc: "Add, edit, or remove golfers" },
   { to: "/settings/courses", title: "Courses", desc: "Pars, HDCP ranks, and tees" },
   { to: "/settings/reset", title: "Reset app data", desc: "Wipe scores and start over" },
 ];
 
 export default function SettingsHubPage() {
+  const { state } = useStore();
+  const draftDone = state.draft?.status === "done";
+  const links = LINKS.filter((l) => l.to !== "/settings/teams" || draftDone);
+
   return (
     <>
       <div className="section">
@@ -27,7 +32,7 @@ export default function SettingsHubPage() {
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="card">
-          {LINKS.map((l) => (
+          {links.map((l) => (
             <Link key={l.to} className="settings-link" to={l.to}>
               <span className="settings-link-text">
                 <span className="settings-link-title">{l.title}</span>

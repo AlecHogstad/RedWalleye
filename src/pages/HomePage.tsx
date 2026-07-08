@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { computePlayerTotals, computeStandings, type RoundTotals } from "../scoring/engine";
+import { draftHasRosters, teamRosterIds, type DraftTeam } from "../store/draft";
+import { rosterOf } from "../store/roster";
 import { useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
+import type { Player, Team } from "../types";
 
 /** Leaderboard: team standings on top, all 16 players with per-round
  *  gross & net below. */
@@ -12,6 +15,37 @@ export default function HomePage() {
     () => Object.fromEntries(state.teams.map((t) => [t.id, t])),
     [state.teams],
   );
+  const playerMap = useMemo(
+    () => Object.fromEntries(state.players.map((p) => [p.id, p])),
+    [state.players],
+  );
+  const showTeamRosters = draftHasRosters(state);
+
+  const playerRows = useMemo((): { player: Player; team: Team | null }[] => {
+    const rows: { player: Player; team: Team | null }[] = [];
+    const placed = new Set<string>();
+
+    for (const team of state.teams) {
+      const ids = showTeamRosters
+        ? teamRosterIds(state, team.id as DraftTeam)
+        : rosterOf(state, team.id);
+      for (const id of ids) {
+        const player = playerMap[id];
+        if (!player) continue;
+        placed.add(id);
+        rows.push({ player, team });
+      }
+    }
+
+    // Mid-draft: keep undrafted golfers visible below the two rosters.
+    if (showTeamRosters && state.draft?.status === "active") {
+      for (const player of state.players) {
+        if (!placed.has(player.id)) rows.push({ player, team: null });
+      }
+    }
+
+    return rows;
+  }, [showTeamRosters, state.teams, state.players, state.draft, playerMap]);
 
   const standings = useMemo(
     () => computeStandings(state.matches, state.players, contexts),
@@ -89,13 +123,14 @@ export default function HomePage() {
               </span>
             ))}
           </div>
-          {state.teams.map((team) =>
-            state.players
-              .filter((p) => p.teamId === team.id)
-              .map((p) => (
+          {playerRows.map(({ player: p, team }) => (
                 <div className="ptable-row" key={p.id} style={tableGrid}>
                   <span className="pt-name">
-                    <span className="dot" style={{ background: team.color }} />
+                    {team ? (
+                      <span className="dot" style={{ background: team.color }} />
+                    ) : (
+                      <span className="dot" style={{ background: "transparent" }} />
+                    )}
                     {p.name}
                   </span>
                   {statRounds.map((r) => {
@@ -117,13 +152,18 @@ export default function HomePage() {
                     );
                   })}
                 </div>
-              )),
-          )}
+              ))}
         </div>
         <p className="hint">
           Big number = net, small = gross (·n = thru n holes). Net uses each
           player's full course handicap for that round's tees. The scramble
           round isn't shown — one team ball, no individual scores.
+          {showTeamRosters && (
+            <>
+              {" "}
+              Teams reflect the captain draft.
+            </>
+          )}
         </p>
       </section>
     </>

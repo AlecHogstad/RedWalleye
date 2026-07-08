@@ -83,12 +83,12 @@ export default function SettingsPlayersPage() {
         </Link>
         <h2 style={{ marginTop: 10 }}>Players</h2>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
-          Add, rename, and set handicaps for every golfer. Assign players to
-          teams on the{" "}
-          <Link className="linklike" to="/settings/teams">
-            Teams
-          </Link>{" "}
-          page. A player must be off every team before they can be removed.
+          Add, rename, and set handicaps for every golfer. Captains assign
+          players to teams in the{" "}
+          <Link className="linklike" to="/draft">
+            Draft
+          </Link>
+          . A player must be off every team before they can be removed.
         </p>
       </div>
 
