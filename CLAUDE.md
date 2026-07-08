@@ -167,6 +167,21 @@ policies). While it's `null` the app is local-only per phone. The table
 DDL to run in the Supabase SQL editor is in the header comment of
 `sync.ts`. Reset in synced mode wipes the shared table for everyone.
 
+## Offline & install (PWA)
+
+`vite-plugin-pwa` (config in `vite.config.ts`) makes the app installable and
+**cold-start offline** — a Workbox service worker precaches the whole app shell
+(JS, CSS, the self-hosted `@fontsource` woff2 fonts, icons, manifest) so it opens
+with zero bars at the tee box. This is separate from and complements the sync
+write-queue: the SW gets the app *loaded* offline; the queue keeps *scores*
+flowing once loaded. The SW never touches Supabase requests, so live sync still
+goes straight to the network when there's signal. `registerType: "autoUpdate"`
+means a new deploy refreshes every phone on its next load. Brand icons live in
+`public/` (`pwa-192`/`pwa-512`/`pwa-maskable-512`/`apple-touch-icon` — the
+checkered-flag motif in cream + burnt orange on forest green); regenerate them
+with `node scripts/gen-icons.mjs` if the mark changes. Nothing to precache by hand:
+Workbox reads the built asset list, so new hashed files are covered automatically.
+
 ## Decisions already made (don't relitigate without asking Alec)
 
 - Started local-first; live sync added via Alec's existing Supabase
