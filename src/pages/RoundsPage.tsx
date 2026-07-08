@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FORMAT_SHORT, type Match, type Round, type Side } from "../types";
+import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
 import {
   computeMatchState,
   computeStrokePlay,
@@ -65,8 +65,7 @@ export default function RoundsPage() {
         return (
           <section className="section" key={round.id}>
             <h2>
-              {round.name}
-              <span className="oval">{FORMAT_SHORT[round.format]}</span>
+              {round.name}: {FORMAT_LABELS[round.format]}
               {round.status === "active" && <span className="oval live">Live</span>}
               {round.status === "final" && (
                 <span className="oval">
@@ -75,6 +74,9 @@ export default function RoundsPage() {
               )}
               {locked && <span className="oval muted-oval">Locked</span>}
             </h2>
+
+            {/* Where the match rules live now: each round card tells you how it works. */}
+            <p className="round-where">{FORMAT_RULES[round.format]}</p>
 
             {round.status !== "pending" ? (
               <p className="round-where">
@@ -85,18 +87,6 @@ export default function RoundsPage() {
               pendingVenue(round.id, state.courses) && (
                 <p className="round-where">{pendingVenue(round.id, state.courses)}</p>
               )
-            )}
-            {round.format === "fourman" && (
-              <p className="round-where">
-                Every team tees off as its own group — best net ball per hole,
-                low team total wins the round.
-              </p>
-            )}
-            {round.format === "scramble" && (
-              <p className="round-where">
-                All four play one scramble ball, no handicap — lowest raw round
-                wins: 3 points, 1 for second.
-              </p>
             )}
 
             <div className={`card ${round.status === "pending" ? "dimmed" : ""}`}>
@@ -127,11 +117,6 @@ export default function RoundsPage() {
               <button className="btn start" onClick={() => navigate(`/start/${round.id}`)}>
                 Start {round.name}
               </button>
-            )}
-            {locked && (
-              <p className="hint center" style={{ paddingTop: 8 }}>
-                Locked while another round is live.
-              </p>
             )}
             {round.status === "active" && (
               <button className="btn ghost start" onClick={() => confirmFinish(round)}>
