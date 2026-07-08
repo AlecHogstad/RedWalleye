@@ -135,6 +135,19 @@ export interface MatchSideGames {
   snakeChanges?: number;
 }
 
+/**
+ * An entry in the activity feed. Append-only; today the only kind is a
+ * scramble "booze mulligan" (a player took a shot to buy a do-over), but the
+ * shape is generic so birdies / lead changes can be added later.
+ */
+export interface ActivityEvent {
+  id: Id;
+  type: "mulligan";
+  matchId: Id;
+  playerId: Id;
+  ts: number; // Date.now() when it happened
+}
+
 export interface TournamentState {
   version: number;
   courses: CourseDef[];
@@ -144,4 +157,6 @@ export interface TournamentState {
   matches: Match[];
   /** Side-game opt-ins + snake holder, keyed by matchId. */
   sideGames: Record<string, MatchSideGames>;
+  /** Append-only activity feed (booze mulligans for now). */
+  activity: ActivityEvent[];
 }

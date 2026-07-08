@@ -46,7 +46,8 @@ function entitiesForSide(
 
 export default function MatchPage() {
   const { matchId } = useParams();
-  const { state, setScore, updateSideGames } = useStore();
+  const { state, setScore, updateSideGames, addMulligan, removeMulligan } =
+    useStore();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
   const match = state.matches.find((m) => m.id === matchId);
@@ -445,6 +446,63 @@ export default function MatchPage() {
           standings.
         </p>
       </div>
+
+      {/* Booze mulligans — scramble only; posts to the activity feed */}
+      {isScramble && (
+        <div className="section" style={{ paddingTop: 4 }}>
+          <h2>Booze mulligans</h2>
+          <div className="card">
+            {groupPlayerIds.map((id) => {
+              const p = players[id];
+              const team = teamMap[p?.teamId ?? ""];
+              const count = state.activity.filter(
+                (e) =>
+                  e.type === "mulligan" &&
+                  e.matchId === match.id &&
+                  e.playerId === id,
+              ).length;
+              return (
+                <div className="score-row" key={id}>
+                  <span
+                    className="dot"
+                    style={{ background: team?.color, alignSelf: "center" }}
+                  />
+                  <div className="who">
+                    <div className="n">{p?.name ?? "?"}</div>
+                    <div className="h">
+                      {count === 0
+                        ? "no mulligans yet"
+                        : `🥃 ${count} mulligan${count > 1 ? "s" : ""}`}
+                    </div>
+                  </div>
+                  <div className="stepper">
+                    <button
+                      onClick={() => removeMulligan(match.id, id)}
+                      disabled={count === 0}
+                      aria-label={`Remove a mulligan from ${p?.name ?? "player"}`}
+                    >
+                      −
+                    </button>
+                    <span className={`val ${count === 0 ? "empty" : ""}`}>
+                      {count}
+                    </span>
+                    <button
+                      onClick={() => addMulligan(match.id, id)}
+                      aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="hint">
+            A shot of booze buys a mulligan — tracked here and posted to the
+            activity feed.
+          </p>
+        </div>
+      )}
     </>
   );
 }

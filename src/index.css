@@ -178,6 +178,31 @@ a {
   font-style: italic;
   color: var(--muted);
 }
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.feed-icon {
+  font-size: 20px;
+  flex: none;
+}
+.feed-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.feed-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+.feed-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 1px;
+}
 
 /* Settings hub link rows --------------------------------------------------- */
 .settings-link {

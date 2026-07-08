@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
@@ -240,5 +240,6 @@ export function seedState(): TournamentState {
     rounds: structuredClone(rounds),
     matches: structuredClone(seedMatches),
     sideGames: {},
+    activity: [],
   };
 }

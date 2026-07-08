@@ -108,6 +108,18 @@ describe("applyRemote", () => {
     expect(state.sideGames.r1m2).toBeUndefined();
   });
 
+  it("builds a time-sorted activity feed from event rows", () => {
+    const remote: RemoteData = {
+      activity: {
+        a2: { id: "a2", type: "mulligan", matchId: "r2m1", playerId: "nick", ts: 200 },
+        a1: { id: "a1", type: "mulligan", matchId: "r2m1", playerId: "hunter", ts: 100 },
+      },
+    };
+    const state = applyRemote(seedState(), remote);
+    expect(state.activity.map((e) => e.id)).toEqual(["a1", "a2"]);
+    expect(state.activity[0].playerId).toBe("hunter");
+  });
+
   it("ignores unknown ids and null leaves without crashing", () => {
     const remote = {
       scores: { ghost: { nobody: { h1: 4 } }, r1m1: { hunter: { h3: null } } },
@@ -139,6 +151,7 @@ describe("kvToRemote", () => {
       [`${V}|teams|t1`, { name: "Walleye Crushers" }],
       [`${V}|matches|r1m1`, { sideA: { teamId: "t1", playerIds: ["hunter"] } }],
       [`${V}|sidegames|r1m1`, { stableford: true, snakeHolder: "nick" }],
+      [`${V}|activity|a1`, { id: "a1", type: "mulligan", matchId: "r2m1", playerId: "nick", ts: 5 }],
     ]);
     const remote = kvToRemote(kv);
     expect(remote.scores?.r1m1?.hunter?.h3).toBe(5);
@@ -150,6 +163,8 @@ describe("kvToRemote", () => {
     expect(remote.matches?.r1m1?.sideA?.playerIds).toEqual(["hunter"]);
     expect(remote.sideGames?.r1m1?.stableford).toBe(true);
     expect(remote.sideGames?.r1m1?.snakeHolder).toBe("nick");
+    expect(remote.activity?.a1?.playerId).toBe("nick");
+    expect(remote.activity?.a1?.type).toBe("mulligan");
   });
 
   it("ignores rows from other seed versions and null values", () => {
