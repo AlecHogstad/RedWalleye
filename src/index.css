@@ -83,6 +83,24 @@ a {
 }
 
 /* Header — RWGC lockup with the flag through it ---------------------------- */
+/* Sits above everything: a stale device shows this until it refreshes onto
+   the current build, keeping the whole group in sync. */
+.update-banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  background: var(--orange);
+  color: #f7efdc;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  box-shadow: var(--shadow);
+}
+
 .topbar {
   position: sticky;
   top: 0;
