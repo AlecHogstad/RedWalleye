@@ -255,31 +255,43 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 11px 4px 9px;
+  padding: 11px 2px 9px;
+  min-width: 0;
   color: var(--muted);
 }
 .tabbar a .tab-inner {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  gap: 5px;
+  padding: 6px 9px;
+  max-width: 100%;
   border: 1.5px solid transparent;
   border-radius: 999px;
 }
 .tabbar a .tab-icon {
   display: inline-flex;
+  flex: none;
+}
+.tabbar a .tab-icon svg {
+  width: 17px;
+  height: 17px;
 }
 .tabbar a .tab-label {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tabbar a.active {
   color: var(--accent);
 }
+/* Active tab is a filled pill */
 .tabbar a.active .tab-inner {
-  border-color: currentColor;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--cream-card);
 }
 
 /* Generic ------------------------------------------------------------------ */
