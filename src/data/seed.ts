@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 6;
+export const STATE_VERSION = 7;
 
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
@@ -127,6 +127,17 @@ export const rounds: Round[] = [
   { id: "r2", name: "Round 2", format: "scramble", status: "pending" },
   { id: "r3", name: "Round 3", format: "fourman", status: "pending" },
 ];
+
+// Where each round is played on the trip. Rounds 1 & 2 are at Big Fish,
+// Round 3 is at Hayward. These pre-select the course + tees on the Start
+// Round screen (still changeable before confirming) and let the Rounds
+// page show the venue before a round has been started. UI-only — not part
+// of persisted state, so no STATE_VERSION bump.
+export const ROUND_DEFAULTS: Record<string, { courseId: string; teeName: string }> = {
+  r1: { courseId: "bigfish", teeName: "Tournament" },
+  r2: { courseId: "bigfish", teeName: "Tournament" },
+  r3: { courseId: "hayward", teeName: "Black" },
+};
 
 const emptyScores = (keys: string[]): Match["scores"] =>
   Object.fromEntries(keys.map((k) => [k, {}]));

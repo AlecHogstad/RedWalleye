@@ -1,30 +1,20 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useStore } from "../store/store";
 
-export default function CoursePage() {
-  const { state, updateHole, resetAll, syncStatus } = useStore();
+export default function SettingsCoursesPage() {
+  const { state, updateHole } = useStore();
   const [courseId, setCourseId] = useState(state.courses[0]?.id ?? "");
   const course = state.courses.find((c) => c.id === courseId) ?? state.courses[0];
   const totalPar = course.holes.reduce((s, h) => s + h.par, 0);
 
-  const confirmReset = () => {
-    const scope =
-      syncStatus === "local"
-        ? "on this phone"
-        : "for EVERYONE — every phone on the trip";
-    if (
-      window.confirm(
-        `Reset everything ${scope}? All scores, round starts, and edits go back to the starting setup.`,
-      )
-    ) {
-      resetAll();
-    }
-  };
-
   return (
     <>
-      <div className="section">
-        <h2>Courses</h2>
+      <div className="section" style={{ paddingBottom: 0 }}>
+        <Link className="badge" to="/settings">
+          ← Settings
+        </Link>
+        <h2 style={{ marginTop: 10 }}>Courses</h2>
         <div className="card">
           {state.courses.map((c) => (
             <button
@@ -41,7 +31,7 @@ export default function CoursePage() {
         </div>
       </div>
 
-      <section className="section" style={{ paddingTop: 0 }}>
+      <section className="section" style={{ paddingTop: 12 }}>
         <div className="card">
           <div className="field">
             <label>Total par</label>
@@ -120,19 +110,6 @@ export default function CoursePage() {
         <p className="hint">
           HDCP = the hole's handicap rank (1 = hardest, gets a stroke first).
         </p>
-      </section>
-
-      <section className="section">
-        <h2>Danger zone</h2>
-        <div className="card" style={{ padding: 16 }}>
-          <button className="btn ghost" onClick={confirmReset}>
-            Reset all data
-          </button>
-          <p className="hint" style={{ padding: "10px 0 0" }}>
-            Wipes scores, round starts, and edits on this phone and restores the
-            original teams, matchups and courses.
-          </p>
-        </div>
       </section>
     </>
   );

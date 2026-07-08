@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES } from "../types";
 import { courseHandicap } from "../scoring/engine";
+import { ROUND_DEFAULTS } from "../data/seed";
 import { useStore } from "../store/store";
 
 export default function StartRoundPage() {
@@ -12,9 +13,21 @@ export default function StartRoundPage() {
   const round = state.rounds.find((r) => r.id === roundId);
   const anyActive = state.rounds.some((r) => r.status === "active");
 
-  const [courseId, setCourseId] = useState(state.courses[0]?.id ?? "");
+  // Pre-select this round's usual venue (Big Fish for R1/R2, Hayward for R3)
+  // when it's a real course on this device; fall back to the first course.
+  const defaults = roundId ? ROUND_DEFAULTS[roundId] : undefined;
+  const defaultCourseId =
+    defaults && state.courses.some((c) => c.id === defaults.courseId)
+      ? defaults.courseId
+      : state.courses[0]?.id ?? "";
+  const [courseId, setCourseId] = useState(defaultCourseId);
   const course = state.courses.find((c) => c.id === courseId) ?? state.courses[0];
-  const [teeName, setTeeName] = useState<string>("");
+  const defaultTee =
+    defaults && course?.id === defaults.courseId &&
+    course.tees.some((t) => t.name === defaults.teeName)
+      ? defaults.teeName
+      : "";
+  const [teeName, setTeeName] = useState<string>(defaultTee);
   const tee = course?.tees.find((t) => t.name === teeName);
 
   const preview = useMemo(() => {

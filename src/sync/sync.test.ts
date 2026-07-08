@@ -47,6 +47,51 @@ describe("applyRemote", () => {
     expect(hole6.par).toBe(4); // untouched field survives
   });
 
+  it("renames a team", () => {
+    const remote: RemoteData = { teams: { t1: { name: "Walleye Crushers" } } };
+    const state = applyRemote(seedState(), remote);
+    expect(state.teams.find((t) => t.id === "t1")!.name).toBe("Walleye Crushers");
+    expect(state.teams.find((t) => t.id === "t2")!.name).toBe("Team 02");
+  });
+
+  it("reassigns a player's team", () => {
+    const remote: RemoteData = { players: { nick: { teamId: "" } } };
+    const state = applyRemote(seedState(), remote);
+    expect(state.players.find((p) => p.id === "nick")!.teamId).toBe("");
+  });
+
+  it("adds a brand-new player not in the seed", () => {
+    const remote: RemoteData = {
+      players: { p_new: { name: "Ringer", handicap: 4, teamId: "" } },
+    };
+    const state = applyRemote(seedState(), remote);
+    const added = state.players.find((p) => p.id === "p_new");
+    expect(added).toBeDefined();
+    expect(added!.name).toBe("Ringer");
+    expect(added!.handicap).toBe(4);
+  });
+
+  it("removes a seed player via a deleted tombstone", () => {
+    const remote: RemoteData = { players: { hunter: { deleted: true } } };
+    const state = applyRemote(seedState(), remote);
+    expect(state.players.find((p) => p.id === "hunter")).toBeUndefined();
+  });
+
+  it("overrides a match's sides", () => {
+    const remote: RemoteData = {
+      matches: {
+        r1m1: {
+          sideA: { teamId: "t1", playerIds: ["hunter", "alex"] },
+        },
+      },
+    };
+    const state = applyRemote(seedState(), remote);
+    const m = state.matches.find((x) => x.id === "r1m1")!;
+    expect(m.sideA.playerIds).toEqual(["hunter", "alex"]);
+    // sideB untouched by a sideA-only patch
+    expect(m.sideB.teamId).toBe("t2");
+  });
+
   it("ignores unknown ids and null leaves without crashing", () => {
     const remote = {
       scores: { ghost: { nobody: { h1: 4 } }, r1m1: { hunter: { h3: null } } },
@@ -75,6 +120,8 @@ describe("kvToRemote", () => {
       [`${V}|rounds|r1`, { status: "active", courseId: "bigfish", teeName: "Member" }],
       [`${V}|players|jeff`, { handicap: 9.2 }],
       [`${V}|holes|hayward|h6`, { strokeIndex: 2 }],
+      [`${V}|teams|t1`, { name: "Walleye Crushers" }],
+      [`${V}|matches|r1m1`, { sideA: { teamId: "t1", playerIds: ["hunter"] } }],
     ]);
     const remote = kvToRemote(kv);
     expect(remote.scores?.r1m1?.hunter?.h3).toBe(5);
@@ -82,6 +129,8 @@ describe("kvToRemote", () => {
     expect(remote.rounds?.r1?.teeName).toBe("Member");
     expect(remote.players?.jeff?.handicap).toBe(9.2);
     expect(remote.holes?.hayward?.h6?.strokeIndex).toBe(2);
+    expect(remote.teams?.t1?.name).toBe("Walleye Crushers");
+    expect(remote.matches?.r1m1?.sideA?.playerIds).toEqual(["hunter"]);
   });
 
   it("ignores rows from other seed versions and null values", () => {
