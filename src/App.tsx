@@ -24,10 +24,12 @@ function themeFor(pathname: string): string {
 export default function App() {
   const { pathname } = useLocation();
   const { syncStatus } = useStore();
-  // Scoring drops the tab bar — the ← back pill is the way out, and the
-  // reclaimed space keeps steppers clear of accidental taps.
+  // Scoring and the activity page drop the tab bar — the ← back pill is the
+  // way out, and the reclaimed space keeps steppers clear of accidental taps.
   const showTabs =
-    !pathname.startsWith("/match") && !pathname.startsWith("/start");
+    !pathname.startsWith("/match") &&
+    !pathname.startsWith("/start") &&
+    !pathname.startsWith("/ticker");
   const onTicker = pathname.startsWith("/ticker");
 
   return (
