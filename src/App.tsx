@@ -5,6 +5,7 @@ import RoundsPage from "./pages/RoundsPage";
 import MatchPage from "./pages/MatchPage";
 import StartRoundPage from "./pages/StartRoundPage";
 import MatchupsPage from "./pages/MatchupsPage";
+import DraftPage from "./pages/DraftPage";
 import SettingsHubPage from "./pages/SettingsHubPage";
 import SettingsTeamsPage from "./pages/SettingsTeamsPage";
 import SettingsPlayersPage from "./pages/SettingsPlayersPage";
@@ -41,6 +42,7 @@ export default function App() {
     !pathname.startsWith("/match") &&
     !pathname.startsWith("/start") &&
     !pathname.startsWith("/matchups") &&
+    !pathname.startsWith("/draft") &&
     !pathname.startsWith("/ticker");
   const onTicker = pathname.startsWith("/ticker");
 
@@ -88,6 +90,7 @@ export default function App() {
           <Route path="/rounds" element={<RoundsPage />} />
           <Route path="/start/:roundId" element={<StartRoundPage />} />
           <Route path="/matchups/:roundId" element={<MatchupsPage />} />
+          <Route path="/draft" element={<DraftPage />} />
           <Route path="/match/:matchId" element={<MatchPage />} />
           <Route path="/settings" element={<SettingsHubPage />} />
           <Route path="/settings/teams" element={<SettingsTeamsPage />} />

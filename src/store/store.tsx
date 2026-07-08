@@ -9,6 +9,7 @@ import {
 } from "react";
 import type {
   ActivityEvent,
+  DraftState,
   Hole,
   MatchSideGames,
   Player,
@@ -16,6 +17,7 @@ import type {
 } from "../types";
 import { contextForRound, teamScoreKey, type ScoringContext } from "../scoring/engine";
 import { reconcileRoster } from "./roster";
+import { currentPickTeam, PICKS_TOTAL, type DraftTeam } from "./draft";
 import { seedState, STATE_VERSION } from "../data/seed";
 import {
   applyRemote,
@@ -82,6 +84,12 @@ interface StoreValue {
   /** Set the players in one match's two sides (the matchup builder). Only the
    *  playerIds change; each side keeps its team. Pending rounds only. */
   setMatchup: (matchId: string, sideAIds: string[], sideBIds: string[]) => void;
+  /** Draft: pick captains + first pick, then snake-draft the rest. Pre-round
+   *  only. Starting a draft re-pools every non-captain and clears matchups. */
+  startDraft: (captainAId: string, captainBId: string, firstPick: DraftTeam) => void;
+  draftPick: (playerId: string) => void;
+  undoLastPick: () => void;
+  resetDraft: () => void;
   updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
   addMulligan: (matchId: string, playerId: string, hole?: number) => void;
   removeMulligan: (matchId: string, playerId: string) => void;
@@ -399,6 +407,135 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state],
   );
 
+  // --- Draft ----------------------------------------------------------------
+
+  /** Empty scores for a match whose sides were just cleared. */
+  const emptyScoresForCleared = (match: (typeof state.matches)[number]) =>
+    match.format === "scramble"
+      ? {
+          [teamScoreKey(match.sideA.teamId)]: {},
+          [teamScoreKey(match.sideB.teamId)]: {},
+        }
+      : {};
+
+  const startDraft = useCallback(
+    (captainAId: string, captainBId: string, firstPick: DraftTeam) => {
+      if (!rostersEditable) return;
+      if (!captainAId || !captainBId || captainAId === captainBId) return;
+      const draft: DraftState = {
+        status: "active",
+        captainA: captainAId,
+        captainB: captainBId,
+        firstPick,
+        picks: [],
+      };
+      // Captains go to their team; everyone else back to the pool.
+      const teamFor = (id: string) =>
+        id === captainAId ? "tA" : id === captainBId ? "tB" : "";
+      if (syncEnabled) {
+        remoteWrite.draft(draft);
+        for (const p of state.players) {
+          const t = teamFor(p.id);
+          if (p.teamId !== t) remoteWrite.player(p.id, { teamId: t });
+        }
+        for (const m of state.matches) {
+          remoteWrite.match(m.id, {
+            sideA: { ...m.sideA, playerIds: [] },
+            sideB: { ...m.sideB, playerIds: [] },
+          });
+        }
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        draft,
+        players: prev.players.map((p) => ({ ...p, teamId: teamFor(p.id) })),
+        matches: prev.matches.map((m) => ({
+          ...m,
+          sideA: { ...m.sideA, playerIds: [] },
+          sideB: { ...m.sideB, playerIds: [] },
+          scores: emptyScoresForCleared(m),
+        })),
+      }));
+    },
+    [rostersEditable, state],
+  );
+
+  const draftPick = useCallback(
+    (playerId: string) => {
+      if (!rostersEditable) return;
+      const draft = state.draft;
+      if (!draft || draft.status !== "active" || !draft.firstPick) return;
+      const player = state.players.find((p) => p.id === playerId);
+      if (!player || player.teamId !== "") return; // must be a pool player
+      const team = currentPickTeam(draft.picks, draft.firstPick);
+      if (!team) return;
+      const picks = [...draft.picks, playerId];
+      const next: DraftState = {
+        ...draft,
+        picks,
+        status: picks.length >= PICKS_TOTAL ? "done" : "active",
+      };
+      if (syncEnabled) {
+        remoteWrite.draft(next);
+        remoteWrite.player(playerId, { teamId: team });
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        draft: next,
+        players: prev.players.map((p) =>
+          p.id === playerId ? { ...p, teamId: team } : p,
+        ),
+      }));
+    },
+    [rostersEditable, state],
+  );
+
+  const undoLastPick = useCallback(() => {
+    if (!rostersEditable) return;
+    const draft = state.draft;
+    if (!draft || draft.picks.length === 0) return;
+    const last = draft.picks[draft.picks.length - 1];
+    const next: DraftState = {
+      ...draft,
+      picks: draft.picks.slice(0, -1),
+      status: "active",
+    };
+    if (syncEnabled) {
+      remoteWrite.draft(next);
+      remoteWrite.player(last, { teamId: "" });
+      return;
+    }
+    setLocalState((prev) => ({
+      ...prev,
+      draft: next,
+      players: prev.players.map((p) => (p.id === last ? { ...p, teamId: "" } : p)),
+    }));
+  }, [rostersEditable, state]);
+
+  const resetDraft = useCallback(() => {
+    if (!rostersEditable) return;
+    const draft = state.draft;
+    if (!draft) return;
+    const next: DraftState = { ...draft, status: "setup", picks: [] };
+    const teamFor = (id: string) =>
+      id === draft.captainA ? "tA" : id === draft.captainB ? "tB" : "";
+    if (syncEnabled) {
+      remoteWrite.draft(next);
+      for (const p of state.players) {
+        const t = teamFor(p.id);
+        if (p.teamId !== t) remoteWrite.player(p.id, { teamId: t });
+      }
+      return;
+    }
+    setLocalState((prev) => ({
+      ...prev,
+      draft: next,
+      players: prev.players.map((p) => ({ ...p, teamId: teamFor(p.id) })),
+    }));
+  }, [rostersEditable, state]);
+
   const updateSideGames = useCallback(
     (matchId: string, patch: Partial<MatchSideGames>) => {
       if (syncEnabled) {
@@ -475,6 +612,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removePlayer,
       setTeamRoster,
       setMatchup,
+      startDraft,
+      draftPick,
+      undoLastPick,
+      resetDraft,
       updateSideGames,
       addMulligan,
       removeMulligan,
@@ -495,6 +636,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removePlayer,
       setTeamRoster,
       setMatchup,
+      startDraft,
+      draftPick,
+      undoLastPick,
+      resetDraft,
       updateSideGames,
       addMulligan,
       removeMulligan,
