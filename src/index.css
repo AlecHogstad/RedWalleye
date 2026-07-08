@@ -536,28 +536,100 @@ a.badge {
 }
 
 /* Scorecard ------------------------------------------------------------------ */
-.holebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 16px;
-  position: sticky;
-  top: 72px;
-  background: var(--cream);
-  z-index: 10;
+
+/* Green hero at the top of a scorecard: format, rules, course, hole grid,
+   live score. Flows out of the (green) topbar. */
+.score-hero {
+  background: var(--green);
+  color: var(--hero-ink);
+  padding: 16px 16px 20px;
 }
-.holebar .hole-num {
+.score-hero .badge {
+  color: var(--hero-ink);
+}
+.hero-title {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1.15;
   letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 12px 0;
+  color: var(--hero-ink);
 }
-.holebar .meta {
+.rules-hero {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 0 14px;
+  color: var(--hero-ink);
+  opacity: 0.9;
+  font-style: normal;
+}
+.hero-course {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--hero-ink);
+  opacity: 0.82;
+  margin: 0 0 12px;
 }
+.holegrid-card {
+  margin: 0;
+}
+.hero-score {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.02em;
+  color: var(--orange);
+  margin-top: 16px;
+}
+.hero-score .score-sub {
+  display: block;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--hero-ink);
+  opacity: 0.82;
+  margin-top: 3px;
+}
+
+/* Current-hole heading in the cream body */
+.hole-head {
+  padding: 16px 18px 2px;
+}
+.hole-head .hole-num {
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.hole-head .hole-meta {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--muted);
+  margin: 5px 0 0;
+}
+
+/* Prev / Next hole nav at the bottom of the card */
+.hole-nav {
+  display: flex;
+  align-items: center;
+  padding: 16px 16px 0;
+}
+.hole-nav .navbtn {
+  min-width: 104px;
+  padding: 12px 20px;
+}
+.hole-nav .navbtn.next {
+  border-color: var(--accent);
+}
+
 .navbtn {
   border: 1.5px solid var(--line);
   background: var(--cream-card);

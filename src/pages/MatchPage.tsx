@@ -134,14 +134,6 @@ export default function MatchPage() {
     setScore(match.id, key, hole, Math.min(15, Math.max(1, current + delta)));
   };
 
-  const leadClass = matchState
-    ? matchState.leader === "A"
-      ? "leadA"
-      : matchState.leader === "B"
-        ? "leadB"
-        : ""
-    : "";
-
   const renderRow = (e: ScoreEntity) => {
     const val = match.scores[e.key]?.[hole];
     const s = strokesFor(e.key);
@@ -172,73 +164,107 @@ export default function MatchPage() {
     );
   };
 
+  const holeGrid = (
+    <div className="holegrid">
+      {ctx.course.holes.map((h) => {
+        let win: string | undefined;
+        if (teamState) {
+          const res = teamState.perHole.find((p) => p.hole === h.number);
+          if (res?.net != null) {
+            win =
+              res.net < res.par
+                ? "var(--green-bright)"
+                : res.net > res.par
+                  ? "var(--orange)"
+                  : "var(--muted)";
+          }
+        } else if (matchState) {
+          const res = matchState.perHole.find((p) => p.hole === h.number);
+          win =
+            res?.winner === "A"
+              ? teamMap[match.sideA.teamId]?.color
+              : res?.winner === "B"
+                ? teamMap[match.sideB.teamId]?.color
+                : res?.winner === "halve"
+                  ? "var(--muted)"
+                  : undefined;
+        }
+        const scored = win !== undefined;
+        return (
+          <button
+            key={h.number}
+            className={h.number === hole ? "active" : ""}
+            aria-label={`Hole ${h.number}${scored ? ", scored" : ""}`}
+            aria-current={h.number === hole ? "true" : undefined}
+            onClick={() => setHole(h.number)}
+          >
+            {h.number}
+            {win && (
+              <span className="win" style={{ color: win }}>
+                ●
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const heroScore =
+    teamState && teamState.thru > 0 ? (
+      <div className="hero-score">
+        {teamState.complete && <CheckFlag size={15} />} {teamA?.name}{" "}
+        {teamState.toParText}
+        <span className="score-sub">
+          {teamState.complete
+            ? `net ${teamState.netTotal} · final`
+            : `net ${teamState.netTotal} thru ${teamState.thru}`}
+        </span>
+      </div>
+    ) : matchState && matchState.thru > 0 ? (
+      <div className="hero-score">
+        {matchState.complete && <CheckFlag size={15} />}{" "}
+        {matchState.complete
+          ? `${leaderName(matchState.leader, match, teamMap)} win ${matchState.resultText}`
+          : matchState.leader === null
+            ? matchState.resultText
+            : `${leaderName(matchState.leader, match, teamMap)} ${matchState.resultText}`}
+        {!matchState.complete && (
+          <span className="score-sub">{matchState.holesRemaining} to play</span>
+        )}
+      </div>
+    ) : null;
+
+  const lastHole = ctx.course.holes.length;
+
   return (
     <>
-      <div className="section" style={{ paddingBottom: 0 }}>
+      {/* Green hero: format, rules, course, hole grid, live score */}
+      <section className="score-hero">
         <Link className="badge" to="/rounds">
           ← Rounds
         </Link>
-        <h2 style={{ marginTop: 10 }}>
-          {strokePlay ? `${teamA?.name} — team card` : FORMAT_LABELS[match.format]}
+        <h2 className="hero-title">
+          {strokePlay ? `${teamA?.name} — Team Card` : FORMAT_LABELS[match.format]}
         </h2>
-        <p className="round-where">
+        <div className="rules rules-hero">{FORMAT_RULES[match.format]}</div>
+        <p className="hero-course">
           {ctx.course.name}
-          {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
-          {readOnly ? " · round is final (view only)" : ""}
+          {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
+          {readOnly ? " · final (view only)" : ""}
         </p>
+        <div className="card holegrid-card">{holeGrid}</div>
+        {heroScore}
+      </section>
 
-        {/* Live score, part of the heading — only once there's a score */}
-        {teamState && teamState.thru > 0 && (
-          <div className="score-line">
-            {teamState.complete && <CheckFlag size={15} />}{" "}
-            {teamA?.name} {teamState.toParText}
-            <span className="score-sub">
-              {teamState.complete
-                ? `net ${teamState.netTotal} · final`
-                : `net ${teamState.netTotal} thru ${teamState.thru}`}
-            </span>
-          </div>
-        )}
-        {matchState && matchState.thru > 0 && (
-          <div className={`score-line ${leadClass}`}>
-            {matchState.complete && <CheckFlag size={15} />}{" "}
-            {matchState.complete
-              ? `${leaderName(matchState.leader, match, teamMap)} win ${matchState.resultText}`
-              : matchState.leader === null
-                ? matchState.resultText
-                : `${leaderName(matchState.leader, match, teamMap)} ${matchState.resultText}`}
-            {!matchState.complete && (
-              <span className="score-sub">{matchState.holesRemaining} to play</span>
-            )}
-          </div>
-        )}
-
-        <div className="rules">{FORMAT_RULES[match.format]}</div>
-      </div>
-
-      {/* Hole navigator */}
-      <div className="holebar">
-        <button
-          className="navbtn"
-          disabled={hole <= 1}
-          onClick={() => setHole((h) => Math.max(1, h - 1))}
-        >
-          ‹
-        </button>
-        <div className="center">
-          <div className="hole-num">Hole {hole}</div>
-          <div className="meta">
-            Par {holeInfo.par} · HDCP {holeInfo.strokeIndex}
-            {holeInfo.yards ? ` · ${holeInfo.yards} yds` : ""}
-          </div>
-        </div>
-        <button
-          className="navbtn"
-          disabled={hole >= ctx.course.holes.length}
-          onClick={() => setHole((h) => Math.min(ctx.course.holes.length, h + 1))}
-        >
-          ›
-        </button>
+      {/* Cream body: current hole, score rows, prev/next */}
+      <div className="hole-head">
+        <h2 className="hole-num">Hole {String(hole).padStart(2, "0")}</h2>
+        <p className="hole-meta">
+          Par {holeInfo.par}
+          {holeInfo.yards ? ` - ${holeInfo.yards} yards` : ""} - HDCP{" "}
+          {holeInfo.strokeIndex}
+        </p>
       </div>
 
       <div className="card" style={{ margin: "0 16px" }}>
@@ -251,71 +277,39 @@ export default function MatchPage() {
         )}
       </div>
 
-      {/* Hole jump grid */}
-      <div className="section">
-        <h2>Holes</h2>
-        <div className="card" style={{ paddingBottom: 12 }}>
-          <div className="holegrid">
-            {ctx.course.holes.map((h) => {
-              let win: string | undefined;
-              if (teamState) {
-                const res = teamState.perHole.find((p) => p.hole === h.number);
-                if (res?.net != null) {
-                  win =
-                    res.net < res.par
-                      ? "var(--green-bright)"
-                      : res.net > res.par
-                        ? "var(--orange)"
-                        : "var(--muted)";
-                }
-              } else if (matchState) {
-                const res = matchState.perHole.find((p) => p.hole === h.number);
-                win =
-                  res?.winner === "A"
-                    ? teamMap[match.sideA.teamId]?.color
-                    : res?.winner === "B"
-                      ? teamMap[match.sideB.teamId]?.color
-                      : res?.winner === "halve"
-                        ? "var(--muted)"
-                        : undefined;
-              }
-              const scored = win !== undefined;
-              return (
-                <button
-                  key={h.number}
-                  className={h.number === hole ? "active" : ""}
-                  aria-label={`Hole ${h.number}${scored ? ", scored" : ""}`}
-                  aria-current={h.number === hole ? "true" : undefined}
-                  onClick={() => setHole(h.number)}
-                >
-                  {h.number}
-                  {win && (
-                    <span className="win" style={{ color: win }}>
-                      ●
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <p className="hint">
-          {strokePlay ? (
-            <>
-              Tap <b>+</b> to start a hole at par, then adjust. Your team's best
-              net ball counts on every hole; strokes (red dots) are given off the
-              field's low handicap so team totals compare fairly. Dots on the
-              hole grid: green = net under par, grey = par, orange = over.
-            </>
-          ) : (
-            <>
-              Tap <b>+</b> to start a hole at par, then adjust. Red dots mean that
-              player (or the higher team, in a scramble) gets a handicap stroke
-              here — it's already baked into the net score and the match result.
-            </>
-          )}
-        </p>
+      <div className="hole-nav">
+        <button
+          className="navbtn"
+          disabled={hole <= 1}
+          onClick={() => setHole((h) => Math.max(1, h - 1))}
+        >
+          Prev
+        </button>
+        <span className="spacer" />
+        <button
+          className="navbtn next"
+          disabled={hole >= lastHole}
+          onClick={() => setHole((h) => Math.min(lastHole, h + 1))}
+        >
+          Next
+        </button>
       </div>
+
+      <p className="hint">
+        {strokePlay ? (
+          <>
+            Tap <b>+</b> to start a hole at par, then adjust. Your team's best net
+            ball counts on every hole; strokes (red dots) are given off the
+            field's low handicap so team totals compare fairly.
+          </>
+        ) : (
+          <>
+            Tap <b>+</b> to start a hole at par, then adjust. Red dots mean that
+            player (or the higher team, in a scramble) gets a handicap stroke here
+            — it's already baked into the net score and the match result.
+          </>
+        )}
+      </p>
     </>
   );
 }
