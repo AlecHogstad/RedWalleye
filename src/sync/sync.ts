@@ -317,7 +317,12 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
     .select("id,value")
     .like("id", `${V}|%`)
     .then(({ data, error }) => {
-      if (error || !data) return;
+      if (error) {
+        console.error("[rw-sync] initial fetch FAILED:", error.message ?? error, error);
+        return;
+      }
+      if (!data) return;
+      console.info(`[rw-sync] initial fetch: ${data.length} row(s)`);
       kv.clear();
       for (const row of data) kv.set(row.id as string, row.value);
       for (const op of loadPending()) {
@@ -335,6 +340,10 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
       (payload) => {
         const newRow = payload.new as { id?: string; value?: unknown };
         const oldRow = payload.old as { id?: string };
+        console.info(
+          `[rw-sync] live ${payload.eventType} "${newRow?.id ?? oldRow?.id}"`,
+          newRow?.value ?? null,
+        );
         if (payload.eventType === "DELETE") {
           if (oldRow?.id) kv.delete(oldRow.id);
         } else if (newRow?.id) {
@@ -343,7 +352,8 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
         emit();
       },
     )
-    .subscribe((status) => {
+    .subscribe((status, err) => {
+      console.info(`[rw-sync] channel status: ${status}`, err ?? "");
       const connected = status === "SUBSCRIBED";
       notifyConnected?.(connected);
       if (connected) void flush();
