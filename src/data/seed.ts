@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 13;
+export const STATE_VERSION = 14;
 
 // Two captain-drafted teams of 8, playing head-to-head every round.
 export const teams: Team[] = [
@@ -166,15 +166,15 @@ function fourball(
   };
 }
 
-/** 4-man scramble match: one team ball per side (raw score). */
-function scramble(id: string, a: string[], b: string[]): Match {
+/** One scramble foursome — stroke play vs the field (side B empty). */
+function scrambleGroup(id: string, teamId: string, playerIds: string[]): Match {
   return {
     id,
     roundId: "r2",
     format: "scramble",
-    sideA: { teamId: "tA", playerIds: a },
-    sideB: { teamId: "tB", playerIds: b },
-    scores: emptyScores([`team:tA`, `team:tB`]),
+    sideA: { teamId, playerIds },
+    sideB: { teamId: teamId === "tA" ? "tB" : "tA", playerIds: [] },
+    scores: emptyScores([`team:${teamId}`]),
   };
 }
 
@@ -192,10 +192,12 @@ const round1: Match[] = [
   fourball("r1m4", "r1", ["nikk", "nick"], ["danny", "jay"]),
 ];
 
-// Round 2 — two 4-man scramble matches (Nassau, 6 pts each = 12).
+// Round 2 — four scramble foursomes (placement 6/4/2/0 = 12).
 const round2: Match[] = [
-  scramble("r2m1", A1, B1),
-  scramble("r2m2", A2, B2),
+  scrambleGroup("r2m1", "tA", A1),
+  scrambleGroup("r2m2", "tA", A2),
+  scrambleGroup("r2m3", "tB", B1),
+  scrambleGroup("r2m4", "tB", B2),
 ];
 
 // Round 3 — four 2-man best-ball matches, same format as Round 1 but different

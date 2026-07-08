@@ -4,6 +4,7 @@ import {
   allocateStrokes,
   computeMatchState,
   computePlayerTotals,
+  computeScramblePlacement,
   computeStableford,
   computeStandings,
   contextForRound,
@@ -197,29 +198,87 @@ describe("computeMatchState — Nassau (front / back / match)", () => {
   });
 });
 
-describe("computeMatchState — scramble head-to-head (raw)", () => {
-  it("wins holes on the raw team ball with no strokes", () => {
-    const teamPlayers: Player[] = [
-      { id: "a1", name: "A1", handicap: 20, teamId: "tA" },
-      { id: "b1", name: "B1", handicap: 2, teamId: "tB" },
-    ];
+describe("computeMatchState — scramble field (stroke play)", () => {
+  it("tracks gross total with no nassau points on the match", () => {
     const m: Match = {
-      id: "s1",
+      id: "r2m1",
       roundId: "r2",
       format: "scramble",
-      sideA: { teamId: "tA", playerIds: ["a1"] },
-      sideB: { teamId: "tB", playerIds: ["b1"] },
-      scores: { [teamScoreKey("tA")]: {}, [teamScoreKey("tB")]: {} },
+      sideA: { teamId: "tA", playerIds: ["a1", "a2", "a3", "a4"] },
+      sideB: { teamId: "tB", playerIds: [] },
+      scores: { [teamScoreKey("tA")]: {} },
     };
-    // Team A's ball beats Team B on the whole front nine, raw.
-    for (let h = 1; h <= 9; h++) {
+    for (let h = 1; h <= 18; h++) {
       m.scores[teamScoreKey("tA")][h] = 4;
-      m.scores[teamScoreKey("tB")][h] = 5;
     }
-    const st = computeMatchState(m, teamPlayers, ctx);
-    // Segment value is 2 for a scramble.
-    expect(st.front.winner).toBe("A");
-    expect(st.front.points).toEqual({ a: 2, b: 0 });
+    const st = computeMatchState(m, scratch, ctx);
+    expect(st.complete).toBe(true);
+    expect(st.overall.resultText).toBe("Gross 72");
+    expect(st.points).toEqual({ a: 0, b: 0 });
+  });
+});
+
+function scrambleFieldGroup(
+  id: string,
+  teamId: string,
+  gross: number,
+): Match {
+  const key = teamScoreKey(teamId);
+  const scores: Match["scores"] = { [key]: {} };
+  const base = Math.floor(gross / 18);
+  const extra = gross % 18;
+  for (let h = 1; h <= 18; h++) {
+    scores[key][h] = base + (h <= extra ? 1 : 0);
+  }
+  return {
+    id,
+    roundId: "r2",
+    format: "scramble",
+    sideA: { teamId, playerIds: ["a"] },
+    sideB: { teamId: teamId === "tA" ? "tB" : "tA", playerIds: [] },
+    scores,
+  };
+}
+
+describe("computeScramblePlacement", () => {
+  it("awards 6/4/2/0 once all four foursomes finish", () => {
+    const matches = [
+      scrambleFieldGroup("r2m1", "tA", 72),
+      scrambleFieldGroup("r2m2", "tA", 90),
+      scrambleFieldGroup("r2m3", "tB", 73),
+      scrambleFieldGroup("r2m4", "tB", 74),
+    ];
+    const placement = computeScramblePlacement(matches, ctx);
+    expect(placement.get("r2m1")).toBe(6);
+    expect(placement.get("r2m3")).toBe(4);
+    expect(placement.get("r2m4")).toBe(2);
+    expect(placement.get("r2m2")).toBe(0);
+  });
+
+  it("splits placement points when groups tie", () => {
+    const matches = [
+      scrambleFieldGroup("r2m1", "tA", 72),
+      scrambleFieldGroup("r2m2", "tA", 72),
+      scrambleFieldGroup("r2m3", "tB", 74),
+      scrambleFieldGroup("r2m4", "tB", 76),
+    ];
+    const placement = computeScramblePlacement(matches, ctx);
+    expect(placement.get("r2m1")).toBe(5); // (6+4)/2
+    expect(placement.get("r2m2")).toBe(5);
+    expect(placement.get("r2m3")).toBe(2);
+    expect(placement.get("r2m4")).toBe(0);
+  });
+
+  it("returns zeros until every group has 18 holes", () => {
+    const matches = [
+      scrambleFieldGroup("r2m1", "tA", 72),
+      scrambleFieldGroup("r2m2", "tA", 90),
+      scrambleFieldGroup("r2m3", "tB", 73),
+      scrambleFieldGroup("r2m4", "tB", 74),
+    ];
+    matches[3].scores[teamScoreKey("tB")] = { 1: 4 };
+    const placement = computeScramblePlacement(matches, ctx);
+    expect([...placement.values()].every((p) => p === 0)).toBe(true);
   });
 });
 
@@ -255,10 +314,16 @@ describe("computeStandings — Nassau points per round", () => {
     expect(standings.find((s) => s.teamId === "tB")!.points).toBe(0);
   });
 
-  it("gives a scramble round 12 points to a clean sweep (2 matches × 6)", () => {
-    const matches = [sweep("r2m1", "r2", "scramble"), sweep("r2m2", "r2", "scramble")];
+  it("sums scramble placement points per team (max 12 per round)", () => {
+    const matches = [
+      scrambleFieldGroup("r2m1", "tA", 72),
+      scrambleFieldGroup("r2m2", "tA", 90),
+      scrambleFieldGroup("r2m3", "tB", 73),
+      scrambleFieldGroup("r2m4", "tB", 74),
+    ];
     const standings = computeStandings(matches, twoSided, { r2: ctx });
-    expect(standings.find((s) => s.teamId === "tA")!.points).toBe(12);
+    expect(standings.find((s) => s.teamId === "tA")!.points).toBe(6);
+    expect(standings.find((s) => s.teamId === "tB")!.points).toBe(6);
   });
 
   it("gives Round 3 (four 2-man matches) 12 points to a clean sweep (4 × 3)", () => {
@@ -355,20 +420,25 @@ describe("course seed data", () => {
 });
 
 describe("seed shape", () => {
-  it("is two teams of eight, head-to-head every round", () => {
+  it("is two teams of eight with four matches per round", () => {
     const s = seedState();
     expect(s.teams).toHaveLength(2);
     for (const t of s.teams) {
       expect(s.players.filter((p) => p.teamId === t.id)).toHaveLength(8);
     }
-    // Every match is A vs B (both sides populated).
-    for (const m of s.matches) {
+    const nassau = s.matches.filter((m) => m.format === "fourball");
+    for (const m of nassau) {
       expect(m.sideA.teamId).toBe("tA");
       expect(m.sideB.teamId).toBe("tB");
       expect(m.sideB.playerIds.length).toBeGreaterThan(0);
     }
-    // Match counts per round: 4 / 2 / 4.
+    const scramble = s.matches.filter((m) => m.format === "scramble");
+    expect(scramble).toHaveLength(4);
+    for (const m of scramble) {
+      expect(m.sideA.playerIds).toHaveLength(4);
+      expect(m.sideB.playerIds).toHaveLength(0);
+    }
     const byRound = (r: string) => s.matches.filter((m) => m.roundId === r).length;
-    expect([byRound("r1"), byRound("r2"), byRound("r3")]).toEqual([4, 2, 4]);
+    expect([byRound("r1"), byRound("r2"), byRound("r3")]).toEqual([4, 4, 4]);
   });
 });

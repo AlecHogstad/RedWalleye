@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FORMAT_LABELS, type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
   computeStableford,
+  isScrambleFieldMatch,
   nassauSegmentValue,
+  scrambleGroupPlacementPoints,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -47,7 +49,7 @@ function entitiesForSide(
 
 export default function MatchPage() {
   const { matchId } = useParams();
-  const { state, setScore, updateSideGames, addMulligan, removeMulligan } =
+  const { state, setScore, updateSideGames, addMulligan, removeMulligan, attachMulliganPhoto } =
     useStore();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
@@ -60,6 +62,43 @@ export default function MatchPage() {
   const [hole, setHole] = useState(() =>
     match && ctx ? firstUnscoredHole(match, ctx) : 1,
   );
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoEventId, setPhotoEventId] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [proofSheet, setProofSheet] = useState<{
+    eventId: string;
+    playerName: string;
+  } | null>(null);
+
+  const openPhotoPicker = (eventId: string) => {
+    setPhotoEventId(eventId);
+    photoInputRef.current?.click();
+  };
+
+  const onPhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const eventId = photoEventId;
+    setPhotoEventId(null);
+    if (!file || !eventId) return;
+    setPhotoBusy(true);
+    try {
+      await attachMulliganPhoto(eventId, file);
+      setProofSheet(null);
+    } catch (err) {
+      console.error("[mulligan-photo] attach failed:", err);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const logMulligan = (matchId: string, playerId: string) => {
+    const eventId = addMulligan(matchId, playerId, hole);
+    setProofSheet({
+      eventId,
+      playerName: players[playerId]?.name ?? "the cheater",
+    });
+  };
 
   // Keep the screen awake while scoring — no re-tapping between shots.
   useWakeLock();
@@ -114,10 +153,15 @@ export default function MatchPage() {
 
   // Side games — per-group opt-ins + the current snake holder.
   const isScramble = match.format === "scramble";
+  const isFieldScramble = isScrambleFieldMatch(match);
   const sideGames = state.sideGames[match.id] ?? {};
-  const groupPlayerIds = Array.from(
-    new Set([...match.sideA.playerIds, ...match.sideB.playerIds]),
-  );
+  const groupPlayerIds = isFieldScramble
+    ? match.sideA.playerIds
+    : Array.from(new Set([...match.sideA.playerIds, ...match.sideB.playerIds]));
+  const roundMatches = state.matches.filter((m) => m.roundId === match.roundId);
+  const placementPts = isFieldScramble
+    ? scrambleGroupPlacementPoints(match, roundMatches, ctx)
+    : null;
 
   const strokesFor = (key: string) => {
     const total =
@@ -188,6 +232,19 @@ export default function MatchPage() {
     if (matchState.thru === 0) {
       return { result: "—", sub: "not started", color: undefined, flag: false };
     }
+    if (isFieldScramble) {
+      return {
+        result: matchState.overall.resultText.replace(/ thru.*/, ""),
+        sub:
+          placementPts != null
+            ? `${fmtPts(placementPts)} pts · final`
+            : matchState.complete
+              ? "18 holes · final"
+              : `thru ${matchState.thru}`,
+        color: teamA?.color,
+        flag: matchState.complete,
+      };
+    }
     // Colour the result by the leading team's ACTUAL colour (A = orange,
     // B = green) so it matches the score-row dots and the leaderboard.
     const color =
@@ -214,15 +271,20 @@ export default function MatchPage() {
     <div className="holegrid">
       {ctx.course.holes.map((h) => {
         const res = matchState.perHole.find((p) => p.hole === h.number);
-        const win =
-          res?.winner === "A"
+        const win = isFieldScramble
+          ? match.scores[teamScoreKey(match.sideA.teamId)]?.[h.number] != null
+            ? teamMap[match.sideA.teamId]?.color
+            : undefined
+          : res?.winner === "A"
             ? teamMap[match.sideA.teamId]?.color
             : res?.winner === "B"
               ? teamMap[match.sideB.teamId]?.color
               : res?.winner === "halve"
                 ? "var(--muted)"
                 : undefined;
-        const scored = win !== undefined;
+        const scored = isFieldScramble
+          ? match.scores[teamScoreKey(match.sideA.teamId)]?.[h.number] != null
+          : win !== undefined;
         return (
           <button
             key={h.number}
@@ -267,7 +329,9 @@ export default function MatchPage() {
           ← Rounds
         </Link>
         <h2 className="hero-title">
-          {teamA?.name} vs {teamB?.name} — {FORMAT_LABELS[match.format]}
+          {isFieldScramble
+            ? `${teamA?.name} foursome — ${FORMAT_LABELS[match.format]}`
+            : `${teamA?.name} vs ${teamB?.name} — ${FORMAT_LABELS[match.format]}`}
         </h2>
         <p className="hero-course">
           {ctx.course.name}
@@ -321,7 +385,8 @@ export default function MatchPage() {
         </button>
       </div>
 
-      {/* Nassau — front 9, back 9, and the match are three separate bets */}
+      {/* Nassau bets — four-ball only */}
+      {!isFieldScramble && (
       <div className="section" style={{ paddingTop: 12 }}>
         <div className="card" style={{ padding: "12px 16px" }}>
           <div
@@ -363,8 +428,25 @@ export default function MatchPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Hole selection */}
+      {isFieldScramble && placementPts != null && (
+        <div className="section" style={{ paddingTop: 12 }}>
+          <div className="card" style={{ padding: "12px 16px", textAlign: "center" }}>
+            <div className="hint" style={{ margin: 0 }}>
+              Round placement
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 22, fontFamily: "var(--font-display)" }}>
+              {fmtPts(placementPts)} pts
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              1st = 6 · 2nd = 4 · 3rd = 2 · 4th = 0
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hole selection — duplicate block removed below; keep one */}
       <div className="section" style={{ paddingTop: 12 }}>
         <div className="card" style={{ paddingBottom: 12 }}>
           {holeGrid}
@@ -435,7 +517,7 @@ export default function MatchPage() {
                       <div className="stepper">
                         <button
                           onClick={() => removeMulligan(match.id, id)}
-                          disabled={count === 0}
+                          disabled={count === 0 || readOnly}
                           aria-label={`Remove a mulligan from ${p?.name ?? "player"}`}
                         >
                           −
@@ -444,7 +526,8 @@ export default function MatchPage() {
                           {count}
                         </span>
                         <button
-                          onClick={() => addMulligan(match.id, id, hole)}
+                          onClick={() => logMulligan(match.id, id)}
+                          disabled={readOnly}
                           aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
                         >
                           +
@@ -454,6 +537,14 @@ export default function MatchPage() {
                   );
                 })}
               </div>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={onPhotoPicked}
+              />
             </>
           )}
 
@@ -506,6 +597,45 @@ export default function MatchPage() {
             : "Side games are just for your group — they never affect the tournament standings."}
         </p>
       </div>
+
+      {proofSheet && (
+        <>
+          <button
+            type="button"
+            className="sheet-backdrop"
+            aria-label="Dismiss"
+            onClick={() => setProofSheet(null)}
+          />
+          <div
+            className="bottom-sheet"
+            role="dialog"
+            aria-labelledby="proof-sheet-title"
+          >
+            <h3 id="proof-sheet-title" className="bottom-sheet-title">
+              We need proof
+            </h3>
+            <p className="bottom-sheet-copy">
+              Take a photo of {proofSheet.playerName}.
+            </p>
+            <button
+              type="button"
+              className="btn start"
+              disabled={photoBusy}
+              onClick={() => openPhotoPicker(proofSheet.eventId)}
+            >
+              {photoBusy ? "Uploading…" : "Take photo"}
+            </button>
+            <button
+              type="button"
+              className="btn ghost bottom-sheet-skip"
+              disabled={photoBusy}
+              onClick={() => setProofSheet(null)}
+            >
+              Not now
+            </button>
+          </div>
+        </>
+      )}
     </>
   );
 }

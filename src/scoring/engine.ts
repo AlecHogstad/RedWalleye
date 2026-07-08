@@ -17,7 +17,7 @@
 // How many points each Nassau segment is worth depends on the format, so that
 // every round totals 12 points (see NASSAU_SEGMENT_VALUE):
 //    Round 1  four-ball  4 matches × (1+1+1) = 12
-//    Round 2  scramble   2 matches × (2+2+2) = 12
+//    Round 2  scramble   4 groups, placement 6/4/2/0 = 12
 //    Round 3  four-ball  4 matches × (1+1+1) = 12   (2-man, new pairings)
 // ---------------------------------------------------------------------------
 
@@ -60,11 +60,19 @@ export function teamScoreKey(teamId: string): string {
 }
 
 /** Points each Nassau segment (front / back / match) is worth, per format, so
- *  that every round adds up to 12 with its match count. */
+ *  that every four-ball round adds up to 12 with its match count. */
 const NASSAU_SEGMENT_VALUE: Record<Format, number> = {
   fourball: 1, // Rounds 1 & 3: 4 matches × 3 = 12
-  scramble: 2, // Round 2: 2 matches × 6 = 12
+  scramble: 2, // legacy head-to-head scramble only; field scramble uses placement
 };
+
+/** Placement points for the four scramble groups (1st–4th by gross). */
+export const SCRAMBLE_PLACE_POINTS = [6, 4, 2, 0] as const;
+
+/** Scramble foursome playing the field (one group per match, no opponent side). */
+export function isScrambleFieldMatch(match: Match): boolean {
+  return match.format === "scramble" && match.sideB.playerIds.length === 0;
+}
 
 export function nassauSegmentValue(format: Format): number {
   return NASSAU_SEGMENT_VALUE[format];
@@ -252,6 +260,103 @@ function segmentResult(holes: HoleResult[], segValue: number): SegmentResult {
   return { thru, total, margin, leader, decided, complete, winner, resultText, points };
 }
 
+export interface ScrambleGroupTotal {
+  matchId: string;
+  teamId: string;
+  gross: number;
+  thru: number;
+  complete: boolean;
+}
+
+/** Gross stroke total for one scramble foursome. */
+export function computeScrambleGroupTotal(
+  match: Match,
+  ctx: ScoringContext,
+): ScrambleGroupTotal {
+  const key = teamScoreKey(match.sideA.teamId);
+  const byHole = match.scores[key] ?? {};
+  let gross = 0;
+  let thru = 0;
+  for (const h of ctx.course.holes) {
+    const s = byHole[h.number];
+    if (s != null) {
+      gross += s;
+      thru += 1;
+    }
+  }
+  return {
+    matchId: match.id,
+    teamId: match.sideA.teamId,
+    gross,
+    thru,
+    complete: thru === ctx.course.holes.length,
+  };
+}
+
+/**
+ * Rank the four scramble groups once every foursome has 18 holes. Ties split
+ * the points for the places they occupy (e.g. two tied for 2nd share 4+2).
+ */
+export function computeScramblePlacement(
+  roundMatches: Match[],
+  ctx: ScoringContext,
+): Map<string, number> {
+  const groups = roundMatches
+    .filter(isScrambleFieldMatch)
+    .map((m) => computeScrambleGroupTotal(m, ctx));
+  const out = new Map<string, number>();
+  for (const g of groups) out.set(g.matchId, 0);
+  if (groups.length === 0) return out;
+  if (!groups.every((g) => g.complete)) return out;
+
+  const sorted = [...groups].sort((a, b) => a.gross - b.gross);
+  let rank = 0;
+  let i = 0;
+  while (i < sorted.length) {
+    const gross = sorted[i].gross;
+    let j = i + 1;
+    while (j < sorted.length && sorted[j].gross === gross) j += 1;
+    const tied = j - i;
+    let pot = 0;
+    for (let k = 0; k < tied; k++) pot += SCRAMBLE_PLACE_POINTS[rank + k] ?? 0;
+    const each = tied > 0 ? pot / tied : 0;
+    for (let k = i; k < j; k++) out.set(sorted[k].matchId, each);
+    rank += tied;
+    i = j;
+  }
+  return out;
+}
+
+/** Placement points for one scramble group, or null until all four finish. */
+export function scrambleGroupPlacementPoints(
+  match: Match,
+  roundMatches: Match[],
+  ctx: ScoringContext,
+): number | null {
+  if (!isScrambleFieldMatch(match)) return null;
+  const placement = computeScramblePlacement(roundMatches, ctx);
+  if (!roundMatches.filter(isScrambleFieldMatch).every(
+    (m) => computeScrambleGroupTotal(m, ctx).complete,
+  )) {
+    return null;
+  }
+  return placement.get(match.id) ?? 0;
+}
+
+function emptySegment(thru: number, total: number, text: string): SegmentResult {
+  return {
+    thru,
+    total,
+    margin: 0,
+    leader: null,
+    decided: false,
+    complete: thru === total && thru > 0,
+    winner: null,
+    resultText: text,
+    points: { a: 0, b: 0 },
+  };
+}
+
 /**
  * Compute the full head-to-head Nassau state for a match: per-hole winners
  * plus the three bets (front, back, overall) and the total points.
@@ -261,6 +366,31 @@ export function computeMatchState(
   players: Player[],
   ctx: ScoringContext,
 ): MatchState {
+  if (isScrambleFieldMatch(match)) {
+    const g = computeScrambleGroupTotal(match, ctx);
+    const text =
+      g.thru === 0
+        ? "Not started"
+        : g.complete
+          ? `Gross ${g.gross}`
+          : `${g.gross} thru ${g.thru}`;
+    const seg = emptySegment(g.thru, ctx.course.holes.length, text);
+    return {
+      perHole: [],
+      thru: g.thru,
+      front: seg,
+      back: seg,
+      overall: seg,
+      leader: null,
+      margin: 0,
+      holesRemaining: ctx.course.holes.length - g.thru,
+      decided: false,
+      complete: g.complete,
+      resultText: text,
+      points: { a: 0, b: 0 },
+    };
+  }
+
   const alloc = allocateStrokes(match, players, ctx);
   const segValue = nassauSegmentValue(match.format);
 
@@ -431,7 +561,12 @@ export function computeStandings(
     return table.get(teamId)!;
   };
 
+  const scrambleRoundIds = new Set(
+    matches.filter(isScrambleFieldMatch).map((m) => m.roundId),
+  );
+
   for (const match of matches) {
+    if (isScrambleFieldMatch(match)) continue;
     const ctx = ctxByRound[match.roundId];
     if (!ctx) continue;
 
@@ -448,6 +583,24 @@ export function computeStandings(
     }
     a.points += state.points.a;
     b.points += state.points.b;
+  }
+
+  for (const roundId of scrambleRoundIds) {
+    const ctx = ctxByRound[roundId];
+    if (!ctx) continue;
+    const roundMatches = matches.filter((m) => m.roundId === roundId);
+    const placement = computeScramblePlacement(roundMatches, ctx);
+    const allDone = roundMatches
+      .filter(isScrambleFieldMatch)
+      .every((m) => computeScrambleGroupTotal(m, ctx).complete);
+
+    for (const m of roundMatches.filter(isScrambleFieldMatch)) {
+      const g = computeScrambleGroupTotal(m, ctx);
+      const team = ensure(m.sideA.teamId);
+      if (g.thru > 0) team.matchesPlayed += 1;
+      if (g.complete) team.matchesComplete += 1;
+      if (allDone) team.points += placement.get(m.id) ?? 0;
+    }
   }
 
   return [...table.values()].sort((x, y) => y.points - x.points);
