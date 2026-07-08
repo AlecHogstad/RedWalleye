@@ -29,7 +29,7 @@
 // ---------------------------------------------------------------------------
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { RoundStatus, TournamentState } from "../types";
+import type { RoundStatus, Side, TournamentState } from "../types";
 import { STATE_VERSION } from "../data/seed";
 import { supabaseConfig } from "./supabaseConfig";
 
@@ -60,11 +60,23 @@ export interface RemoteRound {
   teeName?: string;
 }
 
+/** A player delta: field edits, a team (re)assignment (empty string = pool),
+ *  a full add (name + handicap present for an id not in the seed), or a
+ *  tombstone (`deleted`) that keeps a seed player gone after a reset merge. */
+export interface RemotePlayer {
+  name?: string;
+  handicap?: number;
+  teamId?: string;
+  deleted?: boolean;
+}
+
 export interface RemoteData {
   scores?: Record<string, Record<string, Record<string, number>>>;
   rounds?: Record<string, RemoteRound>;
-  players?: Record<string, { name?: string; handicap?: number }>;
+  players?: Record<string, RemotePlayer>;
   holes?: Record<string, Record<string, { par?: number; strokeIndex?: number }>>;
+  teams?: Record<string, { name?: string }>;
+  matches?: Record<string, { sideA?: Side; sideB?: Side }>;
 }
 
 const holeKey = (n: number) => `h${n}`;
@@ -97,11 +109,41 @@ export function applyRemote(base: TournamentState, remote: RemoteData | null): T
     if (patch.teeName) round.teeName = patch.teeName;
   }
 
+  for (const [teamId, patch] of Object.entries(remote.teams ?? {})) {
+    const team = state.teams.find((t) => t.id === teamId);
+    if (!team || !patch) continue;
+    if (patch.name != null) team.name = patch.name;
+  }
+
   for (const [playerId, patch] of Object.entries(remote.players ?? {})) {
-    const player = state.players.find((p) => p.id === playerId);
-    if (!player || !patch) continue;
-    if (patch.name != null) player.name = patch.name;
-    if (patch.handicap != null) player.handicap = patch.handicap;
+    if (!patch) continue;
+    const existing = state.players.find((p) => p.id === playerId);
+    if (patch.deleted) {
+      if (existing) {
+        state.players = state.players.filter((p) => p.id !== playerId);
+      }
+      continue;
+    }
+    if (existing) {
+      if (patch.name != null) existing.name = patch.name;
+      if (patch.handicap != null) existing.handicap = patch.handicap;
+      if (patch.teamId != null) existing.teamId = patch.teamId;
+    } else if (patch.name != null && patch.handicap != null) {
+      // A player added on another phone that isn't in the seed.
+      state.players.push({
+        id: playerId,
+        name: patch.name,
+        handicap: patch.handicap,
+        teamId: patch.teamId ?? "",
+      });
+    }
+  }
+
+  for (const [matchId, patch] of Object.entries(remote.matches ?? {})) {
+    const match = state.matches.find((m) => m.id === matchId);
+    if (!match || !patch) continue;
+    if (patch.sideA) match.sideA = patch.sideA;
+    if (patch.sideB) match.sideB = patch.sideB;
   }
 
   for (const [courseId, byHole] of Object.entries(remote.holes ?? {})) {
@@ -138,9 +180,13 @@ export function kvToRemote(kv: Map<string, unknown>): RemoteData {
     } else if (kind === "rounds" && a) {
       (remote.rounds ??= {})[a] = value as RemoteRound;
     } else if (kind === "players" && a) {
-      (remote.players ??= {})[a] = value as { name?: string; handicap?: number };
+      (remote.players ??= {})[a] = value as RemotePlayer;
     } else if (kind === "holes" && a && b) {
       ((remote.holes ??= {})[a] ??= {})[b] = value as { par?: number; strokeIndex?: number };
+    } else if (kind === "teams" && a) {
+      (remote.teams ??= {})[a] = value as { name?: string };
+    } else if (kind === "matches" && a) {
+      (remote.matches ??= {})[a] = value as { sideA?: Side; sideB?: Side };
     }
   }
   return remote;
@@ -303,8 +349,37 @@ export const remoteWrite = {
     write(id, { ...current, ...patch });
   },
 
-  player(playerId: string, patch: { name?: string; handicap?: number }): void {
+  player(playerId: string, patch: RemotePlayer): void {
     const id = `${V}|players|${playerId}`;
+    const current = (kv.get(id) as object | undefined) ?? {};
+    write(id, { ...current, ...patch });
+  },
+
+  /** Full add for a brand-new player (not in the seed). */
+  addPlayer(player: { id: string; name: string; handicap: number; teamId: string }): void {
+    write(`${V}|players|${player.id}`, {
+      name: player.name,
+      handicap: player.handicap,
+      teamId: player.teamId,
+    });
+  },
+
+  /** Tombstone a player so a seed player stays gone across merges. */
+  removePlayer(playerId: string): void {
+    const id = `${V}|players|${playerId}`;
+    const current = (kv.get(id) as object | undefined) ?? {};
+    write(id, { ...current, deleted: true });
+  },
+
+  team(teamId: string, patch: { name?: string }): void {
+    const id = `${V}|teams|${teamId}`;
+    const current = (kv.get(id) as object | undefined) ?? {};
+    write(id, { ...current, ...patch });
+  },
+
+  /** Overwrite a match's sides after a roster change. */
+  match(matchId: string, patch: { sideA?: Side; sideB?: Side }): void {
+    const id = `${V}|matches|${matchId}`;
     const current = (kv.get(id) as object | undefined) ?? {};
     write(id, { ...current, ...patch });
   },

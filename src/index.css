@@ -906,8 +906,52 @@ a.badge {
   color: var(--ink);
 }
 .field input.wide {
-  width: 160px;
+  flex: 1;
+  width: auto;
+  min-width: 0;
   text-align: left;
+}
+
+/* Team name input sits inline in the team heading */
+.team-name-input {
+  font-weight: 700;
+}
+
+/* Roster slot dropdown + generic selects in a field row */
+.field select,
+.roster-select {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font-size: 16px;
+  background: var(--cream);
+  color: var(--ink);
+}
+.field select:disabled,
+.roster-select:disabled {
+  opacity: 0.55;
+}
+
+/* Small round icon button (e.g. remove player) */
+.icon-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--cream-card);
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.icon-btn.danger {
+  color: var(--accent);
+}
+.icon-btn:disabled {
+  opacity: 0.3;
 }
 
 .btn {

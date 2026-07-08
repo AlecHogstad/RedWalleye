@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Hole, Player, TournamentState } from "../types";
 import { contextForRound, type ScoringContext } from "../scoring/engine";
+import { reconcileRoster } from "./roster";
 import { seedState, STATE_VERSION } from "../data/seed";
 import {
   applyRemote,
@@ -65,6 +66,27 @@ interface StoreValue {
   finishRound: (roundId: string) => void;
   reopenRound: (roundId: string) => void;
   resetAll: () => void;
+  /** True while every round is still pending — the only time the roster
+   *  (team names aside) can be safely restructured. */
+  rostersEditable: boolean;
+  updateTeam: (teamId: string, patch: { name?: string }) => void;
+  addPlayer: (input: { name: string; handicap: number }) => void;
+  removePlayer: (playerId: string) => void;
+  setTeamRoster: (teamId: string, playerIds: string[]) => void;
+}
+
+/** Stable id for a newly-created player. */
+function newPlayerId(): string {
+  const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (c?.randomUUID) return `p_${c.randomUUID().slice(0, 8)}`;
+  return `p_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** Does a player have any score entered in any match? */
+function playerHasScores(state: TournamentState, playerId: string): boolean {
+  return state.matches.some((m) =>
+    Object.values(m.scores[playerId] ?? {}).some((v) => v != null),
+  );
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -257,6 +279,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLocalState(seedState());
   }, []);
 
+  const rostersEditable = state.rounds.every((r) => r.status === "pending");
+
+  const updateTeam = useCallback(
+    (teamId: string, patch: { name?: string }) => {
+      if (syncEnabled) {
+        remoteWrite.team(teamId, patch);
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)),
+      }));
+    },
+    [],
+  );
+
+  const addPlayer = useCallback((input: { name: string; handicap: number }) => {
+    const player: Player = {
+      id: newPlayerId(),
+      name: input.name,
+      handicap: input.handicap,
+      teamId: "",
+    };
+    if (syncEnabled) {
+      remoteWrite.addPlayer(player);
+      return;
+    }
+    setLocalState((prev) => ({ ...prev, players: [...prev.players, player] }));
+  }, []);
+
+  const removePlayer = useCallback(
+    (playerId: string) => {
+      // Only safe pre-round, for a player off every team, with no scores.
+      if (!rostersEditable) return;
+      const player = state.players.find((p) => p.id === playerId);
+      if (!player || player.teamId !== "") return;
+      if (playerHasScores(state, playerId)) return;
+      if (syncEnabled) {
+        remoteWrite.removePlayer(playerId);
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        players: prev.players.filter((p) => p.id !== playerId),
+      }));
+    },
+    [rostersEditable, state],
+  );
+
+  const setTeamRoster = useCallback(
+    (teamId: string, playerIds: string[]) => {
+      if (!rostersEditable) return;
+      const unique = Array.from(new Set(playerIds)).filter(Boolean);
+      if (unique.length > 4) return;
+      const { next, matchPatches, playerTeamChanges } = reconcileRoster(
+        state,
+        teamId,
+        unique,
+      );
+      if (syncEnabled) {
+        for (const patch of matchPatches) {
+          remoteWrite.match(patch.id, { sideA: patch.sideA, sideB: patch.sideB });
+        }
+        for (const change of playerTeamChanges) {
+          remoteWrite.player(change.id, { teamId: change.teamId });
+        }
+        return;
+      }
+      setLocalState(next);
+    },
+    [rostersEditable, state],
+  );
+
   const syncStatus: SyncStatus = !syncEnabled ? "local" : connected ? "online" : "offline";
 
   const value = useMemo<StoreValue>(
@@ -270,6 +365,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       finishRound,
       reopenRound,
       resetAll,
+      rostersEditable,
+      updateTeam,
+      addPlayer,
+      removePlayer,
+      setTeamRoster,
     }),
     [
       state,
@@ -281,6 +381,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       finishRound,
       reopenRound,
       resetAll,
+      rostersEditable,
+      updateTeam,
+      addPlayer,
+      removePlayer,
+      setTeamRoster,
     ],
   );
 

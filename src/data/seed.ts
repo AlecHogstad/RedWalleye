@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 6;
+export const STATE_VERSION = 7;
 
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
