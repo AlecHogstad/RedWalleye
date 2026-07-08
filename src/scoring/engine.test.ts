@@ -218,34 +218,63 @@ describe("computeMatchState — four-ball match play", () => {
   });
 });
 
-describe("computeMatchState — scramble", () => {
-  it("gives the higher team match strokes off the lower team", () => {
-    const teamPlayers: Player[] = [
-      { id: "a1", name: "A1", handicap: 20, teamId: "tA" },
-      { id: "a2", name: "A2", handicap: 20, teamId: "tA" },
-      { id: "b1", name: "B1", handicap: 2, teamId: "tB" },
-      { id: "b2", name: "B2", handicap: 2, teamId: "tB" },
-    ];
+describe("computeMatchState — four-ball stroke-play sub-result", () => {
+  it("totals the best net balls and can disagree with the match result", () => {
     const match: Match = {
-      id: "s1",
-      roundId: "r2",
-      format: "scramble",
-      sideA: { teamId: "tA", playerIds: ["a1", "a2"] },
-      sideB: { teamId: "tB", playerIds: ["b1", "b2"] },
+      id: "sp1",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "t1", playerIds: ["nick"] }, // scratch
+      sideB: { teamId: "t2", playerIds: ["jay"] }, // CH 6, strokes SI 1-6
       scores: {
-        [teamScoreKey("tA")]: { 1: 4 },
-        [teamScoreKey("tB")]: { 1: 4 },
+        nick: { 1: 4, 2: 2 },
+        jay: { 1: 4, 2: 5 },
       },
     };
-    // Team A scramble hcp: .35*20+.15*20 = 10; Team B: .35*2+.15*2 = 1.
-    // Difference 9 -> Team A gets strokes on SI 1..9. Hole 1 has SI 1.
-    const alloc = allocateStrokes(match, teamPlayers, ctx);
-    expect(alloc.byTeam[teamScoreKey("tA")]).toBe(9);
-    expect(alloc.byTeam[teamScoreKey("tB")]).toBe(0);
-    const state = computeMatchState(match, teamPlayers, ctx);
-    // A net 3 vs B net 4 -> A wins the hole.
-    expect(state.leader).toBe("A");
-    expect(state.margin).toBe(1);
+    // Hole 1 (SI 1): Nick net 4, Jay net 3 (stroke) -> B wins the hole.
+    // Hole 2 (SI 2): Nick net 2, Jay net 4 (stroke) -> A wins the hole.
+    // Match is all square, but on strokes A totals 6 vs B's 7 -> A wins.
+    const state = computeMatchState(match, players, ctx);
+    expect(state.margin).toBe(0); // holes split
+    expect(state.strokePlay).toEqual({ netA: 6, netB: 7, thru: 2, winner: "A" });
+  });
+});
+
+describe("allocateStrokes — scramble field-wide stroke play", () => {
+  const fieldPlayers: Player[] = [
+    { id: "a1", name: "A1", handicap: 20, teamId: "tA" },
+    { id: "a2", name: "A2", handicap: 20, teamId: "tA" },
+    { id: "b1", name: "B1", handicap: 2, teamId: "tB" },
+    { id: "b2", name: "B2", handicap: 2, teamId: "tB" },
+  ];
+  const entry = (teamId: string, ids: string[]): Match => ({
+    id: `s-${teamId}`,
+    roundId: "r2",
+    format: "scramble",
+    sideA: { teamId, playerIds: ids },
+    sideB: { teamId: "", playerIds: [] },
+    scores: { [teamScoreKey(teamId)]: {} },
+  });
+
+  it("gives each team strokes off the field's low scramble handicap", () => {
+    // Team A scramble hcp .35*20+.15*20 = 10; Team B .35*2+.15*2 = 1.
+    // Field low is 1 -> A gets 10-1 = 9, B gets 0.
+    const allocA = allocateStrokes(entry("tA", ["a1", "a2"]), fieldPlayers, ctx);
+    expect(allocA.byTeam[teamScoreKey("tA")]).toBe(9);
+    const allocB = allocateStrokes(entry("tB", ["b1", "b2"]), fieldPlayers, ctx);
+    expect(allocB.byTeam[teamScoreKey("tB")]).toBe(0);
+  });
+
+  it("nets the single team ball with the field-relative strokes", () => {
+    const e = entry("tA", ["a1", "a2"]);
+    // A has 9 strokes: one on SI 1..9, none on SI 10..18.
+    e.scores[teamScoreKey("tA")][1] = 5; // SI 1, par 4 -> net 4 (E)
+    e.scores[teamScoreKey("tA")][10] = 4; // SI 10, par 4 -> net 4 (E)
+    const st = computeStrokePlay(e, fieldPlayers, ctx);
+    expect(st.thru).toBe(2);
+    expect(st.netTotal).toBe(8);
+    expect(st.toPar).toBe(0);
+    expect(st.toParText).toBe("E");
   });
 });
 
@@ -368,6 +397,70 @@ describe("computeStandings — stroke-play round points", () => {
     const standings = computeStandings([e1, e2], twoTeams, { r3: ctx });
     expect(standings.every((s) => s.points === 0)).toBe(true);
     expect(standings.find((s) => s.teamId === "t2")!.matchesPlayed).toBe(1);
+  });
+});
+
+describe("computeStandings — scramble placement points", () => {
+  // Four scratch teams (2 players each, handicap 0) so team strokes are 0 and
+  // net-to-par is just the team scramble ball to par.
+  const fourTeams: Player[] = ["t1", "t2", "t3", "t4"].flatMap((teamId) => [
+    { id: `${teamId}a`, name: `${teamId}a`, handicap: 0, teamId },
+    { id: `${teamId}b`, name: `${teamId}b`, handicap: 0, teamId },
+  ]);
+  // Team entry whose scramble ball totals (72 + delta): flat par with hole 1
+  // adjusted so the round finishes `delta` off par.
+  const entry = (teamId: string, hole1: number): Match => {
+    const key = teamScoreKey(teamId);
+    const scores: Record<string, Record<number, number>> = { [key]: {} };
+    for (let h = 1; h <= 18; h++) scores[key][h] = 4;
+    scores[key][1] = hole1;
+    return {
+      id: `r2${teamId}`,
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId, playerIds: [`${teamId}a`, `${teamId}b`] },
+      sideB: { teamId: "", playerIds: [] },
+      scores,
+    };
+  };
+
+  it("awards 3 / 1 / 0 / 0 by finish once every team is in", () => {
+    const entries = [
+      entry("t1", 2), // 70, -2  -> 1st
+      entry("t2", 4), // 72,  E  -> 2nd
+      entry("t3", 6), // 74, +2  -> 3rd
+      entry("t4", 8), // 76, +4  -> 4th
+    ];
+    const standings = computeStandings(entries, fourTeams, { r2: ctx });
+    const pts = (id: string) => standings.find((s) => s.teamId === id)!.points;
+    expect(pts("t1")).toBe(3);
+    expect(pts("t2")).toBe(1);
+    expect(pts("t3")).toBe(0);
+    expect(pts("t4")).toBe(0);
+  });
+
+  it("pools and splits the placement points on a tie for first", () => {
+    const entries = [
+      entry("t1", 2), // -2, tied 1st
+      entry("t2", 2), // -2, tied 1st
+      entry("t3", 6), // +2
+      entry("t4", 8), // +4
+    ];
+    const standings = computeStandings(entries, fourTeams, { r2: ctx });
+    const pts = (id: string) => standings.find((s) => s.teamId === id)!.points;
+    // Positions 1 & 2 pool 3 + 1 = 4, split -> 2 each.
+    expect(pts("t1")).toBe(2);
+    expect(pts("t2")).toBe(2);
+    expect(pts("t3")).toBe(0);
+    expect(pts("t4")).toBe(0);
+  });
+
+  it("awards nothing while any team is still on the course", () => {
+    const entries = [entry("t1", 2), entry("t2", 4), entry("t3", 6), entry("t4", 8)];
+    // Knock t4 back to an unfinished card.
+    delete entries[3].scores[teamScoreKey("t4")][18];
+    const standings = computeStandings(entries, fourTeams, { r2: ctx });
+    expect(standings.every((s) => s.points === 0)).toBe(true);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   computeMatchState,
   computeStableford,
   computeStrokePlay,
+  isStrokePlay,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -64,7 +65,7 @@ export default function MatchPage() {
   // Keep the screen awake while scoring — no re-tapping between shots.
   useWakeLock();
 
-  const strokePlay = match?.format === "fourman";
+  const strokePlay = match ? isStrokePlay(match.format) : false;
 
   const matchState = useMemo(
     () =>
@@ -297,7 +298,9 @@ export default function MatchPage() {
           ← Rounds
         </Link>
         <h2 className="hero-title">
-          {strokePlay ? `${teamA?.name} — Team Card` : FORMAT_LABELS[match.format]}
+          {strokePlay
+            ? `${teamA?.name} — ${match.format === "scramble" ? "Scramble" : "Team Card"}`
+            : FORMAT_LABELS[match.format]}
         </h2>
         <div className="rules rules-hero">{FORMAT_RULES[match.format]}</div>
         <p className="hero-course">
@@ -351,6 +354,13 @@ export default function MatchPage() {
           Next
         </button>
       </div>
+
+      {/* Stroke-play sub-result (four-ball) — bragging rights, no points */}
+      {matchState && matchState.strokePlay.thru > 0 && (
+        <p className="hint center" style={{ paddingTop: 8, margin: 0 }}>
+          Stroke play: {strokePlayCaption(matchState.strokePlay, match, teamMap)}
+        </p>
+      )}
 
       {/* Hole selection */}
       <div className="section" style={{ paddingTop: 12 }}>
@@ -524,6 +534,22 @@ function Toggle({
       </span>
     </label>
   );
+}
+
+/** One-line stroke-play readout for a four-ball match: who's lower on total
+ *  best-net-ball strokes (or all-square), and the running net. */
+function strokePlayCaption(
+  sp: { netA: number; netB: number; thru: number; winner: "A" | "B" | "halve" | null },
+  match: Match,
+  teamMap: Record<string, { name: string }>,
+): string {
+  const nameA = teamMap[match.sideA.teamId]?.name ?? "A";
+  const nameB = teamMap[match.sideB.teamId]?.name ?? "B";
+  const tail = ` · thru ${sp.thru}`;
+  if (sp.winner === "halve") return `all square (net ${sp.netA})${tail}`;
+  const leadName = sp.winner === "A" ? nameA : nameB;
+  const low = Math.min(sp.netA, sp.netB);
+  return `${leadName} by ${Math.abs(sp.netA - sp.netB)} (net ${low})${tail}`;
 }
 
 function leaderName(

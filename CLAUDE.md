@@ -42,23 +42,32 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
 - **Stroke allocation**: strokes are given hole-by-hole using each hole's
   stroke index (HDCP 1 = hardest). `strokesOnHole(total, si)` handles totals
   over 18 (second stroke rolls onto hardest holes).
-- **Four-Ball**: every player gets match strokes equal to their course
-  handicap minus the LOWEST course handicap in the match. Best net ball per
-  side wins the hole.
+- **Four-Ball (Round 1) is MATCH PLAY**: every player gets match strokes equal
+  to their course handicap minus the LOWEST course handicap in the match. Best
+  net ball per side wins the hole. It *also* carries a stroke-play sub-result
+  (`MatchState.strokePlay`): the lower total of those same best net balls wins
+  on strokes — bragging rights only, no tournament points. A side can win the
+  match yet lose on strokes.
+- **Scramble (Round 2) is TEAM STROKE PLAY, not match play**: all four of a
+  team play one scramble ball (one Match entry per team, sideB empty, score
+  under `team:<teamId>`). Each team gets a scramble handicap — 35%/15% of
+  low/high for 2-man, 25/20/15/10 for 4-man — taken off the WHOLE FIELD's low
+  team handicap so nets compare. Once all teams finish 18, points are placement
+  based: **3 / 1 / 0 / 0** by finish (ties pool the positions' points and
+  split). See the scramble branch in `allocateStrokes`/`computeStrokePlay` and
+  `awardStrokePlayPoints`.
 - **4-Man Best Ball (Round 3) is TEAM STROKE PLAY, not match play**: every
   team tees off as its own foursome (one Match entry per team, sideB
   empty). Best net ball per hole, cumulative to par; strokes are given off
   the WHOLE FIELD's low course handicap so team totals compare. Once all
   teams finish 18, the low-net team gets 2 points (split on ties). See
   `computeStrokePlay` + the fourman branch in `computeStandings`.
-- **Scramble**: individual strokes are impossible (one team ball), so each
-  team gets a scramble handicap — 35%/15% of low/high for 2-man,
-  25/20/15/10 for 4-man — and the higher team receives the difference as
-  match strokes. Scramble scores are stored under the key `team:<teamId>`.
-- **Match play** (four-ball, scramble): running status ("2 UP thru 7"),
-  early closeout ("3&2" when margin > holes remaining), halves. 1 point per
-  win, ½ per halved match; points lock when a match completes. Standings
-  roll up in `computeStandings`. Total pot: 4 + 4 + 2 = 10 points.
+- **Match play** (four-ball only): running status ("2 UP thru 7"), early
+  closeout ("3&2" when margin > holes remaining), halves. 1 point per win,
+  ½ per halved match; points lock when a match completes. Stroke-play rounds
+  award their prize (see above) once every team finishes. Standings roll up in
+  `computeStandings`. Total pot: 4 (R1) + 4 (R2: 3+1) + 2 (R3) = 10 points.
+  `isStrokePlay(format)` distinguishes the two families throughout the code.
 
 ## Activity feed (derived, not stored)
 

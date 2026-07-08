@@ -19,6 +19,7 @@ import {
   computeStandings,
   computeStrokePlay,
   courseHandicap,
+  isStrokePlay,
   scrambleTeamHandicap,
   strokesOnHole,
   teamScoreKey,
@@ -99,7 +100,7 @@ function classify(netToPar: number): FeedKind | null {
 
 /** How many holes of a match have been played (for placing snake/mulligan). */
 function matchThru(match: Match, players: Player[], ctx: ScoringContext): number {
-  return match.format === "fourman"
+  return isStrokePlay(match.format)
     ? computeStrokePlay(match, players, ctx).thru
     : computeMatchState(match, players, ctx).thru;
 }
@@ -137,6 +138,7 @@ function holeEvents(
   if (match.format === "scramble") {
     for (const side of ["A", "B"] as const) {
       const s = side === "A" ? match.sideA : match.sideB;
+      if (s.playerIds.length === 0) continue; // field-wide: one team per entry
       const key = teamScoreKey(s.teamId);
       const hcp = scrambleTeamHandicap(sideCourseHandicaps(match, side, players, ctx));
       for (const h of holes) {
@@ -182,7 +184,7 @@ function matchProgressEvents(
   ctx: ScoringContext,
   roundIndex: number,
 ): FeedItem[] {
-  if (match.format === "fourman") return []; // stroke play, no head-to-head
+  if (isStrokePlay(match.format)) return []; // stroke play, no head-to-head
   const st = computeMatchState(match, players, ctx);
   const items: FeedItem[] = [];
 
