@@ -164,76 +164,41 @@ export default function MatchPage() {
     );
   };
 
-  const holeGrid = (
-    <div className="holegrid">
-      {ctx.course.holes.map((h) => {
-        let win: string | undefined;
-        if (teamState) {
-          const res = teamState.perHole.find((p) => p.hole === h.number);
-          if (res?.net != null) {
-            win =
-              res.net < res.par
-                ? "var(--green-bright)"
-                : res.net > res.par
-                  ? "var(--orange)"
-                  : "var(--muted)";
-          }
-        } else if (matchState) {
-          const res = matchState.perHole.find((p) => p.hole === h.number);
-          win =
-            res?.winner === "A"
-              ? teamMap[match.sideA.teamId]?.color
-              : res?.winner === "B"
-                ? teamMap[match.sideB.teamId]?.color
-                : res?.winner === "halve"
-                  ? "var(--muted)"
-                  : undefined;
-        }
-        const scored = win !== undefined;
-        return (
-          <button
-            key={h.number}
-            className={h.number === hole ? "active" : ""}
-            aria-label={`Hole ${h.number}${scored ? ", scored" : ""}`}
-            aria-current={h.number === hole ? "true" : undefined}
-            onClick={() => setHole(h.number)}
-          >
-            {h.number}
-            {win && (
-              <span className="win" style={{ color: win }}>
-                ●
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  const heroScore =
-    teamState && teamState.thru > 0 ? (
-      <div className="hero-score">
-        {teamState.complete && <CheckFlag size={15} />} {teamA?.name}{" "}
-        {teamState.toParText}
-        <span className="score-sub">
-          {teamState.complete
-            ? `net ${teamState.netTotal} · final`
-            : `net ${teamState.netTotal} thru ${teamState.thru}`}
-        </span>
-      </div>
-    ) : matchState && matchState.thru > 0 ? (
-      <div className="hero-score">
-        {matchState.complete && <CheckFlag size={15} />}{" "}
-        {matchState.complete
-          ? `${leaderName(matchState.leader, match, teamMap)} win ${matchState.resultText}`
-          : matchState.leader === null
-            ? matchState.resultText
-            : `${leaderName(matchState.leader, match, teamMap)} ${matchState.resultText}`}
-        {!matchState.complete && (
-          <span className="score-sub">{matchState.holesRemaining} to play</span>
-        )}
-      </div>
-    ) : null;
+  // Compact live score that sits between Prev / Next.
+  const navScore = (() => {
+    if (teamState) {
+      if (teamState.thru === 0) {
+        return { result: "—", sub: "not started", cls: "" };
+      }
+      return {
+        result: teamState.toParText,
+        sub: teamState.complete
+          ? `net ${teamState.netTotal} · final`
+          : `net ${teamState.netTotal} · thru ${teamState.thru}`,
+        cls: "",
+        flag: teamState.complete,
+      };
+    }
+    if (matchState) {
+      if (matchState.thru === 0) {
+        return { result: "—", sub: "not started", cls: "" };
+      }
+      const cls =
+        matchState.leader === "A" ? "leadA" : matchState.leader === "B" ? "leadB" : "";
+      const who = leaderName(matchState.leader, match, teamMap);
+      return {
+        result: matchState.resultText.replace(/ thru.*/, ""),
+        sub: matchState.complete
+          ? `${who} win`
+          : matchState.leader
+            ? `${who} · thru ${matchState.thru}`
+            : `thru ${matchState.thru}`,
+        cls,
+        flag: matchState.complete,
+      };
+    }
+    return { result: "—", sub: "", cls: "" };
+  })();
 
   const lastHole = ctx.course.holes.length;
 
@@ -253,11 +218,9 @@ export default function MatchPage() {
           {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
           {readOnly ? " · final (view only)" : ""}
         </p>
-        <div className="card holegrid-card">{holeGrid}</div>
-        {heroScore}
       </section>
 
-      {/* Cream body: current hole, score rows, prev/next */}
+      {/* Cream body: current hole, score rows, prev/score/next, ticker */}
       <div className="hole-head">
         <h2 className="hole-num">Hole {String(hole).padStart(2, "0")}</h2>
         <p className="hole-meta">
@@ -277,6 +240,7 @@ export default function MatchPage() {
         )}
       </div>
 
+      {/* Prev / live score / Next */}
       <div className="hole-nav">
         <button
           className="navbtn"
@@ -285,7 +249,12 @@ export default function MatchPage() {
         >
           Prev
         </button>
-        <span className="spacer" />
+        <div className="nav-score">
+          <div className={`result ${navScore.cls}`}>
+            {navScore.flag && <CheckFlag size={13} />} {navScore.result}
+          </div>
+          {navScore.sub && <div className="sub">{navScore.sub}</div>}
+        </div>
         <button
           className="navbtn next"
           disabled={hole >= lastHole}
@@ -295,21 +264,20 @@ export default function MatchPage() {
         </button>
       </div>
 
-      <p className="hint">
-        {strokePlay ? (
-          <>
-            Tap <b>+</b> to start a hole at par, then adjust. Your team's best net
-            ball counts on every hole; strokes (red dots) are given off the
-            field's low handicap so team totals compare fairly.
-          </>
-        ) : (
-          <>
-            Tap <b>+</b> to start a hole at par, then adjust. Red dots mean that
-            player (or the higher team, in a scramble) gets a handicap stroke here
-            — it's already baked into the net score and the match result.
-          </>
-        )}
-      </p>
+      {/* Live activity ticker — placeholder for now */}
+      <div className="ticker-wrap">
+        <div className="ticker-label">Around the course</div>
+        <div className="ticker" aria-label="Live activity from other groups">
+          <div className="ticker-track">
+            <span className="ticker-item ticker-placeholder">
+              ⛳ Live activity from the other groups will show here — coming soon
+            </span>
+            <span className="ticker-item ticker-placeholder" aria-hidden="true">
+              ⛳ Live activity from the other groups will show here — coming soon
+            </span>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

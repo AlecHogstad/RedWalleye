@@ -616,18 +616,97 @@ a.badge {
   margin: 5px 0 0;
 }
 
-/* Prev / Next hole nav at the bottom of the card */
+/* Prev · live score · Next */
 .hole-nav {
   display: flex;
   align-items: center;
-  padding: 16px 16px 0;
+  gap: 10px;
+  padding: 16px 16px 4px;
 }
 .hole-nav .navbtn {
-  min-width: 104px;
-  padding: 12px 20px;
+  flex: none;
+  min-width: 78px;
+  padding: 12px 16px;
 }
 .hole-nav .navbtn.next {
   border-color: var(--accent);
+}
+.nav-score {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.nav-score .result {
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.nav-score .result.leadA {
+  color: var(--green-bright);
+}
+.nav-score .result.leadB {
+  color: var(--orange);
+}
+.nav-score .sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Live activity ticker (placeholder for now) */
+.ticker-wrap {
+  padding: 20px 0 8px;
+}
+.ticker-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0 18px 8px;
+}
+.ticker {
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--cream-card);
+  padding: 11px 0;
+}
+.ticker-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 44px;
+  white-space: nowrap;
+  padding-left: 44px;
+  animation: ticker 26s linear infinite;
+}
+.ticker-item {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ticker-placeholder {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--muted);
+}
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+    padding-left: 18px;
+  }
 }
 
 .navbtn {
