@@ -1,27 +1,36 @@
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation, Link } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import RoundsPage from "./pages/RoundsPage";
 import MatchPage from "./pages/MatchPage";
-import TeamsPage from "./pages/TeamsPage";
-import CoursePage from "./pages/CoursePage";
 import StartRoundPage from "./pages/StartRoundPage";
+import SettingsHubPage from "./pages/SettingsHubPage";
+import SettingsTeamsPage from "./pages/SettingsTeamsPage";
+import SettingsPlayersPage from "./pages/SettingsPlayersPage";
+import SettingsCoursesPage from "./pages/SettingsCoursesPage";
+import SettingsResetPage from "./pages/SettingsResetPage";
 import { PoleFlag } from "./components/CheckFlag";
+import { TrophyIcon, FlagIcon, GearIcon } from "./components/Icons";
 import { useStore } from "./store/store";
 
 /** Each screen gets its own block color, like the inspo phones. */
 function themeFor(pathname: string): string {
   if (pathname.startsWith("/match")) return "theme-green";
-  if (pathname.startsWith("/teams")) return "theme-blue";
-  if (pathname.startsWith("/course")) return "theme-sand";
+  if (pathname.startsWith("/settings/courses")) return "theme-sand";
+  if (pathname.startsWith("/settings/teams")) return "theme-blue";
+  if (pathname.startsWith("/settings")) return "theme-blue";
   return "theme-orange";
 }
 
 export default function App() {
   const { pathname } = useLocation();
   const { syncStatus } = useStore();
-  // Scoring pages drop the tab bar — the ← Tournament pill is the way back,
-  // and the reclaimed space keeps steppers clear of accidental tab taps.
-  const showTabs = !pathname.startsWith("/match");
+  // Scoring and settings sub-flows drop the tab bar — the ← back pill is the
+  // way out, and the reclaimed space keeps steppers clear of accidental taps.
+  const showTabs =
+    !pathname.startsWith("/match") &&
+    !pathname.startsWith("/start") &&
+    !pathname.startsWith("/settings");
+  const onSettings = pathname.startsWith("/settings");
 
   return (
     <div className={`app ${themeFor(pathname)} ${showTabs ? "" : "no-tabs"}`}>
@@ -44,6 +53,13 @@ export default function App() {
             ● {syncStatus === "online" ? "live" : "offline"}
           </span>
         )}
+        <Link
+          to="/settings"
+          className={`settings-btn ${onSettings ? "active" : ""}`}
+          aria-label="Settings"
+        >
+          <GearIcon />
+        </Link>
       </header>
 
       <main>
@@ -52,24 +68,31 @@ export default function App() {
           <Route path="/rounds" element={<RoundsPage />} />
           <Route path="/start/:roundId" element={<StartRoundPage />} />
           <Route path="/match/:matchId" element={<MatchPage />} />
-          <Route path="/teams" element={<TeamsPage />} />
-          <Route path="/course" element={<CoursePage />} />
+          <Route path="/settings" element={<SettingsHubPage />} />
+          <Route path="/settings/teams" element={<SettingsTeamsPage />} />
+          <Route path="/settings/players" element={<SettingsPlayersPage />} />
+          <Route path="/settings/courses" element={<SettingsCoursesPage />} />
+          <Route path="/settings/reset" element={<SettingsResetPage />} />
         </Routes>
       </main>
 
       {showTabs && (
         <nav className="tabbar">
           <NavLink to="/" end>
-            <span className="tab-label">Leaderboard</span>
+            <span className="tab-inner">
+              <span className="tab-icon">
+                <TrophyIcon />
+              </span>
+              <span className="tab-label">Leaderboard</span>
+            </span>
           </NavLink>
           <NavLink to="/rounds">
-            <span className="tab-label">Rounds</span>
-          </NavLink>
-          <NavLink to="/teams">
-            <span className="tab-label">Teams</span>
-          </NavLink>
-          <NavLink to="/course">
-            <span className="tab-label">Course</span>
+            <span className="tab-inner">
+              <span className="tab-icon">
+                <FlagIcon />
+              </span>
+              <span className="tab-label">Rounds</span>
+            </span>
           </NavLink>
         </nav>
       )}

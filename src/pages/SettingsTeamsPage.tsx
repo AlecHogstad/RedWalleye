@@ -1,12 +1,16 @@
+import { Link } from "react-router-dom";
 import { useStore } from "../store/store";
 
-export default function TeamsPage() {
+export default function SettingsTeamsPage() {
   const { state, updatePlayer } = useStore();
 
   return (
     <>
-      <div className="section">
-        <h2>Teams &amp; Handicaps</h2>
+      <div className="section" style={{ paddingBottom: 0 }}>
+        <Link className="badge" to="/settings">
+          ← Settings
+        </Link>
+        <h2 style={{ marginTop: 10 }}>Teams &amp; Handicaps</h2>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
           Edit names and handicaps here — the strokes given in every match update
           automatically.
