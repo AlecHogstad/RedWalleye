@@ -130,6 +130,9 @@ export interface MatchSideGames {
   stableford?: boolean;
   snake?: boolean;
   snakeHolder?: string; // playerId, or omitted for "nobody yet"
+  /** How many times the snake has changed hands — roughly the group's
+   *  three-putt count, which grows the pot. */
+  snakeChanges?: number;
 }
 
 export interface TournamentState {

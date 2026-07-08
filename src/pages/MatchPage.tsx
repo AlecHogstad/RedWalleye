@@ -132,6 +132,17 @@ export default function MatchPage() {
     return strokesOnHole(total, holeInfo.strokeIndex);
   };
 
+  // Passing the snake to a new player counts as a three-putt, growing the
+  // pot. Clearing it (or re-picking the same person) doesn't count.
+  const passSnake = (value: string) => {
+    const current = sideGames.snakeHolder ?? "";
+    const changed = value !== "" && value !== current;
+    updateSideGames(match!.id, {
+      snakeHolder: value,
+      ...(changed ? { snakeChanges: (sideGames.snakeChanges ?? 0) + 1 } : {}),
+    });
+  };
+
   const bump = (key: string, delta: number) => {
     if (readOnly) return;
     const current = match.scores[key]?.[hole];
@@ -351,9 +362,9 @@ export default function MatchPage() {
         <h2>Side games</h2>
         <div className="card">
           <div className="field">
-            <div className="who">
-              <div className="n">Stableford</div>
-              <div className="h">
+            <div className="sg-head">
+              <div className="sg-title">Stableford</div>
+              <div className="sg-sub">
                 {isScramble
                   ? "not available in a scramble"
                   : "net points per hole"}
@@ -387,9 +398,9 @@ export default function MatchPage() {
           )}
 
           <div className="field">
-            <div className="who">
-              <div className="n">Snake</div>
-              <div className="h">last three-putt holds it</div>
+            <div className="sg-head">
+              <div className="sg-title">Snake</div>
+              <div className="sg-sub">last three-putt holds it</div>
             </div>
             <span className="spacer" />
             <Toggle
@@ -406,14 +417,17 @@ export default function MatchPage() {
                   ? `${players[sideGames.snakeHolder]?.name ?? "?"} has the snake`
                   : "nobody has the snake yet"}
               </div>
+              <div className="sg-row">
+                <span className="sg-name">Three-putts (pot)</span>
+                <span className="sg-thru">tap to pass the snake</span>
+                <span className="sg-pts">{sideGames.snakeChanges ?? 0}</span>
+              </div>
               <div className="field">
                 <label>Who has it?</label>
                 <select
                   className="roster-select"
                   value={sideGames.snakeHolder ?? ""}
-                  onChange={(e) =>
-                    updateSideGames(match.id, { snakeHolder: e.target.value })
-                  }
+                  onChange={(e) => passSnake(e.target.value)}
                 >
                   <option value="">Nobody yet</option>
                   {groupPlayerIds.map((id) => (

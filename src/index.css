@@ -1018,6 +1018,28 @@ a.badge {
   cursor: not-allowed;
 }
 
+/* Side-game row heading — big display title + serif support line --------- */
+.sg-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sg-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.sg-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 /* Side-game panels (Stableford standings, Snake) -------------------------- */
 .sg-panel {
   padding: 10px 16px 12px;
