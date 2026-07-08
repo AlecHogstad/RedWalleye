@@ -431,7 +431,7 @@ export default function MatchPage() {
                           {count}
                         </span>
                         <button
-                          onClick={() => addMulligan(match.id, id)}
+                          onClick={() => addMulligan(match.id, id, hole)}
                           aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
                         >
                           +

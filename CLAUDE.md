@@ -60,6 +60,18 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
   win, ½ per halved match; points lock when a match completes. Standings
   roll up in `computeStandings`. Total pot: 4 + 4 + 2 = 10 points.
 
+## Activity feed (derived, not stored)
+
+`src/scoring/activity.ts` (pure, unit-tested in `activity.test.ts`) builds the
+Activity tab feed as a **function of tournament state** — birdies/eagles/aces,
+net blow-ups, match-lead changes, comebacks, closeouts, and the overall trip
+lead are all replayed from the scores that already sync, so no new DB rows and
+no cross-phone races. Only genuinely discrete actions (booze mulligans) are
+stored `ActivityEvent`s. Scores carry no wall-clock, so the feed is ordered by
+golf chronology (later round → higher hole → bigger moment), not "5m ago".
+Overall-lead changes settle per finished round (exact), not per hole. Rendered
+in `src/pages/TickerPage.tsx`.
+
 ## Rounds: start gate
 
 Rounds are `pending → active → final` (`Round.status`). One person taps

@@ -146,6 +146,9 @@ export interface ActivityEvent {
   matchId: Id;
   playerId: Id;
   ts: number; // Date.now() when it happened
+  /** The hole being played when it happened, so the activity feed can slot it
+   *  in golf-chronological order. Optional — older events predate this field. */
+  hole?: number;
 }
 
 export interface TournamentState {
