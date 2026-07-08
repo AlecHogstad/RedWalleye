@@ -57,15 +57,14 @@ export default function App() {
         </button>
       )}
       <header className="topbar">
-        <div className="lockup" aria-label="RWGC — Red Walleye Golf Club">
+        <div className="lockup" aria-label="5th Annual Hayward Invitational">
           <PoleFlag />
-          <span>RW</span>
-          <span>GC</span>
+          <span>5th</span>
         </div>
         <div className="wordmark">
-          Red Walleye
+          5th Annual
           <br />
-          Golf Club
+          Hayward Invitational
         </div>
         <span className="spacer" />
         {syncStatus === "local" ? (

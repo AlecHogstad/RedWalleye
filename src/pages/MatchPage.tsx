@@ -186,16 +186,22 @@ export default function MatchPage() {
   // headline plus the running Nassau points.
   const navScore = (() => {
     if (matchState.thru === 0) {
-      return { result: "—", sub: "not started", cls: "", flag: false };
+      return { result: "—", sub: "not started", color: undefined, flag: false };
     }
-    const cls =
-      matchState.leader === "A" ? "leadA" : matchState.leader === "B" ? "leadB" : "";
+    // Colour the result by the leading team's ACTUAL colour (A = orange,
+    // B = green) so it matches the score-row dots and the leaderboard.
+    const color =
+      matchState.leader === "A"
+        ? teamA?.color
+        : matchState.leader === "B"
+          ? teamB?.color
+          : undefined;
     return {
       result: matchState.overall.resultText.replace(/ thru.*/, ""),
       sub: `${fmtPts(matchState.points.a)}–${fmtPts(matchState.points.b)} pts · ${
         matchState.complete ? "final" : `thru ${matchState.thru}`
       }`,
-      cls,
+      color,
       flag: matchState.complete,
     };
   })();
@@ -301,7 +307,7 @@ export default function MatchPage() {
           Prev
         </button>
         <div className="nav-score">
-          <div className={`result ${navScore.cls}`}>
+          <div className="result" style={{ color: navScore.color }}>
             {navScore.flag && <CheckFlag size={13} />} {navScore.result}
           </div>
           {navScore.sub && <div className="sub">{navScore.sub}</div>}

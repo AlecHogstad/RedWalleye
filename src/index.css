@@ -642,12 +642,6 @@ button.badge {
   color: var(--muted);
   margin-top: 1px;
 }
-.leadA {
-  color: var(--green-bright);
-}
-.leadB {
-  color: var(--orange);
-}
 .won {
   background: rgba(30, 74, 43, 0.06);
 }
@@ -665,12 +659,6 @@ button.badge {
 .score-line .score-sub {
   display: block;
   margin-top: 1px;
-}
-.score-line.leadA {
-  color: var(--green-bright);
-}
-.score-line.leadB {
-  color: var(--orange);
 }
 .score-line .score-sub {
   font-family: var(--font-serif);
@@ -787,12 +775,6 @@ button.badge {
   line-height: 1.05;
   letter-spacing: 0.02em;
   color: var(--accent);
-}
-.nav-score .result.leadA {
-  color: var(--green-bright);
-}
-.nav-score .result.leadB {
-  color: var(--orange);
 }
 .nav-score .sub {
   font-family: var(--font-serif);
