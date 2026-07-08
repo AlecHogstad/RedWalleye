@@ -202,8 +202,11 @@ a {
   gap: 12px;
 }
 .feed-icon {
-  font-size: 20px;
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
 }
 .feed-text {
   display: flex;
@@ -229,33 +232,6 @@ a {
   height: 8px;
   border-radius: 50%;
   flex: none;
-}
-
-/* A colored left rail keys each moment to its vibe: green good, orange
-   trouble, sand for the trophy/lead beats, blue for social side-game noise. */
-.ticker-feed li.feed-item {
-  border-left: 4px solid transparent;
-}
-.feed-ace,
-.feed-eagle,
-.feed-birdie,
-.feed-comeback {
-  border-left-color: var(--green-bright) !important;
-}
-.feed-blowup {
-  border-left-color: var(--orange) !important;
-}
-.feed-overallLead,
-.feed-matchFinal,
-.feed-matchLead {
-  border-left-color: var(--sand-deep) !important;
-}
-.feed-snake,
-.feed-mulligan {
-  border-left-color: var(--blue-deep) !important;
-}
-.feed-ace .feed-title {
-  color: var(--orange);
 }
 
 /* Settings hub link rows --------------------------------------------------- */
@@ -1162,6 +1138,10 @@ button.badge {
   font-style: italic;
   font-size: 14px;
   padding: 2px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
 }
 .sg-panel .field {
   padding: 8px 0;

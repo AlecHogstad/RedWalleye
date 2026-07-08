@@ -12,6 +12,7 @@ import {
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
+import { FeedIcon } from "../components/Icons";
 
 interface ScoreEntity {
   key: string; // playerId or team:<id>
@@ -278,10 +279,10 @@ export default function MatchPage() {
       <div className="ticker" aria-label="Live activity from other groups">
         <div className="ticker-track">
           <span className="ticker-item ticker-placeholder">
-            ⛳ Live activity from the other groups will show here — coming soon
+            Live activity from the other groups will show here — coming soon
           </span>
           <span className="ticker-item ticker-placeholder" aria-hidden="true">
-            ⛳ Live activity from the other groups will show here — coming soon
+            Live activity from the other groups will show here — coming soon
           </span>
         </div>
       </div>
@@ -459,7 +460,7 @@ export default function MatchPage() {
           {sideGames.snake && (
             <div className="sg-panel">
               <div className="snake-badge">
-                🐍{" "}
+                <FeedIcon kind="snake" size={18} />
                 {sideGames.snakeHolder
                   ? `${players[sideGames.snakeHolder]?.name ?? "?"} has the snake`
                   : "nobody has the snake yet"}

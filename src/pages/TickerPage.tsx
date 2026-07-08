@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoundContexts, useStore } from "../store/store";
-import { buildFeed, type FeedItem, type FeedKind } from "../scoring/activity";
+import { buildFeed, type FeedItem } from "../scoring/activity";
+import { FeedIcon } from "../components/Icons";
 
 /** Compact relative time for the few events that carry a real clock. */
 function timeAgo(ts: number, now: number): string {
@@ -13,19 +14,6 @@ function timeAgo(ts: number, now: number): string {
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
-
-const ICON: Record<FeedKind, string> = {
-  ace: "🎯",
-  eagle: "🦅",
-  birdie: "🐦",
-  blowup: "💥",
-  matchLead: "🔀",
-  comeback: "🔥",
-  matchFinal: "🏁",
-  overallLead: "👑",
-  snake: "🐍",
-  mulligan: "🥃",
-};
 
 /** Points read nicely with a ½ instead of ".5". */
 function fmtPoints(n: number): string {
@@ -86,7 +74,7 @@ export default function TickerPage() {
     const subject = e.playerId ? who : team; // scramble items are team-level
     switch (e.kind) {
       case "ace":
-        return `${subject} ACED hole ${e.hole}! 🎉`;
+        return `${subject} ACED hole ${e.hole}!`;
       case "eagle":
         return `${subject} carded a ${scoreLabel(e.value ?? -2)} on ${e.hole}`;
       case "birdie":
@@ -104,7 +92,7 @@ export default function TickerPage() {
       case "overallLead":
         return `${team} grabbed the overall lead — ${fmtPoints(e.value ?? 0)} pts`;
       case "snake":
-        return `${who} is stuck with the 🐍 — ${e.value} in the pot`;
+        return `${who} is stuck with the snake — ${e.value} in the pot`;
       case "mulligan":
         return `${who} took a booze mulligan`;
     }
@@ -143,9 +131,9 @@ export default function TickerPage() {
             {feed.map((e) => {
               const team = teamMap[e.teamId ?? ""];
               return (
-                <li className={`feed-item feed-${e.kind}`} key={e.id}>
-                  <span className="feed-icon" aria-hidden="true">
-                    {ICON[e.kind]}
+                <li className="feed-item" key={e.id}>
+                  <span className="feed-icon">
+                    <FeedIcon kind={e.kind} />
                   </span>
                   <span className="feed-text">
                     <span className="feed-title">{title(e)}</span>
