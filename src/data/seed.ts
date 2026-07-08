@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 9;
+export const STATE_VERSION = 10;
 
 export const teams: Team[] = [
   { id: "t1", name: "Team 01", color: "#de4f2c" },
@@ -167,44 +167,26 @@ const round1: Match[] = [
   fourball("r1m4", "r1", ["t3", "alec", "joe"], ["t4", "brady", "hank"]),
 ];
 
-// Round 2 — Scramble (chat: "scramble the 2nd round at big fish"). Same pairings,
-// team plays one ball; scores are stored under the team key.
-function scramble(
-  id: string,
-  a: { teamId: string; playerIds: string[] },
-  b: { teamId: string; playerIds: string[] },
-): Match {
+// Round 2 — Scramble (chat: "scramble the 2nd round at big fish"). Field-wide
+// team stroke play: all four of a team go out as one group and play a single
+// scramble ball, one score per hole under the team key. Lowest net round wins.
+function scrambleTeam(id: string, teamId: string): Match {
+  const ids = players.filter((p) => p.teamId === teamId).map((p) => p.id);
   return {
     id,
     roundId: "r2",
     format: "scramble",
-    sideA: a,
-    sideB: b,
-    scores: emptyScores([`team:${a.teamId}`, `team:${b.teamId}`]),
+    sideA: { teamId, playerIds: ids },
+    sideB: { teamId: "", playerIds: [] },
+    scores: emptyScores([`team:${teamId}`]),
   };
 }
 
 const round2: Match[] = [
-  scramble(
-    "r2m1",
-    { teamId: "t1", playerIds: ["hunter", "nick"] },
-    { teamId: "t2", playerIds: ["nated", "jay"] },
-  ),
-  scramble(
-    "r2m2",
-    { teamId: "t1", playerIds: ["alex", "jeff"] },
-    { teamId: "t2", playerIds: ["brody", "paul"] },
-  ),
-  scramble(
-    "r2m3",
-    { teamId: "t3", playerIds: ["mike", "danny"] },
-    { teamId: "t4", playerIds: ["frank", "nikk"] },
-  ),
-  scramble(
-    "r2m4",
-    { teamId: "t3", playerIds: ["alec", "joe"] },
-    { teamId: "t4", playerIds: ["brady", "hank"] },
-  ),
+  scrambleTeam("r2t1", "t1"),
+  scrambleTeam("r2t2", "t2"),
+  scrambleTeam("r2t3", "t3"),
+  scrambleTeam("r2t4", "t4"),
 ];
 
 // Round 3 — 4-Man Best Ball team stroke play: every team tees off as its own

@@ -93,7 +93,7 @@ describe("buildFeed — match drama", () => {
 describe("buildFeed — snake & mulligans", () => {
   it("surfaces the current snake holder with the pot size", () => {
     const s = startedState();
-    const m = s.matches.find((x) => x.id === "r2m1")!; // scramble
+    const m = s.matches.find((x) => x.id === "r2t1")!; // scramble team entry
     m.scores["team:t1"][1] = 5; // give the group a hole so it has a 'thru'
     s.sideGames[m.id] = { snake: true, snakeHolder: "nick", snakeChanges: 3 };
     const feed = buildFeed(s, contexts(s));
@@ -106,7 +106,7 @@ describe("buildFeed — snake & mulligans", () => {
   it("includes stored booze mulligans, ordered by their hole", () => {
     const s = startedState();
     s.activity = [
-      { id: "a1", type: "mulligan", matchId: "r2m1", playerId: "hunter", ts: 100, hole: 4 },
+      { id: "a1", type: "mulligan", matchId: "r2t1", playerId: "hunter", ts: 100, hole: 4 },
     ];
     const feed = buildFeed(s, contexts(s));
     const mull = feed.find((f) => f.kind === "mulligan");

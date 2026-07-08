@@ -33,7 +33,9 @@ function teamSide(match: Match, teamId: string): "A" | "B" | null {
 }
 
 function capacityFor(match: Match): number {
-  return match.format === "fourman" ? 4 : 2;
+  // Four-ball plays in 2-man pairs; the 4-man and scramble entries hold a
+  // team's whole foursome.
+  return match.format === "fourball" ? 2 : 4;
 }
 
 /** A team's roster in canonical order: the 4-man entry when present (it holds

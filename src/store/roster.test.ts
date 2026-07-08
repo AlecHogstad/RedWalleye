@@ -38,9 +38,9 @@ describe("reconcileRoster", () => {
     expect(r1m1.sideA.playerIds).toContain("ringer");
     expect(r1m1.sideA.playerIds).not.toContain("nick");
 
-    // scramble side (names only) updated too.
-    const r2m1 = next.matches.find((m) => m.id === "r2m1")!;
-    expect(r2m1.sideA.playerIds).toContain("ringer");
+    // scramble team entry updated too.
+    const r2t1 = next.matches.find((m) => m.id === "r2t1")!;
+    expect(r2t1.sideA.playerIds).toContain("ringer");
 
     // Team tags flipped both ways.
     expect(next.players.find((p) => p.id === "ringer")!.teamId).toBe("t1");

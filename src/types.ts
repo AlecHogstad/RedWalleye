@@ -67,13 +67,14 @@ export const FORMAT_RULES: Record<Format, string> = {
     "Match play, 2-man teams. Everyone plays their own ball and the best net " +
     "score on each hole counts for your side — lower net ball wins the hole. " +
     "Strokes come off the lowest course handicap in the match, given on the " +
-    "hardest holes first. Most holes wins the match: 1 point, ½ for a halve.",
+    "hardest holes first. Most holes wins the match: 1 point, ½ for a halve. " +
+    "The lower total of those best net balls also takes a stroke-play win — " +
+    "bragging rights only, no points.",
   scramble:
-    "Match play, team scramble. Everyone hits, you pick the best shot, and " +
-    "everyone plays from there — one team ball, one score per hole. Each team " +
-    "gets a scramble handicap (35% of the low + 15% of the high) and the " +
-    "higher team takes the difference as strokes on the hardest holes. Lower " +
-    "net wins the hole. Most holes wins the match: 1 point, ½ for a halve.",
+    "Team stroke play — all four go out as one group and play a scramble: " +
+    "everyone hits, you pick the best shot and all play from there, one team " +
+    "ball and one score per hole. No handicap — it's the raw team score. " +
+    "Lowest round wins: 3 points, 1 for second.",
   fourman:
     "Team stroke play — every team tees off as its own foursome, no " +
     "head-to-head. Everyone plays their own ball and the team's best net " +

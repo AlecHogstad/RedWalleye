@@ -71,8 +71,9 @@ export default function HomePage() {
           })}
         </div>
         <p className="hint">
-          Rounds 1–2: 1 point per match won, ½ for a halve. Round 3: low team
-          net wins 2 points (split on a tie). Points lock in as play finishes.
+          Round 1: 1 point per match won, ½ for a halve. Round 2 (scramble):
+          lowest net round wins 3 points, 1 for second. Round 3: low team net
+          wins 2 points (split on a tie). Points lock in as play finishes.
         </p>
       </section>
 
