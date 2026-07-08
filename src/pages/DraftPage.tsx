@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmDialog";
 import { useStore } from "../store/store";
 import {
   currentPickTeam,
@@ -110,18 +111,19 @@ function DraftSetup({
   const [capA, setCapA] = useState(initial?.captainA ?? "");
   const [capB, setCapB] = useState(initial?.captainB ?? "");
   const [first, setFirst] = useState<DraftTeam>(initial?.firstPick ?? "tA");
+  const confirm = useConfirm();
 
   const ready = capA && capB && capA !== capB;
 
-  const start = () => {
+  const start = async () => {
     if (!ready) return;
-    if (
-      window.confirm(
-        "Start the draft? This clears the current rosters and matchups so the two captains can draft fresh.",
-      )
-    ) {
-      onStart(capA, capB, first);
-    }
+    const ok = await confirm({
+      title: "Start the draft?",
+      message:
+        "This clears the current rosters and matchups so the two captains can draft fresh.",
+      confirmLabel: "Start draft",
+    });
+    if (ok) onStart(capA, capB, first);
   };
 
   const opt = (p: Player) => (

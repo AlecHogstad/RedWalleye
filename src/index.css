@@ -1063,6 +1063,62 @@ button.badge {
 }
 
 /* Inputs / editors ------------------------------------------------------------ */
+/* Shared chrome for text fields and dropdowns — not browser defaults. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),
+select,
+textarea,
+.app-input {
+  font: inherit;
+  color: var(--ink);
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background-color: var(--cream);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.app-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+input::placeholder,
+textarea::placeholder,
+.app-input::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--cream) inset;
+  -webkit-text-fill-color: var(--ink);
+  transition: background-color 9999s ease-out 0s;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23635d47' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+select:disabled,
+input:disabled,
+textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -1080,12 +1136,8 @@ button.badge {
 .field input {
   width: 84px;
   padding: 10px;
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
   font-size: 16px;
   text-align: center;
-  background: var(--cream);
-  color: var(--ink);
 }
 .field input.wide {
   flex: 1;
@@ -1127,11 +1179,12 @@ button.badge {
   flex: 1;
   min-width: 0;
   padding: 10px;
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
   font-size: 16px;
-  background: var(--cream);
-  color: var(--ink);
+}
+.field select.wide,
+.roster-select.wide {
+  flex: 1;
+  width: auto;
 }
 .field select:disabled,
 .roster-select:disabled {
@@ -1230,6 +1283,15 @@ button.badge {
   font-size: 12.5px;
   color: var(--muted);
 }
+.sg-desc {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin: 4px 0 0;
+  padding-right: 8px;
+}
 
 /* Side-game panels (Stableford standings, Snake) -------------------------- */
 .sg-panel {
@@ -1307,16 +1369,83 @@ button.badge {
 .bottom-sheet-skip {
   width: 100%;
 }
-.snake-badge {
+
+/* Centered confirm / prompt dialogs ---------------------------------------- */
+/* Dialogs render outside `.app`, so theme tokens aren't inherited — set them here. */
+.confirm-dialog {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 151;
+  width: min(480px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 18px 18px;
+  box-shadow: var(--shadow), 0 16px 48px rgba(38, 48, 31, 0.14);
+  --accent: var(--green);
+}
+.confirm-dialog-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green);
+  margin: 0 2px 8px;
+  line-height: 1.15;
+}
+.confirm-dialog-message {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+  margin: 0 2px 8px;
+}
+.confirm-dialog-detail {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 14px;
-  padding: 2px 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--green);
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 2px 14px;
 }
+.confirm-dialog-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  font-size: 16px;
+  text-align: left;
+}
+.confirm-dialog-actions {
+  display: flex;
+  gap: 10px;
+}
+.confirm-dialog-actions .btn {
+  flex: 1;
+  width: auto;
+  min-height: 46px;
+}
+.confirm-dialog-actions .btn:not(.ghost):not(.danger) {
+  background: var(--green);
+  color: #f7efdc;
+}
+.confirm-dialog-actions .btn.ghost {
+  background: transparent;
+  color: var(--green);
+  border: 1.5px solid var(--green);
+}
+.btn.danger {
+  background: var(--orange);
+  color: var(--cream-card);
+}
+.btn.ghost.danger {
+  background: transparent;
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
 .sg-panel .field {
   padding: 8px 0;
 }

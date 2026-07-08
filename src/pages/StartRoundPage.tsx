@@ -3,12 +3,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { FORMAT_LABELS } from "../types";
 import { courseHandicap } from "../scoring/engine";
 import { ROUND_DEFAULTS } from "../data/seed";
+import { useConfirm } from "../components/ConfirmDialog";
 import { useStore } from "../store/store";
 
 export default function StartRoundPage() {
   const { roundId } = useParams();
   const navigate = useNavigate();
   const { state, startRound } = useStore();
+  const confirm = useConfirm();
 
   const round = state.rounds.find((r) => r.id === roundId);
   const anyActive = state.rounds.some((r) => r.status === "active");
@@ -56,13 +58,16 @@ export default function StartRoundPage() {
     );
   }
 
-  const confirmStart = () => {
+  const confirmStart = async () => {
     if (!course || !tee) return;
-    if (
-      window.confirm(
-        `Start ${round.name} (${FORMAT_LABELS[round.format]}) at ${course.name} off the ${tee.name} tees?\n\nThis locks the other rounds until it's finished. One person starts the round — is that you?`,
-      )
-    ) {
+    const ok = await confirm({
+      title: `Start ${round.name}?`,
+      message: `${FORMAT_LABELS[round.format]} at ${course.name}, ${tee.name} tees.`,
+      detail:
+        "This locks the other rounds until it's finished. One person starts the round — is that you?",
+      confirmLabel: "Start round",
+    });
+    if (ok) {
       startRound(round.id, course.id, tee.name);
       navigate("/rounds");
     }

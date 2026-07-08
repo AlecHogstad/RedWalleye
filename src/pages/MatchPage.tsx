@@ -14,7 +14,6 @@ import {
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
-import { FeedIcon } from "../components/Icons";
 
 interface ScoreEntity {
   key: string; // playerId or team:<id>
@@ -462,7 +461,10 @@ export default function MatchPage() {
               <div className="field">
                 <div className="sg-head">
                   <div className="sg-title">Stableford</div>
-                  <div className="sg-sub">net points per hole</div>
+                  <p className="sg-desc">
+                    Every hole adds points from your net score. Eagle 4, birdie 3,
+                    par 2, bogey 1, double+ 0. Highest total wins.
+                  </p>
                 </div>
                 <span className="spacer" />
                 <Toggle
@@ -562,12 +564,6 @@ export default function MatchPage() {
           </div>
           {sideGames.snake && (
             <div className="sg-panel">
-              <div className="snake-badge">
-                <FeedIcon kind="snake" size={18} />
-                {sideGames.snakeHolder
-                  ? `${players[sideGames.snakeHolder]?.name ?? "?"} has the snake`
-                  : "nobody has the snake yet"}
-              </div>
               <div className="sg-row">
                 <span className="sg-name">Three-putts (pot)</span>
                 <span className="sg-thru">tap to pass the snake</span>
