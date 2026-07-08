@@ -16,6 +16,8 @@ export interface Team {
   id: Id;
   name: string;
   color: string;
+  /** The captain who drafts and sets this team's matchups. */
+  captainId?: Id;
 }
 
 /** One of the 18 holes on a course. */
@@ -61,26 +63,24 @@ export const FORMAT_SHORT: Record<Format, string> = {
   scramble: "Scramble",
 };
 
-/** How each game works — shown on the start page and the scorecard. */
+/** How each game works — shown on the start page and the scorecard. Every
+ *  match is a Nassau: the front 9, back 9, and overall 18 are three separate
+ *  bets, each won by whoever wins more holes in that stretch (halve = split). */
 export const FORMAT_RULES: Record<Format, string> = {
   fourball:
-    "Match play, 2-man teams. Everyone plays their own ball and the best net " +
-    "score on each hole counts for your side — lower net ball wins the hole. " +
-    "Strokes come off the lowest course handicap in the match, given on the " +
-    "hardest holes first. Most holes wins the match: 1 point, ½ for a halve. " +
-    "The lower total of those best net balls also takes a stroke-play win — " +
-    "bragging rights only, no points.",
+    "2-man best-ball match play, A vs B. Everyone plays their own ball and " +
+    "your side's best net score on each hole counts. Strokes come off the " +
+    "lowest course handicap in the match. It's a Nassau — front 9, back 9, and " +
+    "the match are worth 1 point each (3 per match).",
   scramble:
-    "Team stroke play — all four go out as one group and play a scramble: " +
-    "everyone hits, you pick the best shot and all play from there, one team " +
-    "ball and one score per hole. No handicap — it's the raw team score. " +
-    "Lowest round wins: 3 points, 1 for second.",
+    "4-man scramble, A vs B. Each side picks its best shot and plays one team " +
+    "ball — no handicap, raw score. It's a Nassau — front 9, back 9, and the " +
+    "match are worth 2 points each (6 per match).",
   fourman:
-    "Team stroke play — every team tees off as its own foursome, no " +
-    "head-to-head. Everyone plays their own ball and the team's best net " +
-    "score on each hole counts. Strokes come off the field's low handicap so " +
-    "totals compare. Lowest team total to par wins the round: 2 points, " +
-    "split on a tie.",
+    "4-man best-ball match play, A vs B. Everyone plays their own ball and " +
+    "your side's best net score on each hole counts. Strokes come off the " +
+    "lowest course handicap in the match. It's a Nassau — front 9, back 9, and " +
+    "the match are worth 2 points each (6 per match).",
 };
 
 /** One side of a match — a set of player ids playing together. */

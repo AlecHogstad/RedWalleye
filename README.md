@@ -10,21 +10,18 @@ backend — open the link and keep score.
 
 ## What it does
 
-- **Live match play** — running "who's up" and a team leaderboard that update as
-  scores go in (`2 UP thru 7`, closes out to `3&2`, etc.).
+- **Two teams, head-to-head** — captains draft two teams of 8, and it's Team A
+  vs Team B every round.
+- **Nassau scoring** — every match is three bets: the front 9, the back 9, and
+  the overall 18. Each bet goes to whoever wins more holes in that stretch
+  (a halve splits it). Running "who's up" and a team leaderboard update live.
 - **Handicaps done for you** — the hard part the group was stuck on:
-  - **Four-Ball (match play):** every player gets strokes off the **low
-    player in the match**, allocated hole-by-hole by each hole's stroke index.
-    Best net ball on each hole counts. The lower total of those best net balls
-    also takes a stroke-play win — bragging rights only.
-  - **4-Man Best Ball (stroke play):** best net ball per hole, strokes off the
-    **whole field's** low player. Lowest team total to par wins the round.
-  - **Scramble (stroke play):** all four play one ball and it's scored on the
-    **raw team score** — no handicap, since a four-man scramble is low enough on
-    its own. Lowest round wins.
-- **Pre-loaded** with the four teams, everyone's handicaps, and the Round 1 / 2 /
-  3 matchups from the group chat — all editable in the app.
-- **Saves automatically** on each phone (localStorage). One scorekeeper per group.
+  - **Best ball (Four-Ball & 4-Man):** every player gets strokes off the **low
+    player in the match**, hole-by-hole by stroke index. Best net ball counts.
+  - **Scramble:** each side plays one ball, scored on the **raw team score** —
+    no handicap, since a four-man scramble is low enough on its own.
+- **Saves automatically** on each phone (localStorage) and syncs live to every
+  phone. One scorekeeper per group.
 
 ## Using it on the course
 
@@ -35,21 +32,24 @@ backend — open the link and keep score.
 4. Swipe through holes with **‹ ›** or jump around with the hole grid.
 5. The leaderboard on the home tab reflects finished matches automatically.
 
-Edit players/handicaps on the **Teams** tab and pars/stroke index on the
-**Course** tab. **Course → Reset all data** wipes this phone back to the start.
+Rename teams on the **Teams** tab, edit players/handicaps on the **Players**
+tab, and pars/stroke index on the **Course** tab. **Course → Reset all data**
+wipes this phone back to the start.
 
 ## Formats & how points work
 
-| Round | Format | Strokes | Points |
-| ----- | ------ | ------- | ------ |
-| 1 | Four-Ball (2-man best ball, match play) | Off low player in the match | 1 per match won, ½ for a halve (4 total) |
-| 2 | Scramble (team stroke play) | None — raw team score | 3 / 1 / 0 / 0 by finish (4 total) |
-| 3 | 4-Man Best Ball (team stroke play) | Off the field's low player | 2 to the low-net team, split on ties |
+Every match is a Nassau (front 9 / back 9 / match). How much each bet is worth
+depends on the round, so every round is worth 12 points:
 
-Match-play points lock in when a match is closed out or all 18 holes are
-entered; a stroke-play round pays out once every team finishes. Total pot: 10.
-Round 1 also crowns a stroke-play winner per match, but that's bragging rights
-only — no points.
+| Round | Format | Matches | Per bet | Per match | Round |
+| ----- | ------ | ------- | ------- | --------- | ----- |
+| 1 | Four-Ball (2-man best ball) | 4 (2v2) | 1 | 3 | 12 |
+| 2 | Scramble (4-man, raw score) | 2 (4v4) | 2 | 6 | 12 |
+| 3 | 4-Man Best Ball | 2 (4v4) | 2 | 6 | 12 |
+
+Each bet locks as it finishes (a segment is decided when one side is up by more
+holes than remain in it). **Total pot: 36** — most points across the three
+rounds wins the trip.
 
 ---
 

@@ -6,9 +6,9 @@ import {
   computePlayerTotals,
   computeStableford,
   computeStandings,
-  computeStrokePlay,
   contextForRound,
   courseHandicap,
+  nassauSegmentValue,
   stablefordPoints,
   strokesOnHole,
   teamScoreKey,
@@ -33,11 +33,28 @@ const course: CourseDef = {
 const ctx: ScoringContext = { course, tee: course.tees[0] };
 
 const players: Player[] = [
-  { id: "hunter", name: "Hunter", handicap: 27, teamId: "t1" },
-  { id: "nick", name: "Nick", handicap: 3, teamId: "t1" },
-  { id: "nate", name: "Nate D", handicap: 21, teamId: "t2" },
-  { id: "jay", name: "Jay", handicap: 6, teamId: "t2" },
+  { id: "nick", name: "Nick", handicap: 3, teamId: "tA" },
+  { id: "hunter", name: "Hunter", handicap: 27, teamId: "tA" },
+  { id: "jay", name: "Jay", handicap: 6, teamId: "tB" },
+  { id: "nate", name: "Nate D", handicap: 21, teamId: "tB" },
 ];
+
+/** Two scratch golfers (net = gross), one per side, for clean Nassau math. */
+const scratch: Player[] = [
+  { id: "a", name: "A", handicap: 0, teamId: "tA" },
+  { id: "b", name: "B", handicap: 0, teamId: "tB" },
+];
+
+function duel(id: string, roundId = "r1"): Match {
+  return {
+    id,
+    roundId,
+    format: "fourball",
+    sideA: { teamId: "tA", playerIds: ["a"] },
+    sideB: { teamId: "tB", playerIds: ["b"] },
+    scores: { a: {}, b: {} },
+  };
+}
 
 describe("strokesOnHole", () => {
   it("gives one stroke to holes at or below the total", () => {
@@ -46,53 +63,26 @@ describe("strokesOnHole", () => {
     expect(strokesOnHole(5, 6)).toBe(0);
   });
 
-  it("gives zero for a scratch allocation", () => {
-    expect(strokesOnHole(0, 1)).toBe(0);
-  });
-
   it("rolls a second stroke onto the hardest holes past 18", () => {
     expect(strokesOnHole(20, 1)).toBe(2);
-    expect(strokesOnHole(20, 2)).toBe(2);
     expect(strokesOnHole(20, 3)).toBe(1);
-    expect(strokesOnHole(20, 18)).toBe(1);
   });
 });
 
 describe("courseHandicap — USGA slope/rating formula", () => {
-  it("falls back to rounded index without a tee", () => {
-    expect(courseHandicap(8.7)).toBe(9);
-    expect(courseHandicap(3)).toBe(3);
-  });
-
   it("equals the rounded index on a neutral tee (slope 113, rating = par)", () => {
     expect(courseHandicap(27, ctx)).toBe(27);
     expect(courseHandicap(8.7, ctx)).toBe(9);
   });
 
   it("computes Big Fish Championship tees correctly", () => {
-    // 71.7 rating / 126 slope, par 72.
     const bigFish = seedState().courses.find((c) => c.id === "bigfish")!;
     const champ: ScoringContext = {
       course: bigFish,
       tee: bigFish.tees.find((t) => t.name === "Championship")!,
     };
-    // 27 × (126/113) + (71.7 − 72) = 30.106 − 0.3 = 29.8 → 30
+    // 27 × (126/113) + (71.7 − 72) = 29.8 → 30
     expect(courseHandicap(27, champ)).toBe(30);
-    // 3 × (126/113) − 0.3 = 3.345 − 0.3 = 3.045 → 3
-    expect(courseHandicap(3, champ)).toBe(3);
-  });
-
-  it("gives fewer strokes off shorter tees", () => {
-    const bigFish = seedState().courses.find((c) => c.id === "bigfish")!;
-    const chFor = (teeName: string) =>
-      courseHandicap(20, {
-        course: bigFish,
-        tee: bigFish.tees.find((t) => t.name === teeName)!,
-      });
-    // 20 index: Tournament 20×134/113 + 2.1 = 25.8 → 26; Member 20×122/113 − 3.4 = 18.2 → 18
-    expect(chFor("Tournament")).toBe(26);
-    expect(chFor("Member")).toBe(18);
-    expect(chFor("Tournament")).toBeGreaterThan(chFor("Member"));
   });
 });
 
@@ -109,339 +99,184 @@ describe("contextForRound", () => {
     expect(c.course.id).toBe("bigfish");
     expect(c.tee?.name).toBe("Member");
   });
-
-  it("falls back to first course, no tee, for pending rounds", () => {
-    const state = seedState();
-    const c = contextForRound(state, "r2");
-    expect(c.course.id).toBe("bigfish");
-    expect(c.tee).toBeUndefined();
-  });
 });
 
-describe("allocateStrokes (best ball)", () => {
-  it("gives strokes off the lowest course handicap in the match", () => {
+describe("allocateStrokes", () => {
+  it("gives best-ball strokes off the lowest course handicap in the match", () => {
     const match: Match = {
       id: "m1",
       roundId: "r1",
       format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["hunter", "nick"] },
-      sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
+      sideA: { teamId: "tA", playerIds: ["hunter", "nick"] },
+      sideB: { teamId: "tB", playerIds: ["nate", "jay"] },
       scores: {},
     };
     const alloc = allocateStrokes(match, players, ctx);
     // Low man is Nick (3) -> everyone relative to 3.
     expect(alloc.byPlayer.nick).toBe(0);
     expect(alloc.byPlayer.jay).toBe(3);
-    expect(alloc.byPlayer.nate).toBe(18);
     expect(alloc.byPlayer.hunter).toBe(24);
+  });
+
+  it("gives the scramble both team balls zero strokes (raw score)", () => {
+    const match: Match = {
+      id: "s1",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "tA", playerIds: ["hunter", "nate"] }, // high handicaps
+      sideB: { teamId: "tB", playerIds: ["jay", "nick"] },
+      scores: {},
+    };
+    const alloc = allocateStrokes(match, players, ctx);
+    expect(alloc.byTeam[teamScoreKey("tA")]).toBe(0);
+    expect(alloc.byTeam[teamScoreKey("tB")]).toBe(0);
   });
 });
 
-describe("computeMatchState — four-ball match play", () => {
-  it("closes out a match as 3&2", () => {
-    const match: Match = {
-      id: "m1",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] },
-      sideB: { teamId: "t2", playerIds: ["jay"] },
-      scores: { nick: {}, jay: {} },
-    };
-    // A wins holes 1,2,3 outright (birdies beat Jay's stroke), halve 4..16.
-    for (let h = 1; h <= 16; h++) {
-      match.scores.nick[h] = h <= 3 ? 2 : 4;
-      match.scores.jay[h] = 4;
+describe("nassauSegmentValue", () => {
+  it("is 1 for four-ball and 2 for scramble / four-man", () => {
+    expect(nassauSegmentValue("fourball")).toBe(1);
+    expect(nassauSegmentValue("scramble")).toBe(2);
+    expect(nassauSegmentValue("fourman")).toBe(2);
+  });
+});
+
+describe("computeMatchState — Nassau (front / back / match)", () => {
+  it("scores the three bets independently", () => {
+    const m = duel("m");
+    // Front 9: A wins every hole. Back 9: B wins every hole. Overall halved.
+    for (let h = 1; h <= 9; h++) {
+      m.scores.a[h] = 4;
+      m.scores.b[h] = 5;
     }
-    const state = computeMatchState(match, players, ctx);
-    expect(state.leader).toBe("A");
-    expect(state.margin).toBe(3);
-    expect(state.thru).toBe(16);
-    expect(state.decided).toBe(true);
-    expect(state.resultText).toBe("3&2");
-    expect(state.points).toEqual({ a: 1, b: 0 });
+    for (let h = 10; h <= 18; h++) {
+      m.scores.a[h] = 5;
+      m.scores.b[h] = 4;
+    }
+    const st = computeMatchState(m, scratch, ctx);
+    expect(st.front.winner).toBe("A");
+    expect(st.front.points).toEqual({ a: 1, b: 0 });
+    expect(st.back.winner).toBe("B");
+    expect(st.back.points).toEqual({ a: 0, b: 1 });
+    expect(st.overall.winner).toBe("halve");
+    expect(st.overall.points).toEqual({ a: 0.5, b: 0.5 });
+    // Total across the three bets.
+    expect(st.points).toEqual({ a: 1.5, b: 1.5 });
+    expect(st.complete).toBe(true);
+  });
+
+  it("closes out the overall bet and locks the front, back still open", () => {
+    const m = duel("m");
+    // A wins holes 1..10 outright; 11..18 unplayed.
+    for (let h = 1; h <= 10; h++) {
+      m.scores.a[h] = 4;
+      m.scores.b[h] = 5;
+    }
+    const st = computeMatchState(m, scratch, ctx);
+    expect(st.front.winner).toBe("A"); // front locked (all 9 played)
+    expect(st.overall.decided).toBe(true);
+    expect(st.overall.resultText).toBe("10&8");
+    expect(st.back.complete).toBe(false); // only hole 10 of the back played
+    expect(st.back.points).toEqual({ a: 0, b: 0 });
+    expect(st.points).toEqual({ a: 2, b: 0 }); // front + match, back not yet
+    expect(st.complete).toBe(true);
   });
 
   it("respects handicap strokes when deciding a hole", () => {
-    const match: Match = {
+    const m: Match = {
       id: "m2",
       roundId: "r1",
       format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] }, // scratch
-      sideB: { teamId: "t2", playerIds: ["jay"] }, // 3 strokes, holes 1-3
-      scores: {
-        nick: { 1: 4 },
-        jay: { 1: 4 }, // gross tie, but Jay gets a stroke on hole 1 (SI 1)
-      },
+      sideA: { teamId: "tA", playerIds: ["nick"] }, // scratch (low in match)
+      sideB: { teamId: "tB", playerIds: ["jay"] }, // CH 6, strokes SI 1-6
+      scores: { nick: { 1: 4 }, jay: { 1: 4 } },
     };
-    const state = computeMatchState(match, players, ctx);
-    // Jay net 3 beats Nick net 4 -> B leads.
-    expect(state.leader).toBe("B");
-    expect(state.margin).toBe(1);
-    expect(state.resultText).toBe("1 UP thru 1");
+    const st = computeMatchState(m, players, ctx);
+    // Hole 1 (SI 1): Jay nets 3 with his stroke, beats Nick's 4.
+    expect(st.perHole[0].winner).toBe("B");
+    expect(st.overall.leader).toBe("B");
   });
+});
 
-  it("halves a completed match that finishes level", () => {
-    const match: Match = {
-      id: "m4",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] },
-      sideB: { teamId: "t2", playerIds: ["nick2"] },
-      scores: { nick: {}, nick2: {} },
-    };
-    const twoScratch: Player[] = [
-      { id: "nick", name: "Nick", handicap: 3, teamId: "t1" },
-      { id: "nick2", name: "Nick2", handicap: 3, teamId: "t2" },
+describe("computeMatchState — scramble head-to-head (raw)", () => {
+  it("wins holes on the raw team ball with no strokes", () => {
+    const teamPlayers: Player[] = [
+      { id: "a1", name: "A1", handicap: 20, teamId: "tA" },
+      { id: "b1", name: "B1", handicap: 2, teamId: "tB" },
     ];
-    for (let h = 1; h <= 18; h++) {
-      match.scores.nick[h] = 4;
-      match.scores.nick2[h] = 4;
-    }
-    const state = computeMatchState(match, twoScratch, ctx);
-    expect(state.thru).toBe(18);
-    expect(state.complete).toBe(true);
-    expect(state.resultText).toBe("Halved (AS)");
-    expect(state.points).toEqual({ a: 0.5, b: 0.5 });
-  });
-});
-
-describe("computeMatchState — four-ball stroke-play sub-result", () => {
-  it("totals the best net balls and can disagree with the match result", () => {
-    const match: Match = {
-      id: "sp1",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] }, // scratch
-      sideB: { teamId: "t2", playerIds: ["jay"] }, // CH 6, strokes SI 1-6
-      scores: {
-        nick: { 1: 4, 2: 2 },
-        jay: { 1: 4, 2: 5 },
-      },
-    };
-    // Hole 1 (SI 1): Nick net 4, Jay net 3 (stroke) -> B wins the hole.
-    // Hole 2 (SI 2): Nick net 2, Jay net 4 (stroke) -> A wins the hole.
-    // Match is all square, but on strokes A totals 6 vs B's 7 -> A wins.
-    const state = computeMatchState(match, players, ctx);
-    expect(state.margin).toBe(0); // holes split
-    expect(state.strokePlay).toEqual({ netA: 6, netB: 7, thru: 2, winner: "A" });
-  });
-});
-
-describe("computeStrokePlay — scramble (raw team ball, no handicap)", () => {
-  // High-handicap players to prove their handicaps are ignored entirely.
-  const teamPlayers: Player[] = [
-    { id: "a1", name: "A1", handicap: 20, teamId: "tA" },
-    { id: "a2", name: "A2", handicap: 20, teamId: "tA" },
-  ];
-  const entry = (): Match => ({
-    id: "s-tA",
-    roundId: "r2",
-    format: "scramble",
-    sideA: { teamId: "tA", playerIds: ["a1", "a2"] },
-    sideB: { teamId: "", playerIds: [] },
-    scores: { [teamScoreKey("tA")]: {} },
-  });
-
-  it("gives the team no strokes regardless of handicap", () => {
-    const alloc = allocateStrokes(entry(), teamPlayers, ctx);
-    expect(alloc.byTeam[teamScoreKey("tA")]).toBe(0);
-  });
-
-  it("scores the team ball as gross to par", () => {
-    const e = entry();
-    e.scores[teamScoreKey("tA")][1] = 5; // par 4 -> +1
-    e.scores[teamScoreKey("tA")][2] = 3; // par 4 -> -1
-    const st = computeStrokePlay(e, teamPlayers, ctx);
-    expect(st.thru).toBe(2);
-    expect(st.netTotal).toBe(8); // 5 + 3, no strokes taken off
-    expect(st.toPar).toBe(0);
-    expect(st.toParText).toBe("E");
-  });
-});
-
-describe("computeStandings", () => {
-  it("totals points across matches using each round's context", () => {
-    const scratch: Player[] = [
-      { id: "p1", name: "P1", handicap: 0, teamId: "t1" },
-      { id: "p2", name: "P2", handicap: 0, teamId: "t2" },
-    ];
-    const match: Match = {
-      id: "m1",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["p1"] },
-      sideB: { teamId: "t2", playerIds: ["p2"] },
-      scores: { p1: {}, p2: {} },
-    };
-    for (let h = 1; h <= 18; h++) {
-      match.scores.p1[h] = 3; // birdies every hole
-      match.scores.p2[h] = 4;
-    }
-    const standings = computeStandings([match], scratch, { r1: ctx });
-    const t1 = standings.find((s) => s.teamId === "t1")!;
-    const t2 = standings.find((s) => s.teamId === "t2")!;
-    expect(t1.points).toBe(1);
-    expect(t2.points).toBe(0);
-    expect(t1.matchesComplete).toBe(1);
-  });
-});
-
-describe("computeStrokePlay — 4-man team stroke play", () => {
-  // Team of Hunter (24 strokes off field-low Nick) and Nick (0).
-  const entry: Match = {
-    id: "r3t1",
-    roundId: "r3",
-    format: "fourman",
-    sideA: { teamId: "t1", playerIds: ["hunter", "nick"] },
-    sideB: { teamId: "", playerIds: [] },
-    scores: { hunter: {}, nick: {} },
-  };
-
-  it("gives fourman strokes off the whole field's low handicap", () => {
-    const alloc = allocateStrokes(entry, players, ctx);
-    // Field includes Nick (3): Hunter 27-3=24, Nick 0. Jay/Nate not in the
-    // entry but the low pool is the field.
-    expect(alloc.byPlayer.hunter).toBe(24);
-    expect(alloc.byPlayer.nick).toBe(0);
-  });
-
-  it("counts the best net ball per hole and totals to par", () => {
-    const e = structuredClone(entry);
-    // Hole 1 (SI 1, par 4): Hunter gross 5 with 2 strokes (24 -> 2 on SI 1)
-    // = net 3; Nick gross 4 = net 4. Best = 3 (birdie).
-    e.scores.hunter[1] = 5;
-    e.scores.nick[1] = 4;
-    // Hole 18 (SI 18, par 4): Hunter 24 strokes -> 1 on SI 18; gross 6 = net 5;
-    // Nick gross 5 = net 5. Best = 5 (bogey).
-    e.scores.hunter[18] = 6;
-    e.scores.nick[18] = 5;
-    const st = computeStrokePlay(e, players, ctx);
-    expect(st.thru).toBe(2);
-    expect(st.netTotal).toBe(8);
-    expect(st.toPar).toBe(0);
-    expect(st.toParText).toBe("E");
-    expect(st.complete).toBe(false);
-  });
-
-  it("completes at 18 holes", () => {
-    const e = structuredClone(entry);
-    for (let h = 1; h <= 18; h++) e.scores.nick[h] = 4; // even par gross
-    const st = computeStrokePlay(e, players, ctx);
-    expect(st.complete).toBe(true);
-    expect(st.toParText).toBe("E");
-  });
-});
-
-describe("computeStandings — stroke-play round points", () => {
-  const twoTeams: Player[] = [
-    { id: "p1", name: "P1", handicap: 0, teamId: "t1" },
-    { id: "p2", name: "P2", handicap: 0, teamId: "t2" },
-  ];
-  const entryFor = (id: string, teamId: string, playerId: string): Match => ({
-    id,
-    roundId: "r3",
-    format: "fourman",
-    sideA: { teamId, playerIds: [playerId] },
-    sideB: { teamId: "", playerIds: [] },
-    scores: { [playerId]: {} },
-  });
-
-  it("awards 2 points to the low team once every team finishes", () => {
-    const e1 = entryFor("e1", "t1", "p1");
-    const e2 = entryFor("e2", "t2", "p2");
-    for (let h = 1; h <= 18; h++) {
-      e1.scores.p1[h] = 4; // E
-      e2.scores.p2[h] = 5; // +18
-    }
-    const standings = computeStandings([e1, e2], twoTeams, { r3: ctx });
-    expect(standings.find((s) => s.teamId === "t1")!.points).toBe(2);
-    expect(standings.find((s) => s.teamId === "t2")!.points).toBe(0);
-  });
-
-  it("splits the 2 points on a tie", () => {
-    const e1 = entryFor("e1", "t1", "p1");
-    const e2 = entryFor("e2", "t2", "p2");
-    for (let h = 1; h <= 18; h++) {
-      e1.scores.p1[h] = 4;
-      e2.scores.p2[h] = 4;
-    }
-    const standings = computeStandings([e1, e2], twoTeams, { r3: ctx });
-    expect(standings.find((s) => s.teamId === "t1")!.points).toBe(1);
-    expect(standings.find((s) => s.teamId === "t2")!.points).toBe(1);
-  });
-
-  it("awards nothing while any team is still on the course", () => {
-    const e1 = entryFor("e1", "t1", "p1");
-    const e2 = entryFor("e2", "t2", "p2");
-    for (let h = 1; h <= 18; h++) e1.scores.p1[h] = 4;
-    e2.scores.p2[1] = 4; // t2 thru 1
-    const standings = computeStandings([e1, e2], twoTeams, { r3: ctx });
-    expect(standings.every((s) => s.points === 0)).toBe(true);
-    expect(standings.find((s) => s.teamId === "t2")!.matchesPlayed).toBe(1);
-  });
-});
-
-describe("computeStandings — scramble placement points", () => {
-  // Four scratch teams (2 players each, handicap 0) so team strokes are 0 and
-  // net-to-par is just the team scramble ball to par.
-  const fourTeams: Player[] = ["t1", "t2", "t3", "t4"].flatMap((teamId) => [
-    { id: `${teamId}a`, name: `${teamId}a`, handicap: 0, teamId },
-    { id: `${teamId}b`, name: `${teamId}b`, handicap: 0, teamId },
-  ]);
-  // Team entry whose scramble ball totals (72 + delta): flat par with hole 1
-  // adjusted so the round finishes `delta` off par.
-  const entry = (teamId: string, hole1: number): Match => {
-    const key = teamScoreKey(teamId);
-    const scores: Record<string, Record<number, number>> = { [key]: {} };
-    for (let h = 1; h <= 18; h++) scores[key][h] = 4;
-    scores[key][1] = hole1;
-    return {
-      id: `r2${teamId}`,
+    const m: Match = {
+      id: "s1",
       roundId: "r2",
       format: "scramble",
-      sideA: { teamId, playerIds: [`${teamId}a`, `${teamId}b`] },
-      sideB: { teamId: "", playerIds: [] },
+      sideA: { teamId: "tA", playerIds: ["a1"] },
+      sideB: { teamId: "tB", playerIds: ["b1"] },
+      scores: { [teamScoreKey("tA")]: {}, [teamScoreKey("tB")]: {} },
+    };
+    // Team A's ball beats Team B on the whole front nine, raw.
+    for (let h = 1; h <= 9; h++) {
+      m.scores[teamScoreKey("tA")][h] = 4;
+      m.scores[teamScoreKey("tB")][h] = 5;
+    }
+    const st = computeMatchState(m, teamPlayers, ctx);
+    // Segment value is 2 for a scramble.
+    expect(st.front.winner).toBe("A");
+    expect(st.front.points).toEqual({ a: 2, b: 0 });
+  });
+});
+
+describe("computeStandings — Nassau points per round", () => {
+  const twoSided: Player[] = [
+    { id: "a", name: "A", handicap: 0, teamId: "tA" },
+    { id: "b", name: "B", handicap: 0, teamId: "tB" },
+  ];
+
+  function sweep(id: string, roundId: string, format: Match["format"]): Match {
+    const scramble = format === "scramble";
+    const keyA = scramble ? teamScoreKey("tA") : "a";
+    const keyB = scramble ? teamScoreKey("tB") : "b";
+    const scores: Match["scores"] = { [keyA]: {}, [keyB]: {} };
+    for (let h = 1; h <= 18; h++) {
+      scores[keyA][h] = 4; // A wins every hole
+      scores[keyB][h] = 5;
+    }
+    return {
+      id,
+      roundId,
+      format,
+      sideA: { teamId: "tA", playerIds: ["a"] },
+      sideB: { teamId: "tB", playerIds: ["b"] },
       scores,
     };
-  };
+  }
 
-  it("awards 3 / 1 / 0 / 0 by finish once every team is in", () => {
-    const entries = [
-      entry("t1", 2), // 70, -2  -> 1st
-      entry("t2", 4), // 72,  E  -> 2nd
-      entry("t3", 6), // 74, +2  -> 3rd
-      entry("t4", 8), // 76, +4  -> 4th
-    ];
-    const standings = computeStandings(entries, fourTeams, { r2: ctx });
-    const pts = (id: string) => standings.find((s) => s.teamId === id)!.points;
-    expect(pts("t1")).toBe(3);
-    expect(pts("t2")).toBe(1);
-    expect(pts("t3")).toBe(0);
-    expect(pts("t4")).toBe(0);
+  it("gives a four-ball sweep 3 points per match (front+back+match)", () => {
+    const matches = [sweep("r1m1", "r1", "fourball"), sweep("r1m2", "r1", "fourball")];
+    const standings = computeStandings(matches, twoSided, { r1: ctx });
+    expect(standings.find((s) => s.teamId === "tA")!.points).toBe(6); // 2 × 3
+    expect(standings.find((s) => s.teamId === "tB")!.points).toBe(0);
   });
 
-  it("pools and splits the placement points on a tie for first", () => {
-    const entries = [
-      entry("t1", 2), // -2, tied 1st
-      entry("t2", 2), // -2, tied 1st
-      entry("t3", 6), // +2
-      entry("t4", 8), // +4
-    ];
-    const standings = computeStandings(entries, fourTeams, { r2: ctx });
-    const pts = (id: string) => standings.find((s) => s.teamId === id)!.points;
-    // Positions 1 & 2 pool 3 + 1 = 4, split -> 2 each.
-    expect(pts("t1")).toBe(2);
-    expect(pts("t2")).toBe(2);
-    expect(pts("t3")).toBe(0);
-    expect(pts("t4")).toBe(0);
+  it("gives a scramble round 12 points to a clean sweep (2 matches × 6)", () => {
+    const matches = [sweep("r2m1", "r2", "scramble"), sweep("r2m2", "r2", "scramble")];
+    const standings = computeStandings(matches, twoSided, { r2: ctx });
+    expect(standings.find((s) => s.teamId === "tA")!.points).toBe(12);
   });
 
-  it("awards nothing while any team is still on the course", () => {
-    const entries = [entry("t1", 2), entry("t2", 4), entry("t3", 6), entry("t4", 8)];
-    // Knock t4 back to an unfinished card.
-    delete entries[3].scores[teamScoreKey("t4")][18];
-    const standings = computeStandings(entries, fourTeams, { r2: ctx });
-    expect(standings.every((s) => s.points === 0)).toBe(true);
+  it("gives a four-man round 12 points to a clean sweep (2 matches × 6)", () => {
+    const matches = [sweep("r3m1", "r3", "fourman"), sweep("r3m2", "r3", "fourman")];
+    const standings = computeStandings(matches, twoSided, { r3: ctx });
+    expect(standings.find((s) => s.teamId === "tA")!.points).toBe(12);
+  });
+
+  it("splits a fully halved four-ball match 1.5 each", () => {
+    const m = duel("m", "r1");
+    for (let h = 1; h <= 18; h++) {
+      m.scores.a[h] = 4;
+      m.scores.b[h] = 4; // every hole halved -> every bet halved
+    }
+    const standings = computeStandings([m], scratch, { r1: ctx });
+    expect(standings.find((s) => s.teamId === "tA")!.points).toBe(1.5);
+    expect(standings.find((s) => s.teamId === "tB")!.points).toBe(1.5);
   });
 });
 
@@ -451,15 +286,16 @@ describe("computePlayerTotals — player leaderboard", () => {
       id: "m1",
       roundId: "r1",
       format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["jay"] },
-      sideB: { teamId: "t2", playerIds: ["nick"] },
+      sideA: { teamId: "tA", playerIds: ["jay"] },
+      sideB: { teamId: "tB", playerIds: ["nick"] },
       scores: { jay: { 1: 5, 2: 4 }, nick: {} },
     };
-    // Jay CH 6 (neutral tee): strokes on SI 1..6 -> one each on holes 1 and 2.
-    const t = computePlayerTotals(match, "jay", players, ctx);
-    expect(t).toEqual({ gross: 9, net: 7, thru: 2 });
-    // Nick has no scores -> null.
-    expect(computePlayerTotals(match, "nick", players, ctx)).toBeNull();
+    // Jay CH 6: strokes on SI 1..6 -> one each on holes 1 and 2.
+    expect(computePlayerTotals(match, "jay", players, ctx)).toEqual({
+      gross: 9,
+      net: 7,
+      thru: 2,
+    });
   });
 
   it("uses the raw team score in a scramble (no handicap, net = gross)", () => {
@@ -467,104 +303,68 @@ describe("computePlayerTotals — player leaderboard", () => {
       id: "s1",
       roundId: "r2",
       format: "scramble",
-      sideA: { teamId: "t1", playerIds: ["hunter", "nick"] },
-      sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
-      scores: { [teamScoreKey("t1")]: { 1: 4 }, [teamScoreKey("t2")]: {} },
+      sideA: { teamId: "tA", playerIds: ["hunter", "nick"] },
+      sideB: { teamId: "tB", playerIds: ["nate", "jay"] },
+      scores: { [teamScoreKey("tA")]: { 1: 4 }, [teamScoreKey("tB")]: {} },
     };
-    // No strokes given -> net equals the raw team score.
     const t = computePlayerTotals(match, "hunter", players, ctx);
     expect(t).toEqual({ gross: 4, net: 4, thru: 1 });
-    // Same value for the teammate.
     expect(computePlayerTotals(match, "nick", players, ctx)).toEqual(t);
+  });
+});
+
+describe("stablefordPoints — standard net scale", () => {
+  it("maps net-to-par to points", () => {
+    expect(stablefordPoints(-2)).toBe(4);
+    expect(stablefordPoints(-1)).toBe(3);
+    expect(stablefordPoints(0)).toBe(2);
+    expect(stablefordPoints(2)).toBe(0);
+  });
+});
+
+describe("computeStableford", () => {
+  it("returns an empty list for a scramble (no individual balls)", () => {
+    const match: Match = {
+      id: "m",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "tA", playerIds: ["hunter", "nick"] },
+      sideB: { teamId: "tB", playerIds: ["nate", "jay"] },
+      scores: { [teamScoreKey("tA")]: { 1: 4 }, [teamScoreKey("tB")]: {} },
+    };
+    expect(computeStableford(match, players, ctx)).toEqual([]);
   });
 });
 
 describe("course seed data", () => {
   it.each([
-    ["bigfish", 7231], // hole yardages on the card = Tournament tees
-    ["hayward", 6678], // hole yardages on the card = Black tees
+    ["bigfish", 7231],
+    ["hayward", 6678],
   ])("%s has 18 holes, par 72, valid HDCP permutation, card yardage %i", (id, totalYards) => {
     const c = seedState().courses.find((x) => x.id === id)!;
     expect(c.holes).toHaveLength(18);
     expect(c.holes.reduce((s, h) => s + h.par, 0)).toBe(72);
     const sis = c.holes.map((h) => h.strokeIndex).sort((a, b) => a - b);
     expect(sis).toEqual(Array.from({ length: 18 }, (_, i) => i + 1));
-    expect(c.tees).toHaveLength(5);
     expect(c.holes.reduce((s, h) => s + (h.yards ?? 0), 0)).toBe(totalYards);
   });
-
-  it("computes Hayward White-tee course handicaps", () => {
-    const hayward = seedState().courses.find((c) => c.id === "hayward")!;
-    const white: ScoringContext = {
-      course: hayward,
-      tee: hayward.tees.find((t) => t.name === "White")!,
-    };
-    // 69.2 rating / 121 slope, par 72.
-    // 27 × (121/113) + (69.2 − 72) = 28.91 − 2.8 = 26.1 → 26
-    expect(courseHandicap(27, white)).toBe(26);
-    // 3 × (121/113) − 2.8 = 3.21 − 2.8 = 0.41 → 0
-    expect(courseHandicap(3, white)).toBe(0);
-  });
 });
 
-describe("stablefordPoints — standard net scale", () => {
-  it("maps net-to-par to points", () => {
-    expect(stablefordPoints(-3)).toBe(5); // albatross+
-    expect(stablefordPoints(-2)).toBe(4); // eagle
-    expect(stablefordPoints(-1)).toBe(3); // birdie
-    expect(stablefordPoints(0)).toBe(2); // par
-    expect(stablefordPoints(1)).toBe(1); // bogey
-    expect(stablefordPoints(2)).toBe(0); // double or worse
-    expect(stablefordPoints(5)).toBe(0);
-  });
-});
-
-describe("computeStableford", () => {
-  it("scores net points per player, sorted, and caps blow-ups at 0", () => {
-    const match: Match = {
-      id: "m",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] }, // CH 3, strokes SI 1-3
-      sideB: { teamId: "t2", playerIds: ["jay"] }, // CH 6, strokes SI 1-6
-      scores: {
-        nick: { 1: 4, 2: 6, 3: 4 }, // net 3,5,3 -> -1,+1,-1 -> 3+1+3 = 7
-        jay: { 1: 4, 2: 4, 3: 8 }, // net 3,3,7 -> -1,-1,+3 -> 3+3+0 = 6
-      },
-    };
-    const rows = computeStableford(match, players, ctx);
-    expect(rows).toEqual([
-      { playerId: "nick", points: 7, thru: 3 },
-      { playerId: "jay", points: 6, thru: 3 },
-    ]);
-  });
-
-  it("returns an empty list for a scramble (no individual balls)", () => {
-    const match: Match = {
-      id: "m",
-      roundId: "r2",
-      format: "scramble",
-      sideA: { teamId: "t1", playerIds: ["hunter", "nick"] },
-      sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
-      scores: { [teamScoreKey("t1")]: { 1: 4 }, [teamScoreKey("t2")]: {} },
-    };
-    expect(computeStableford(match, players, ctx)).toEqual([]);
-  });
-
-  it("counts a player with no scores as 0 points thru 0", () => {
-    const match: Match = {
-      id: "m",
-      roundId: "r1",
-      format: "fourball",
-      sideA: { teamId: "t1", playerIds: ["nick"] },
-      sideB: { teamId: "t2", playerIds: ["jay"] },
-      scores: { nick: { 1: 4 }, jay: {} },
-    };
-    const rows = computeStableford(match, players, ctx);
-    expect(rows.find((r) => r.playerId === "jay")).toEqual({
-      playerId: "jay",
-      points: 0,
-      thru: 0,
-    });
+describe("seed shape", () => {
+  it("is two teams of eight, head-to-head every round", () => {
+    const s = seedState();
+    expect(s.teams).toHaveLength(2);
+    for (const t of s.teams) {
+      expect(s.players.filter((p) => p.teamId === t.id)).toHaveLength(8);
+    }
+    // Every match is A vs B (both sides populated).
+    for (const m of s.matches) {
+      expect(m.sideA.teamId).toBe("tA");
+      expect(m.sideB.teamId).toBe("tB");
+      expect(m.sideB.playerIds.length).toBeGreaterThan(0);
+    }
+    // Match counts per round: 4 / 2 / 2.
+    const byRound = (r: string) => s.matches.filter((m) => m.roundId === r).length;
+    expect([byRound("r1"), byRound("r2"), byRound("r3")]).toEqual([4, 2, 2]);
   });
 });

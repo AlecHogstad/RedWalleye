@@ -1,12 +1,7 @@
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
-import {
-  computeMatchState,
-  computeStrokePlay,
-  isStrokePlay,
-  type ScoringContext,
-} from "../scoring/engine";
+import { computeMatchState, type ScoringContext } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
 import { CheckFlag } from "../components/CheckFlag";
@@ -15,6 +10,11 @@ function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string
   return side.playerIds
     .map((id) => players[id]?.name ?? "?")
     .join(" / ");
+}
+
+/** Format a points total, showing a half as .5 (e.g. 1.5) and whole otherwise. */
+function fmtPts(p: number): string {
+  return p % 1 === 0 ? String(p) : p.toFixed(1);
 }
 
 /** The expected venue name for a round that hasn't been started yet,
@@ -42,13 +42,10 @@ export default function RoundsPage() {
 
   const confirmFinish = (round: Round) => {
     const matches = state.matches.filter((m) => m.roundId === round.id);
-    const incomplete = matches.filter((m) =>
-      isStrokePlay(round.format)
-        ? !computeStrokePlay(m, state.players, contexts[round.id]).complete
-        : !computeMatchState(m, state.players, contexts[round.id]).complete,
+    const incomplete = matches.filter(
+      (m) => !computeMatchState(m, state.players, contexts[round.id]).complete,
     ).length;
-    const what = isStrokePlay(round.format) ? "team card(s)" : "match(es)";
-    const warn = incomplete > 0 ? `\n\n${incomplete} ${what} aren't finished.` : "";
+    const warn = incomplete > 0 ? `\n\n${incomplete} match(es) aren't finished.` : "";
     if (window.confirm(`Finish ${round.name}? This unlocks the other rounds.${warn}`)) {
       finishRound(round.id);
     }
@@ -90,27 +87,16 @@ export default function RoundsPage() {
             )}
 
             <div className={`card ${round.status === "pending" ? "dimmed" : ""}`}>
-              {matches.map((m) =>
-                isStrokePlay(round.format) ? (
-                  <TeamEntryRow
-                    key={m.id}
-                    match={m}
-                    players={players}
-                    teamMap={teamMap}
-                    ctx={ctx}
-                    clickable={round.status !== "pending"}
-                  />
-                ) : (
-                  <MatchRow
-                    key={m.id}
-                    match={m}
-                    players={players}
-                    teamMap={teamMap}
-                    ctx={ctx}
-                    clickable={round.status !== "pending"}
-                  />
-                ),
-              )}
+              {matches.map((m) => (
+                <MatchRow
+                  key={m.id}
+                  match={m}
+                  players={players}
+                  teamMap={teamMap}
+                  ctx={ctx}
+                  clickable={round.status !== "pending"}
+                />
+              ))}
             </div>
 
             {startable && (
@@ -178,17 +164,16 @@ function MatchRow({
       </div>
       <div className="status">
         <div className="result" style={{ color: leadColor }}>
-          {st.thru === 0 ? "—" : st.resultText.replace(/ thru.*/, "")}
+          {st.thru === 0 ? "—" : st.overall.resultText.replace(/ thru.*/, "")}
         </div>
         <div className="lead">
           {st.thru === 0 ? (
             "not started"
-          ) : st.complete ? (
-            <>
-              <CheckFlag size={10} /> final
-            </>
           ) : (
-            `thru ${st.thru}`
+            <>
+              {st.complete && <CheckFlag size={10} />} {fmtPts(st.points.a)}–
+              {fmtPts(st.points.b)} pts · {st.complete ? "final" : `thru ${st.thru}`}
+            </>
           )}
         </div>
       </div>
@@ -196,74 +181,6 @@ function MatchRow({
         <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
           <span className="names">{sideNames(match.sideB, players)}</span>
           <span className="dot" style={{ background: colorB }} />
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!clickable) {
-    return <div className={`match ${st.complete ? "won" : ""}`}>{body}</div>;
-  }
-  return (
-    <Link className={`match ${st.complete ? "won" : ""}`} to={`/match/${match.id}`}>
-      {body}
-    </Link>
-  );
-}
-
-/** One team's stroke-play card in the fourman round. */
-function TeamEntryRow({
-  match,
-  players,
-  teamMap,
-  ctx,
-  clickable,
-}: {
-  match: Match;
-  players: ReturnType<typeof usePlayerMap>;
-  teamMap: Record<string, { name: string; color: string }>;
-  ctx: ScoringContext;
-  clickable: boolean;
-}) {
-  const { state } = useStore();
-  const st = useMemo(
-    () => computeStrokePlay(match, state.players, ctx),
-    [match, state.players, ctx],
-  );
-  const team = teamMap[match.sideA.teamId];
-
-  const body = (
-    <div className="sides">
-      <div className="side a" style={{ minWidth: 0 }}>
-        <div className="row" style={{ gap: 8 }}>
-          <span className="dot" style={{ background: team?.color }} />
-          <span style={{ fontWeight: 700, flex: "none" }}>{team?.name}</span>
-          <span
-            className="muted"
-            style={{
-              fontSize: 12.5,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {sideNames(match.sideA, players)}
-          </span>
-        </div>
-      </div>
-      <div className="status">
-        <div className="result">{st.thru === 0 ? "—" : st.toParText}</div>
-        <div className="lead">
-          {st.thru === 0 ? (
-            "not started"
-          ) : st.complete ? (
-            <>
-              <CheckFlag size={10} /> {match.format === "scramble" ? "score" : "net"}{" "}
-              {st.netTotal}
-            </>
-          ) : (
-            `thru ${st.thru}`
-          )}
         </div>
       </div>
     </div>

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { type Match, type Side } from "../types";
+import { FORMAT_LABELS, type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
   computeStableford,
-  computeStrokePlay,
-  isStrokePlay,
+  nassauSegmentValue,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -65,17 +64,9 @@ export default function MatchPage() {
   // Keep the screen awake while scoring — no re-tapping between shots.
   useWakeLock();
 
-  const strokePlay = match ? isStrokePlay(match.format) : false;
-
   const matchState = useMemo(
-    () =>
-      match && ctx && !strokePlay ? computeMatchState(match, state.players, ctx) : null,
-    [match, state.players, ctx, strokePlay],
-  );
-  const teamState = useMemo(
-    () =>
-      match && ctx && strokePlay ? computeStrokePlay(match, state.players, ctx) : null,
-    [match, state.players, ctx, strokePlay],
+    () => (match && ctx ? computeMatchState(match, state.players, ctx) : null),
+    [match, state.players, ctx],
   );
   const alloc = useMemo(
     () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
@@ -86,7 +77,7 @@ export default function MatchPage() {
     [match, state.players, ctx],
   );
 
-  if (!match || !round || !ctx || !alloc || (!matchState && !teamState)) {
+  if (!match || !round || !ctx || !alloc || !matchState) {
     return (
       <div className="section">
         <p>Match not found.</p>
@@ -117,8 +108,9 @@ export default function MatchPage() {
   const teamMap = Object.fromEntries(state.teams.map((t) => [t.id, t]));
   const holeInfo = ctx.course.holes.find((h) => h.number === hole)!;
   const entitiesA = entitiesForSide(match, match.sideA, players);
-  const entitiesB = strokePlay ? [] : entitiesForSide(match, match.sideB, players);
+  const entitiesB = entitiesForSide(match, match.sideB, players);
   const teamA = teamMap[match.sideA.teamId];
+  const teamB = teamMap[match.sideB.teamId];
 
   // Side games — per-group opt-ins + the current snake holder.
   const isScramble = match.format === "scramble";
@@ -190,71 +182,40 @@ export default function MatchPage() {
     );
   };
 
-  // Compact live score that sits between Prev / Next.
+  // Compact live score that sits between Prev / Next — the overall (match) bet
+  // headline plus the running Nassau points.
   const navScore = (() => {
-    if (teamState) {
-      if (teamState.thru === 0) {
-        return { result: "—", sub: "not started", cls: "" };
-      }
-      // Scramble has no handicap, so its total is a raw score, not a net.
-      const word = match.format === "scramble" ? "score" : "net";
-      return {
-        result: teamState.toParText,
-        sub: teamState.complete
-          ? `${word} ${teamState.netTotal} · final`
-          : `${word} ${teamState.netTotal} · thru ${teamState.thru}`,
-        cls: "",
-        flag: teamState.complete,
-      };
+    if (matchState.thru === 0) {
+      return { result: "—", sub: "not started", cls: "", flag: false };
     }
-    if (matchState) {
-      if (matchState.thru === 0) {
-        return { result: "—", sub: "not started", cls: "" };
-      }
-      const cls =
-        matchState.leader === "A" ? "leadA" : matchState.leader === "B" ? "leadB" : "";
-      const who = leaderName(matchState.leader, match, teamMap);
-      return {
-        result: matchState.resultText.replace(/ thru.*/, ""),
-        sub: matchState.complete
-          ? `${who} win`
-          : matchState.leader
-            ? `${who} · thru ${matchState.thru}`
-            : `thru ${matchState.thru}`,
-        cls,
-        flag: matchState.complete,
-      };
-    }
-    return { result: "—", sub: "", cls: "" };
+    const cls =
+      matchState.leader === "A" ? "leadA" : matchState.leader === "B" ? "leadB" : "";
+    return {
+      result: matchState.overall.resultText.replace(/ thru.*/, ""),
+      sub: `${fmtPts(matchState.points.a)}–${fmtPts(matchState.points.b)} pts · ${
+        matchState.complete ? "final" : `thru ${matchState.thru}`
+      }`,
+      cls,
+      flag: matchState.complete,
+    };
   })();
+
+  const segValue = nassauSegmentValue(match.format);
 
   const lastHole = ctx.course.holes.length;
 
   const holeGrid = (
     <div className="holegrid">
       {ctx.course.holes.map((h) => {
-        let win: string | undefined;
-        if (teamState) {
-          const res = teamState.perHole.find((p) => p.hole === h.number);
-          if (res?.net != null) {
-            win =
-              res.net < res.par
-                ? "var(--green-bright)"
-                : res.net > res.par
-                  ? "var(--orange)"
-                  : "var(--muted)";
-          }
-        } else if (matchState) {
-          const res = matchState.perHole.find((p) => p.hole === h.number);
-          win =
-            res?.winner === "A"
-              ? teamMap[match.sideA.teamId]?.color
-              : res?.winner === "B"
-                ? teamMap[match.sideB.teamId]?.color
-                : res?.winner === "halve"
-                  ? "var(--muted)"
-                  : undefined;
-        }
+        const res = matchState.perHole.find((p) => p.hole === h.number);
+        const win =
+          res?.winner === "A"
+            ? teamMap[match.sideA.teamId]?.color
+            : res?.winner === "B"
+              ? teamMap[match.sideB.teamId]?.color
+              : res?.winner === "halve"
+                ? "var(--muted)"
+                : undefined;
         const scored = win !== undefined;
         return (
           <button
@@ -300,9 +261,7 @@ export default function MatchPage() {
           ← Rounds
         </Link>
         <h2 className="hero-title">
-          {strokePlay
-            ? `${teamA?.name} — ${match.format === "scramble" ? "Scramble" : "Team Card"}`
-            : "Match Card"}
+          {teamA?.name} vs {teamB?.name} — {FORMAT_LABELS[match.format]}
         </h2>
         <p className="hero-course">
           {ctx.course.name}
@@ -356,12 +315,48 @@ export default function MatchPage() {
         </button>
       </div>
 
-      {/* Stroke-play sub-result (four-ball) — bragging rights, no points */}
-      {matchState && matchState.strokePlay.thru > 0 && (
-        <p className="hint center" style={{ paddingTop: 8, margin: 0 }}>
-          Stroke play: {strokePlayCaption(matchState.strokePlay, match, teamMap)}
-        </p>
-      )}
+      {/* Nassau — front 9, back 9, and the match are three separate bets */}
+      <div className="section" style={{ paddingTop: 12 }}>
+        <div className="card" style={{ padding: "12px 16px" }}>
+          <div
+            className="row"
+            style={{ gap: 8, justifyContent: "space-between", textAlign: "center" }}
+          >
+            {(
+              [
+                { key: "front", label: "Front 9", st: matchState.front },
+                { key: "back", label: "Back 9", st: matchState.back },
+                { key: "match", label: "Match", st: matchState.overall },
+              ] as const
+            ).map(({ key, label, st }) => {
+              const leadName =
+                st.leader === "A" ? teamA?.name : st.leader === "B" ? teamB?.name : "";
+              const line =
+                st.thru === 0
+                  ? "—"
+                  : st.winner === "halve"
+                    ? "Halved"
+                    : st.leader
+                      ? `${leadName} ${st.resultText}`
+                      : st.resultText;
+              const foot = st.complete
+                ? `${fmtPts(st.points.a)}–${fmtPts(st.points.b)} pt`
+                : `${segValue} pt${segValue > 1 ? "s" : ""} each`;
+              return (
+                <div key={key} style={{ flex: 1, minWidth: 0 }}>
+                  <div className="hint" style={{ margin: 0 }}>
+                    {label}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{line}</div>
+                  <div className="muted" style={{ fontSize: 11 }}>
+                    {foot}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* Hole selection */}
       <div className="section" style={{ paddingTop: 12 }}>
@@ -537,30 +532,9 @@ function Toggle({
   );
 }
 
-/** One-line stroke-play readout for a four-ball match: who's lower on total
- *  best-net-ball strokes (or all-square), and the running net. */
-function strokePlayCaption(
-  sp: { netA: number; netB: number; thru: number; winner: "A" | "B" | "halve" | null },
-  match: Match,
-  teamMap: Record<string, { name: string }>,
-): string {
-  const nameA = teamMap[match.sideA.teamId]?.name ?? "A";
-  const nameB = teamMap[match.sideB.teamId]?.name ?? "B";
-  const tail = ` · thru ${sp.thru}`;
-  if (sp.winner === "halve") return `all square (net ${sp.netA})${tail}`;
-  const leadName = sp.winner === "A" ? nameA : nameB;
-  const low = Math.min(sp.netA, sp.netB);
-  return `${leadName} by ${Math.abs(sp.netA - sp.netB)} (net ${low})${tail}`;
-}
-
-function leaderName(
-  leader: "A" | "B" | null,
-  match: Match,
-  teamMap: Record<string, { name: string }>,
-): string {
-  if (leader === "A") return teamMap[match.sideA.teamId]?.name ?? "A";
-  if (leader === "B") return teamMap[match.sideB.teamId]?.name ?? "B";
-  return "";
+/** Format a points total, showing a half as .5 (e.g. 1.5) and whole otherwise. */
+function fmtPts(p: number): string {
+  return p % 1 === 0 ? String(p) : p.toFixed(1);
 }
 
 /** The first hole with no scores entered — where a re-opened match resumes.
