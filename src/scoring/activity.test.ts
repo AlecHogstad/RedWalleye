@@ -110,6 +110,24 @@ describe("buildFeed — snake & mulligans", () => {
     expect(mull!.playerId).toBe("hunter");
     expect(mull!.hole).toBe(4);
   });
+
+  it("passes mulligan photo metadata into the feed", () => {
+    const s = startedState();
+    s.activity = [
+      {
+        id: "a1",
+        type: "mulligan",
+        matchId: "r2m1",
+        playerId: "hunter",
+        ts: 100,
+        hole: 4,
+        media: { path: "rw/a1.jpg", mime: "image/jpeg", status: "pending" },
+      },
+    ];
+    const mull = buildFeed(s, contexts(s)).find((f) => f.kind === "mulligan");
+    expect(mull?.mediaPath).toBe("rw/a1.jpg");
+    expect(mull?.mediaStatus).toBe("pending");
+  });
 });
 
 describe("buildFeed — overall lead", () => {

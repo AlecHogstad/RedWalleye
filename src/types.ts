@@ -71,9 +71,10 @@ export const FORMAT_RULES: Record<Format, string> = {
     "lowest course handicap in the match. It's a Nassau — front 9, back 9, and " +
     "the match are worth 1 point each (3 per match).",
   scramble:
-    "4-man scramble, A vs B. Each side picks its best shot and plays one team " +
-    "ball — no handicap, raw score. It's a Nassau — front 9, back 9, and the " +
-    "match are worth 2 points each (6 per match).",
+    "4-man scramble stroke play. Each team fields two foursomes; all four " +
+    "groups play the course and the lowest gross total wins placement points " +
+    "(1st = 6, 2nd = 4, 3rd = 2, 4th = 0). Team points are the sum of both " +
+    "groups — 12 points on the line for the round.",
 };
 
 /** One side of a match — a set of player ids playing together. */
@@ -129,6 +130,14 @@ export interface MatchSideGames {
   snakeChanges?: number;
 }
 
+/** Optional proof photo for a mulligan (file lives in Supabase Storage). */
+export interface ActivityEventMedia {
+  path: string;
+  mime: "image/jpeg";
+  /** Present while this device is still uploading the file. */
+  status?: "pending" | "ready";
+}
+
 /**
  * An entry in the activity feed. Append-only; today the only kind is a
  * scramble "booze mulligan" (a player took a shot to buy a do-over), but the
@@ -143,6 +152,7 @@ export interface ActivityEvent {
   /** The hole being played when it happened, so the activity feed can slot it
    *  in golf-chronological order. Optional — older events predate this field. */
   hole?: number;
+  media?: ActivityEventMedia;
 }
 
 /**

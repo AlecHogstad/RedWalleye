@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
 import { computeMatchState } from "../scoring/engine";
 import { FeedIcon } from "../components/Icons";
 import { CheckFlag } from "../components/CheckFlag";
+import { resolveMediaUrl } from "../sync/media";
 import type { Side } from "../types";
 
 /** Compact relative time for the few events that carry a real clock. */
@@ -42,6 +43,7 @@ export default function TickerPage() {
   const { state } = useStore();
   const contexts = useRoundContexts();
   const now = Date.now();
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const playerMap = useMemo(
     () => Object.fromEntries(state.players.map((p) => [p.id, p])),
@@ -218,6 +220,10 @@ export default function TickerPage() {
             )}
             {feed.map((e) => {
               const team = teamMap[e.teamId ?? ""];
+              const mediaUrl =
+                e.kind === "mulligan" && e.mediaPath
+                  ? resolveMediaUrl(e.mediaPath)
+                  : null;
               return (
                 <li className="feed-item" key={e.id}>
                   <span className="feed-icon">
@@ -234,6 +240,22 @@ export default function TickerPage() {
                       )}
                       {sub(e)}
                     </span>
+                    {e.kind === "mulligan" && e.mediaStatus === "pending" && !mediaUrl && (
+                      <span className="feed-media-pending">Uploading photo…</span>
+                    )}
+                    {mediaUrl && (
+                      <button
+                        type="button"
+                        className="feed-mulligan-photo-btn"
+                        onClick={() => setLightboxUrl(mediaUrl)}
+                      >
+                        <img
+                          src={mediaUrl}
+                          alt=""
+                          className="feed-mulligan-photo"
+                        />
+                      </button>
+                    )}
                   </span>
                 </li>
               );
@@ -241,6 +263,17 @@ export default function TickerPage() {
           </ul>
         </div>
       </section>
+
+      {lightboxUrl && (
+        <div
+          className="media-lightbox"
+          role="dialog"
+          aria-label="Mulligan photo"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img src={lightboxUrl} alt="Mulligan proof" className="media-lightbox-img" />
+        </div>
+      )}
     </>
   );
 }

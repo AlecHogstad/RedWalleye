@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { FORMAT_LABELS, type Match } from "../types";
 import { useStore } from "../store/store";
 import { teamRosterIds, type DraftTeam } from "../store/draft";
+import { isScrambleFieldMatch } from "../scoring/engine";
 
 function hcp(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -43,14 +44,22 @@ export default function MatchupsPage() {
   }
 
   const editable = round.status === "pending";
+  const fieldScramble =
+    matches.length > 0 && matches.every(isScrambleFieldMatch);
   const seats = seatCount(round.format);
 
   // Which golfers are already placed somewhere in this round, per team.
   const usedBy = (teamId: string): Set<string> => {
     const used = new Set<string>();
     for (const m of matches) {
-      const side = m.sideA.teamId === teamId ? m.sideA : m.sideB;
-      side.playerIds.forEach((id) => used.add(id));
+      if (isScrambleFieldMatch(m)) {
+        if (m.sideA.teamId === teamId) {
+          m.sideA.playerIds.forEach((id) => used.add(id));
+        }
+      } else {
+        const side = m.sideA.teamId === teamId ? m.sideA : m.sideB;
+        side.playerIds.forEach((id) => used.add(id));
+      }
     }
     return used;
   };
@@ -72,6 +81,14 @@ export default function MatchupsPage() {
     index: number,
     value: string,
   ) => {
+    if (isScrambleFieldMatch(match)) {
+      const cur = [...match.sideA.playerIds];
+      while (cur.length < seats) cur.push("");
+      cur[index] = value;
+      const cleaned = cur.filter(Boolean);
+      setMatchup(match.id, cleaned, match.sideB.playerIds);
+      return;
+    }
     const cur = side === "A" ? match.sideA.playerIds : match.sideB.playerIds;
     const next = [...cur];
     while (next.length < seats) next.push("");
@@ -87,10 +104,16 @@ export default function MatchupsPage() {
   // Completeness: every seat filled (all 8 per team placed once).
   const benchA = rosterFor("tA").filter((id) => !usedBy("tA").has(id));
   const benchB = rosterFor("tB").filter((id) => !usedBy("tB").has(id));
-  const emptySeats = matches.reduce(
-    (n, m) => n + (seats - m.sideA.playerIds.length) + (seats - m.sideB.playerIds.length),
-    0,
-  );
+  const emptySeats = matches.reduce((n, m) => {
+    if (isScrambleFieldMatch(m)) {
+      return n + (seats - m.sideA.playerIds.length);
+    }
+    return (
+      n +
+      (seats - m.sideA.playerIds.length) +
+      (seats - m.sideB.playerIds.length)
+    );
+  }, 0);
   const complete = emptySeats === 0 && benchA.length === 0 && benchB.length === 0;
 
   const seatSelect = (match: Match, side: "A" | "B", index: number) => {
@@ -127,8 +150,9 @@ export default function MatchupsPage() {
         </Link>
         <h2 style={{ marginTop: 10 }}>{round.name} matchups</h2>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
-          {FORMAT_LABELS[round.format]} — set who plays who. Each golfer plays
-          once. {seats} per side.
+          {fieldScramble
+            ? `${FORMAT_LABELS[round.format]} — each team fields two foursomes. Place every golfer once (${seats} per group).`
+            : `${FORMAT_LABELS[round.format]} — set who plays who. Each golfer plays once. ${seats} per side.`}
         </p>
         {!editable && (
           <p className="hint" style={{ padding: "0 2px 8px", color: "var(--accent)" }}>
@@ -163,31 +187,61 @@ export default function MatchupsPage() {
       {matches.map((m, i) => {
         const teamA = teamMap[m.sideA.teamId];
         const teamB = teamMap[m.sideB.teamId];
+        const foursomeNum =
+          fieldScramble &&
+          matches.slice(0, i + 1).filter((x) => x.sideA.teamId === m.sideA.teamId)
+            .length;
         return (
           <section className="section" key={m.id} style={{ paddingTop: 0 }}>
             <h2>
-              Match {i + 1}
-              <span className="oval muted-oval">
-                {seats} v {seats}
-              </span>
+              {fieldScramble ? (
+                <>
+                  {teamA?.name} · Foursome {foursomeNum}
+                  <span className="oval muted-oval">{seats}-man</span>
+                </>
+              ) : (
+                <>
+                  Match {i + 1}
+                  <span className="oval muted-oval">
+                    {seats} v {seats}
+                  </span>
+                </>
+              )}
             </h2>
             <div className="card">
-              <div className="field" style={{ fontWeight: 700, color: "var(--muted)" }}>
-                <span className="dot" style={{ background: teamA?.color, opacity: 0.45 }} />
-                <span className="wide">{teamA?.name}</span>
-                <span className="matchup-vs">vs</span>
-                <span className="dot" style={{ background: teamB?.color, opacity: 0.45 }} />
-                <span className="wide">{teamB?.name}</span>
-              </div>
-              {Array.from({ length: seats }, (_, s) => (
-                <div className="field" key={s}>
-                  <span className="dot" style={{ background: teamA?.color }} />
-                  {seatSelect(m, "A", s)}
-                  <span className="matchup-vs">vs</span>
-                  <span className="dot" style={{ background: teamB?.color }} />
-                  {seatSelect(m, "B", s)}
-                </div>
-              ))}
+              {fieldScramble ? (
+                <>
+                  <div className="field" style={{ fontWeight: 700, color: "var(--muted)" }}>
+                    <span className="dot" style={{ background: teamA?.color, opacity: 0.45 }} />
+                    <span className="wide">{teamA?.name} scramble</span>
+                  </div>
+                  {Array.from({ length: seats }, (_, s) => (
+                    <div className="field" key={s}>
+                      <span className="dot" style={{ background: teamA?.color }} />
+                      {seatSelect(m, "A", s)}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div className="field" style={{ fontWeight: 700, color: "var(--muted)" }}>
+                    <span className="dot" style={{ background: teamA?.color, opacity: 0.45 }} />
+                    <span className="wide">{teamA?.name}</span>
+                    <span className="matchup-vs">vs</span>
+                    <span className="dot" style={{ background: teamB?.color, opacity: 0.45 }} />
+                    <span className="wide">{teamB?.name}</span>
+                  </div>
+                  {Array.from({ length: seats }, (_, s) => (
+                    <div className="field" key={s}>
+                      <span className="dot" style={{ background: teamA?.color }} />
+                      {seatSelect(m, "A", s)}
+                      <span className="matchup-vs">vs</span>
+                      <span className="dot" style={{ background: teamB?.color }} />
+                      {seatSelect(m, "B", s)}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </section>
         );

@@ -39,6 +39,7 @@ import type {
 } from "../types";
 // (STATE_VERSION intentionally not imported — sync channel is version-independent)
 import { supabaseConfig } from "./supabaseConfig";
+import { deleteAllTripMedia, startMediaFlushLoop } from "./media";
 
 export const syncEnabled = Boolean(supabaseConfig);
 
@@ -419,10 +420,13 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
     if (loadPending().length > 0) void flush();
   }, 15000);
 
+  const stopMediaFlush = startMediaFlushLoop();
+
   return () => {
     notifyData = null;
     window.removeEventListener("online", onOnline);
     if (flushTimer) clearInterval(flushTimer);
+    stopMediaFlush();
     void supabase?.removeChannel(channel);
   };
 }
@@ -497,6 +501,11 @@ export const remoteWrite = {
     write(`${V}|activity|${event.id}`, event);
   },
 
+  /** Patch an existing activity event (e.g. mark photo upload complete). */
+  updateActivity(event: ActivityEvent): void {
+    write(`${V}|activity|${event.id}`, event);
+  },
+
   /** Remove an activity-feed event (undo). */
   removeActivity(eventId: string): void {
     write(`${V}|activity|${eventId}`, null);
@@ -539,5 +548,6 @@ export const remoteWrite = {
     savePending([]);
     emit();
     void getClient()?.from(TABLE).delete().like("id", `${V}|%`);
+    void deleteAllTripMedia();
   },
 };

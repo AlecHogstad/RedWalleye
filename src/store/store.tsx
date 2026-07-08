@@ -32,6 +32,14 @@ import {
   syncEnabled,
   type RemoteData,
 } from "../sync/sync";
+import {
+  clearLocalMedia,
+  deleteMedia,
+  mediaPathForEvent,
+  queueMediaUpload,
+  storeLocalMedia,
+  compressPhoto,
+} from "../sync/media";
 
 const STORAGE_KEY = "red-walleye-state-v1";
 const REMOTE_CACHE_KEY = "red-walleye-remote-v1";
@@ -96,8 +104,9 @@ interface StoreValue {
   undoLastPick: () => void;
   resetDraft: () => void;
   updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
-  addMulligan: (matchId: string, playerId: string, hole?: number) => void;
+  addMulligan: (matchId: string, playerId: string, hole?: number) => string;
   removeMulligan: (matchId: string, playerId: string) => void;
+  attachMulliganPhoto: (eventId: string, file: File) => Promise<void>;
 }
 
 /** Stable id with a prefix (players, activity events, ...). */
@@ -302,6 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       remoteWrite.resetAll();
       return;
     }
+    clearLocalMedia();
     setLocalState(seedState());
   }, []);
 
@@ -589,7 +599,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const addMulligan = useCallback((matchId: string, playerId: string, hole?: number) => {
+  const addMulligan = useCallback((matchId: string, playerId: string, hole?: number): string => {
     const event: ActivityEvent = {
       id: genId("a"),
       type: "mulligan",
@@ -600,9 +610,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     if (syncEnabled) {
       remoteWrite.addActivity(event);
-      return;
+      return event.id;
     }
     setLocalState((prev) => ({ ...prev, activity: [...prev.activity, event] }));
+    return event.id;
   }, []);
 
   const removeMulligan = useCallback(
@@ -617,6 +628,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
         .sort((a, b) => b.ts - a.ts)[0];
       if (!latest) return;
+      if (latest.media?.path) void deleteMedia(latest.media.path);
       if (syncEnabled) {
         remoteWrite.removeActivity(latest.id);
         return;
@@ -624,6 +636,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLocalState((prev) => ({
         ...prev,
         activity: prev.activity.filter((e) => e.id !== latest.id),
+      }));
+    },
+    [state.activity],
+  );
+
+  const attachMulliganPhoto = useCallback(
+    async (eventId: string, file: File) => {
+      const event = state.activity.find((e) => e.id === eventId);
+      if (!event || event.type !== "mulligan") return;
+      const blob = await compressPhoto(file);
+      const path = mediaPathForEvent(eventId);
+      const pendingEvent: ActivityEvent = {
+        ...event,
+        media: { path, mime: "image/jpeg", status: "pending" },
+      };
+      const readyEvent: ActivityEvent = {
+        ...event,
+        media: { path, mime: "image/jpeg" },
+      };
+
+      if (syncEnabled) {
+        remoteWrite.updateActivity(pendingEvent);
+        await queueMediaUpload(path, blob, () => {
+          remoteWrite.updateActivity(readyEvent);
+        });
+        return;
+      }
+      storeLocalMedia(path, blob);
+      setLocalState((prev) => ({
+        ...prev,
+        activity: prev.activity.map((e) => (e.id === eventId ? readyEvent : e)),
       }));
     },
     [state.activity],
@@ -655,6 +698,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSideGames,
       addMulligan,
       removeMulligan,
+      attachMulliganPhoto,
     }),
     [
       state,
@@ -679,6 +723,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSideGames,
       addMulligan,
       removeMulligan,
+      attachMulliganPhoto,
     ],
   );
 

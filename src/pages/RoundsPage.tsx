@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
-import { computeMatchState, type ScoringContext } from "../scoring/engine";
+import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
 import { CheckFlag } from "../components/CheckFlag";
@@ -91,7 +91,9 @@ export default function RoundsPage() {
                 <MatchRow
                   key={m.id}
                   match={m}
+                  roundMatches={matches}
                   players={players}
+                  playerList={state.players}
                   teamMap={teamMap}
                   ctx={ctx}
                   clickable={round.status !== "pending"}
@@ -140,29 +142,62 @@ export default function RoundsPage() {
 
 function MatchRow({
   match,
+  roundMatches,
   players,
+  playerList,
   teamMap,
   ctx,
   clickable,
 }: {
   match: Match;
+  roundMatches: Match[];
   players: ReturnType<typeof usePlayerMap>;
+  playerList: Parameters<typeof computeMatchState>[1];
   teamMap: Record<string, { name: string; color: string }>;
   ctx: ScoringContext;
   clickable: boolean;
 }) {
-  const { state } = useStore();
   const st = useMemo(
-    () => computeMatchState(match, state.players, ctx),
-    [match, state.players, ctx],
+    () => computeMatchState(match, playerList, ctx),
+    [match, playerList, ctx],
   );
 
+  const field = isScrambleFieldMatch(match);
   const colorA = teamMap[match.sideA.teamId]?.color;
   const colorB = teamMap[match.sideB.teamId]?.color;
+  const placementPts = field ? scrambleGroupPlacementPoints(match, roundMatches, ctx) : null;
   const leadColor =
     st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
 
-  const body = (
+  const body = field ? (
+    <div className="sides">
+      <div className="side a" style={{ flex: 1 }}>
+        <div className="row" style={{ gap: 6 }}>
+          <span className="dot" style={{ background: colorA }} />
+          <span className="names">{sideNames(match.sideA, players)}</span>
+        </div>
+      </div>
+      <div className="status">
+        <div className="result" style={{ color: colorA }}>
+          {st.thru === 0 ? "—" : st.overall.resultText.replace(/ thru.*/, "")}
+        </div>
+        <div className="lead">
+          {st.thru === 0 ? (
+            "not started"
+          ) : (
+            <>
+              {st.complete && <CheckFlag size={10} />}{" "}
+              {placementPts != null
+                ? `${fmtPts(placementPts)} pts · final`
+                : st.complete
+                  ? "18 holes · final"
+                  : `thru ${st.thru}`}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : (
     <div className="sides">
       <div className="side a">
         <div className="row" style={{ gap: 6 }}>

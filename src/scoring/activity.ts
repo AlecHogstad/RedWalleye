@@ -18,6 +18,7 @@ import {
   computeMatchState,
   computeStandings,
   courseHandicap,
+  isScrambleFieldMatch,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -48,6 +49,8 @@ export interface FeedItem {
   value?: number; // net-to-par, match margin, snake pot, or points
   text?: string; // result string like "3&2"
   ts?: number; // real timestamp, mulligans only
+  mediaPath?: string;
+  mediaStatus?: "pending" | "ready";
 }
 
 // Bigger moments sort above smaller ones that share a round+hole.
@@ -164,6 +167,8 @@ function matchProgressEvents(
   ctx: ScoringContext,
   roundIndex: number,
 ): FeedItem[] {
+  if (isScrambleFieldMatch(match)) return [];
+
   const st = computeMatchState(match, players, ctx);
   const items: FeedItem[] = [];
 
@@ -349,6 +354,8 @@ export function buildFeed(
       teamId: player?.teamId,
       playerId: e.playerId,
       ts: e.ts,
+      mediaPath: e.media?.path,
+      mediaStatus: e.media?.status,
     });
   }
 
