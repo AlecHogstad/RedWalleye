@@ -385,8 +385,8 @@ export default function MatchPage() {
         </button>
       </div>
 
-      {/* Nassau bets — four-ball only */}
-      {!isFieldScramble && (
+      {/* Nassau bets — four-ball only (scramble is field placement, not Nassau) */}
+      {!isScramble && (
       <div className="section" style={{ paddingTop: 12 }}>
         <div className="card" style={{ padding: "12px 16px" }}>
           <div
