@@ -80,7 +80,7 @@ interface StoreValue {
   removePlayer: (playerId: string) => void;
   setTeamRoster: (teamId: string, playerIds: string[]) => void;
   updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
-  addMulligan: (matchId: string, playerId: string) => void;
+  addMulligan: (matchId: string, playerId: string, hole?: number) => void;
   removeMulligan: (matchId: string, playerId: string) => void;
 }
 
@@ -378,13 +378,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const addMulligan = useCallback((matchId: string, playerId: string) => {
+  const addMulligan = useCallback((matchId: string, playerId: string, hole?: number) => {
     const event: ActivityEvent = {
       id: genId("a"),
       type: "mulligan",
       matchId,
       playerId,
       ts: Date.now(),
+      ...(hole != null ? { hole } : {}),
     };
     if (syncEnabled) {
       remoteWrite.addActivity(event);
