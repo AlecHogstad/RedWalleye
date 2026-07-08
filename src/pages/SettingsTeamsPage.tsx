@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "../store/store";
 import { rosterOf } from "../store/roster";
-import type { Player } from "../types";
+import type { Player, Team } from "../types";
 
 const MAX_SLOTS = 4;
 
@@ -12,6 +12,54 @@ function hcp(n: number): string {
 
 function optionLabel(p: Player): string {
   return `${p.name} (${hcp(p.handicap)})`;
+}
+
+/** Editable team name with an explicit Save so it's clear when the rename
+ *  lands (rather than committing silently on every keystroke). */
+function TeamNameField({
+  team,
+  onSave,
+}: {
+  team: Team;
+  onSave: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState(team.name);
+  const [saved, setSaved] = useState(false);
+
+  // Re-sync if the stored name changes (e.g. another phone renamed it).
+  useEffect(() => {
+    setDraft(team.name);
+  }, [team.name]);
+
+  const trimmed = draft.trim();
+  const dirty = trimmed.length > 0 && trimmed !== team.name;
+
+  const save = () => {
+    if (!dirty) return;
+    onSave(trimmed);
+    setSaved(true);
+  };
+
+  return (
+    <div className="field">
+      <span className="dot" style={{ background: team.color }} />
+      <input
+        className="wide team-name-input"
+        value={draft}
+        aria-label={`${team.name} name`}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setSaved(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") save();
+        }}
+      />
+      <button className="save-btn" disabled={!dirty} onClick={save}>
+        {saved && !dirty ? "Saved" : "Save"}
+      </button>
+    </div>
+  );
 }
 
 export default function SettingsTeamsPage() {
@@ -72,19 +120,11 @@ export default function SettingsTeamsPage() {
 
         return (
           <section className="section" key={team.id} style={{ paddingTop: 0 }}>
-            <h2 className="row" style={{ gap: 8 }}>
-              <span className="dot" style={{ background: team.color }} />
-              <input
-                className="wide team-name-input"
-                value={team.name}
-                aria-label={`${team.name} name`}
-                onChange={(e) => updateTeam(team.id, { name: e.target.value })}
-              />
-              <span className="muted" style={{ textTransform: "none" }}>
-                Σ {hcp(total)}
-              </span>
-            </h2>
             <div className="card">
+              <TeamNameField
+                team={team}
+                onSave={(name) => updateTeam(team.id, { name })}
+              />
               {slots.map((slotId, i) => {
                 const current = slotId ? playerMap[slotId] : undefined;
                 return (
@@ -112,6 +152,9 @@ export default function SettingsTeamsPage() {
                 );
               })}
             </div>
+            <p className="hint" style={{ paddingTop: 6 }}>
+              Σ handicap {hcp(total)}
+            </p>
           </section>
         );
       })}
