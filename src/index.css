@@ -312,12 +312,15 @@ a {
   padding: 4px 12px;
   border: 1.5px solid currentColor;
   border-radius: 999px;
+  background: none;
+  cursor: pointer;
   color: var(--accent);
   background: transparent;
   white-space: nowrap;
 }
 /* The back link is a tap target — give it comfortable height */
-a.badge {
+a.badge,
+button.badge {
   padding: 8px 14px;
 }
 

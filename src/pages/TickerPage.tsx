@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 /**
  * Activity ticker — a scrollable feed of recent action across every group
@@ -7,12 +7,20 @@ import { Link } from "react-router-dom";
  * point, route, and layout are in place, ready to be wired up.
  */
 export default function TickerPage() {
+  const navigate = useNavigate();
+  // Return to wherever the ticker was opened from; fall back to the
+  // leaderboard if there's no history (e.g. a deep link / hard refresh).
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
+  };
+
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <Link className="badge" to="/">
-          ← Leaderboard
-        </Link>
+        <button className="badge" onClick={goBack}>
+          ← Back
+        </button>
         <h2 style={{ marginTop: 10 }}>Activity</h2>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
           Recent action from around the course — birdies, lead changes, and
