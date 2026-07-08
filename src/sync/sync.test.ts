@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyRemote, kvToRemote, type RemoteData } from "./sync";
-import { seedState, STATE_VERSION } from "../data/seed";
+import { seedState } from "../data/seed";
 
 describe("applyRemote", () => {
   it("returns the base unchanged for null remote", () => {
@@ -139,7 +139,7 @@ describe("applyRemote", () => {
 });
 
 describe("kvToRemote", () => {
-  const V = `v${STATE_VERSION}`;
+  const V = "rw";
 
   it("rebuilds the delta tree from flat rows", () => {
     const kv = new Map<string, unknown>([
