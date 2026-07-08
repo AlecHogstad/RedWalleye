@@ -15,9 +15,8 @@ import { useStore } from "./store/store";
 
 /** Each screen gets its own block color, like the inspo phones. */
 function themeFor(pathname: string): string {
-  if (pathname.startsWith("/match")) return "theme-green";
-  if (pathname.startsWith("/settings/courses")) return "theme-sand";
-  if (pathname.startsWith("/settings")) return "theme-blue";
+  if (pathname.startsWith("/match")) return "theme-blue";
+  if (pathname.startsWith("/settings")) return "theme-green";
   return "theme-green";
 }
 

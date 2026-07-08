@@ -615,10 +615,10 @@ button.badge {
 
 /* Scorecard ------------------------------------------------------------------ */
 
-/* Green hero at the top of a scorecard: format, rules, course, hole grid,
-   live score. Flows out of the (green) topbar. */
+/* Hero at the top of a scorecard: format, rules, course, hole grid, live
+   score. Follows the screen theme so it flows out of the topbar. */
 .score-hero {
-  background: var(--green);
+  background: var(--hero);
   color: var(--hero-ink);
   padding: 16px 16px 20px;
 }
