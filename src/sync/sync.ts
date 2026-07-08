@@ -29,7 +29,13 @@
 // ---------------------------------------------------------------------------
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { RoundStatus, Side, TournamentState } from "../types";
+import type {
+  ActivityEvent,
+  MatchSideGames,
+  RoundStatus,
+  Side,
+  TournamentState,
+} from "../types";
 import { STATE_VERSION } from "../data/seed";
 import { supabaseConfig } from "./supabaseConfig";
 
@@ -77,6 +83,8 @@ export interface RemoteData {
   holes?: Record<string, Record<string, { par?: number; strokeIndex?: number }>>;
   teams?: Record<string, { name?: string }>;
   matches?: Record<string, { sideA?: Side; sideB?: Side }>;
+  sideGames?: Record<string, MatchSideGames>;
+  activity?: Record<string, ActivityEvent>;
 }
 
 const holeKey = (n: number) => `h${n}`;
@@ -146,6 +154,16 @@ export function applyRemote(base: TournamentState, remote: RemoteData | null): T
     if (patch.sideB) match.sideB = patch.sideB;
   }
 
+  for (const [matchId, patch] of Object.entries(remote.sideGames ?? {})) {
+    if (!patch) continue;
+    state.sideGames[matchId] = { ...(state.sideGames[matchId] ?? {}), ...patch };
+  }
+
+  const events = Object.values(remote.activity ?? {}).filter(Boolean);
+  if (events.length > 0) {
+    state.activity = [...state.activity, ...events].sort((a, b) => a.ts - b.ts);
+  }
+
   for (const [courseId, byHole] of Object.entries(remote.holes ?? {})) {
     const course = state.courses.find((c) => c.id === courseId);
     if (!course || !byHole) continue;
@@ -187,6 +205,10 @@ export function kvToRemote(kv: Map<string, unknown>): RemoteData {
       (remote.teams ??= {})[a] = value as { name?: string };
     } else if (kind === "matches" && a) {
       (remote.matches ??= {})[a] = value as { sideA?: Side; sideB?: Side };
+    } else if (kind === "sidegames" && a) {
+      (remote.sideGames ??= {})[a] = value as MatchSideGames;
+    } else if (kind === "activity" && a) {
+      (remote.activity ??= {})[a] = value as ActivityEvent;
     }
   }
   return remote;
@@ -382,6 +404,23 @@ export const remoteWrite = {
     const id = `${V}|matches|${matchId}`;
     const current = (kv.get(id) as object | undefined) ?? {};
     write(id, { ...current, ...patch });
+  },
+
+  /** Per-group side-game opt-ins and snake holder. */
+  sideGames(matchId: string, patch: MatchSideGames): void {
+    const id = `${V}|sidegames|${matchId}`;
+    const current = (kv.get(id) as object | undefined) ?? {};
+    write(id, { ...current, ...patch });
+  },
+
+  /** Append an activity-feed event (one row per event, never clobbered). */
+  addActivity(event: ActivityEvent): void {
+    write(`${V}|activity|${event.id}`, event);
+  },
+
+  /** Remove an activity-feed event (undo). */
+  removeActivity(eventId: string): void {
+    write(`${V}|activity|${eventId}`, null);
   },
 
   hole(courseId: string, hole: number, patch: { par?: number; strokeIndex?: number }): void {

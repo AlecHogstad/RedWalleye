@@ -7,7 +7,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Hole, Player, TournamentState } from "../types";
+import type {
+  ActivityEvent,
+  Hole,
+  MatchSideGames,
+  Player,
+  TournamentState,
+} from "../types";
 import { contextForRound, type ScoringContext } from "../scoring/engine";
 import { reconcileRoster } from "./roster";
 import { seedState, STATE_VERSION } from "../data/seed";
@@ -73,13 +79,16 @@ interface StoreValue {
   addPlayer: (input: { name: string; handicap: number }) => void;
   removePlayer: (playerId: string) => void;
   setTeamRoster: (teamId: string, playerIds: string[]) => void;
+  updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
+  addMulligan: (matchId: string, playerId: string) => void;
+  removeMulligan: (matchId: string, playerId: string) => void;
 }
 
-/** Stable id for a newly-created player. */
-function newPlayerId(): string {
+/** Stable id with a prefix (players, activity events, ...). */
+function genId(prefix: string): string {
   const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
-  if (c?.randomUUID) return `p_${c.randomUUID().slice(0, 8)}`;
-  return `p_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  if (c?.randomUUID) return `${prefix}_${c.randomUUID().slice(0, 8)}`;
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /** Does a player have any score entered in any match? */
@@ -297,7 +306,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPlayer = useCallback((input: { name: string; handicap: number }) => {
     const player: Player = {
-      id: newPlayerId(),
+      id: genId("p"),
       name: input.name,
       handicap: input.handicap,
       teamId: "",
@@ -352,6 +361,62 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [rostersEditable, state],
   );
 
+  const updateSideGames = useCallback(
+    (matchId: string, patch: Partial<MatchSideGames>) => {
+      if (syncEnabled) {
+        remoteWrite.sideGames(matchId, patch);
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        sideGames: {
+          ...prev.sideGames,
+          [matchId]: { ...(prev.sideGames[matchId] ?? {}), ...patch },
+        },
+      }));
+    },
+    [],
+  );
+
+  const addMulligan = useCallback((matchId: string, playerId: string) => {
+    const event: ActivityEvent = {
+      id: genId("a"),
+      type: "mulligan",
+      matchId,
+      playerId,
+      ts: Date.now(),
+    };
+    if (syncEnabled) {
+      remoteWrite.addActivity(event);
+      return;
+    }
+    setLocalState((prev) => ({ ...prev, activity: [...prev.activity, event] }));
+  }, []);
+
+  const removeMulligan = useCallback(
+    (matchId: string, playerId: string) => {
+      // Drop this player's most recent mulligan in this match.
+      const latest = [...state.activity]
+        .filter(
+          (e) =>
+            e.type === "mulligan" &&
+            e.matchId === matchId &&
+            e.playerId === playerId,
+        )
+        .sort((a, b) => b.ts - a.ts)[0];
+      if (!latest) return;
+      if (syncEnabled) {
+        remoteWrite.removeActivity(latest.id);
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        activity: prev.activity.filter((e) => e.id !== latest.id),
+      }));
+    },
+    [state.activity],
+  );
+
   const syncStatus: SyncStatus = !syncEnabled ? "local" : connected ? "online" : "offline";
 
   const value = useMemo<StoreValue>(
@@ -370,6 +435,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPlayer,
       removePlayer,
       setTeamRoster,
+      updateSideGames,
+      addMulligan,
+      removeMulligan,
     }),
     [
       state,
@@ -386,6 +454,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPlayer,
       removePlayer,
       setTeamRoster,
+      updateSideGames,
+      addMulligan,
+      removeMulligan,
     ],
   );
 

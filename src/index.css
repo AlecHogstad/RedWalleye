@@ -146,8 +146,8 @@ a {
   opacity: 0.55;
 }
 
-/* Header settings gear — sits to the right of the live indicator ----------- */
-.settings-btn {
+/* Header action button (ticker) — sits right of the live indicator -------- */
+.header-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -156,8 +156,52 @@ a {
   opacity: 0.85;
   touch-action: manipulation;
 }
-.settings-btn.active {
+.header-btn.active {
   opacity: 1;
+}
+
+/* Ticker feed (activity page) --------------------------------------------- */
+.ticker-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ticker-feed li {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ticker-feed li:last-child {
+  border-bottom: none;
+}
+.ticker-feed-empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--muted);
+}
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.feed-icon {
+  font-size: 20px;
+  flex: none;
+}
+.feed-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.feed-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+.feed-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 1px;
 }
 
 /* Settings hub link rows --------------------------------------------------- */
@@ -293,12 +337,15 @@ a {
   padding: 4px 12px;
   border: 1.5px solid currentColor;
   border-radius: 999px;
+  background: none;
+  cursor: pointer;
   color: var(--accent);
   background: transparent;
   white-space: nowrap;
 }
 /* The back link is a tap target — give it comfortable height */
-a.badge {
+a.badge,
+button.badge {
   padding: 8px 14px;
 }
 
@@ -593,10 +640,10 @@ a.badge {
 
 /* Scorecard ------------------------------------------------------------------ */
 
-/* Green hero at the top of a scorecard: format, rules, course, hole grid,
-   live score. Flows out of the (green) topbar. */
+/* Hero at the top of a scorecard: format, rules, course, hole grid, live
+   score. Follows the screen theme so it flows out of the topbar. */
 .score-hero {
-  background: var(--green);
+  background: var(--hero);
   color: var(--hero-ink);
   padding: 16px 16px 20px;
 }
@@ -950,6 +997,108 @@ a.badge {
 .field select:disabled,
 .roster-select:disabled {
   opacity: 0.55;
+}
+
+/* On/off switch (side games) --------------------------------------------- */
+/* `.field .switch` beats `.field label { flex: 1 }` so the switch stays
+   content-sized and the spacer pushes it hard right. */
+.switch,
+.field .switch {
+  flex: none;
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.switch .switch-track {
+  width: 46px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+}
+.switch .switch-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cream-card);
+  transition: transform 0.15s ease;
+}
+.switch input:checked + .switch-track {
+  background: var(--accent);
+}
+.switch input:checked + .switch-track .switch-thumb {
+  transform: translateX(18px);
+}
+.switch.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Side-game row heading — big display title + serif support line --------- */
+.sg-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sg-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+.sg-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* Side-game panels (Stableford standings, Snake) -------------------------- */
+.sg-panel {
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+}
+.sg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.sg-row .sg-name {
+  flex: 1;
+  font-weight: 600;
+}
+.sg-row .sg-thru {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.sg-row .sg-pts {
+  font-family: var(--font-display);
+  font-size: 20px;
+  min-width: 28px;
+  text-align: right;
+}
+.snake-badge {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  padding: 2px 0 10px;
+}
+.sg-panel .field {
+  padding: 8px 0;
 }
 
 /* Small round icon button (e.g. remove player) */
