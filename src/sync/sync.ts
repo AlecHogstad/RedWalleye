@@ -36,13 +36,19 @@ import type {
   Side,
   TournamentState,
 } from "../types";
-import { STATE_VERSION } from "../data/seed";
+// (STATE_VERSION intentionally not imported — sync channel is version-independent)
 import { supabaseConfig } from "./supabaseConfig";
 
 export const syncEnabled = Boolean(supabaseConfig);
 
 const TABLE = "rw_kv";
-const V = `v${STATE_VERSION}`;
+// STABLE sync channel — deliberately NOT tied to STATE_VERSION. Every device
+// shares this one namespace regardless of which app build it's running, so a
+// version bump (or a phone on a cached older bundle) can never silently split
+// people onto separate channels. A genuine fresh start is done via Reset,
+// which clears every row under this prefix. (Match/player ids are stable
+// across versions, so old deltas keep applying; unknown ids are ignored.)
+const V = "rw";
 const PENDING_KEY = "red-walleye-pending-v1";
 
 // Created lazily on first use so importing this module (e.g. from unit
@@ -270,10 +276,20 @@ async function flush(): Promise<void> {
         op.value == null
           ? await supabase.from(TABLE).delete().eq("id", op.id)
           : await supabase.from(TABLE).upsert({ id: op.id, value: op.value });
-      if (result.error) break; // offline or rejected — retry later
+      if (result.error) {
+        // Surface the real reason instead of silently retrying forever.
+        console.error(
+          `[rw-sync] WRITE FAILED for "${op.id}":`,
+          result.error.message ?? result.error,
+          result.error,
+        );
+        break; // offline or rejected — retry on next tick
+      }
+      console.info(`[rw-sync] wrote "${op.id}"`);
       ops = loadPending().filter((o) => o.id !== op.id || o.value !== op.value);
       savePending(ops);
     }
+    if (loadPending().length === 0) console.info("[rw-sync] queue drained");
   } finally {
     flushing = false;
   }
