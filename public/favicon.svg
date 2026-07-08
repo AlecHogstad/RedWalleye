@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="96" fill="#1e4a2b"/>
+    <g transform="translate(0,0) scale(1)">
+      <rect x="150" y="120" width="26" height="300" rx="13" fill="#f4eddb"/>
+      <g><rect x="168" y="150" width="50" height="52" fill="#f4eddb"/><rect x="218" y="150" width="50" height="52" fill="#de4f2c"/><rect x="268" y="150" width="50" height="52" fill="#f4eddb"/><rect x="318" y="150" width="50" height="52" fill="#de4f2c"/><rect x="168" y="202" width="50" height="52" fill="#de4f2c"/><rect x="218" y="202" width="50" height="52" fill="#f4eddb"/><rect x="268" y="202" width="50" height="52" fill="#de4f2c"/><rect x="318" y="202" width="50" height="52" fill="#f4eddb"/><rect x="168" y="254" width="50" height="52" fill="#f4eddb"/><rect x="218" y="254" width="50" height="52" fill="#de4f2c"/><rect x="268" y="254" width="50" height="52" fill="#f4eddb"/><rect x="318" y="254" width="50" height="52" fill="#de4f2c"/></g>
+      <rect x="168" y="150" width="200" height="156" fill="none" stroke="#f4eddb" stroke-width="6"/>
+    </g>
+  </svg>
