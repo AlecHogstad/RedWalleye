@@ -99,6 +99,14 @@ export default function RoundsPage() {
               ))}
             </div>
 
+            {round.status === "pending" && (
+              <button
+                className="btn ghost start"
+                onClick={() => navigate(`/matchups/${round.id}`)}
+              >
+                Set matchups
+              </button>
+            )}
             {startable && (
               <button className="btn start" onClick={() => navigate(`/start/${round.id}`)}>
                 Start {round.name}
