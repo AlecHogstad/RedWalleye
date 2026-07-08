@@ -972,10 +972,14 @@ a.badge {
 }
 
 /* On/off switch (side games) --------------------------------------------- */
-.switch {
+/* `.field .switch` beats `.field label { flex: 1 }` so the switch stays
+   content-sized and the spacer pushes it hard right. */
+.switch,
+.field .switch {
   flex: none;
   position: relative;
   display: inline-flex;
+  margin-left: auto;
   cursor: pointer;
 }
 .switch input {
