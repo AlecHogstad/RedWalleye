@@ -230,16 +230,12 @@ a {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  display: none;
 }
 .tabbar a.active {
   color: var(--accent);
 }
 .tabbar a.active .tab-inner {
   border-color: currentColor;
-}
-.tabbar a.active .tab-label {
-  display: inline;
 }
 
 /* Generic ------------------------------------------------------------------ */
