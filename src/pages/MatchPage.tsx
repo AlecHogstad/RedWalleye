@@ -4,6 +4,7 @@ import { FORMAT_LABELS, FORMAT_RULES, type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
+  computeStableford,
   computeStrokePlay,
   strokesOnHole,
   teamScoreKey,
@@ -45,7 +46,7 @@ function entitiesForSide(
 
 export default function MatchPage() {
   const { matchId } = useParams();
-  const { state, setScore } = useStore();
+  const { state, setScore, updateSideGames } = useStore();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
   const match = state.matches.find((m) => m.id === matchId);
@@ -75,6 +76,10 @@ export default function MatchPage() {
   );
   const alloc = useMemo(
     () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
+    [match, state.players, ctx],
+  );
+  const stablefordRows = useMemo(
+    () => (match && ctx ? computeStableford(match, state.players, ctx) : []),
     [match, state.players, ctx],
   );
 
@@ -111,6 +116,13 @@ export default function MatchPage() {
   const entitiesA = entitiesForSide(match, match.sideA, players);
   const entitiesB = strokePlay ? [] : entitiesForSide(match, match.sideB, players);
   const teamA = teamMap[match.sideA.teamId];
+
+  // Side games — per-group opt-ins + the current snake holder.
+  const isScramble = match.format === "scramble";
+  const sideGames = state.sideGames[match.id] ?? {};
+  const groupPlayerIds = Array.from(
+    new Set([...match.sideA.playerIds, ...match.sideB.playerIds]),
+  );
 
   const strokesFor = (key: string) => {
     const total =
@@ -333,7 +345,121 @@ export default function MatchPage() {
           {holeGrid}
         </div>
       </div>
+
+      {/* Side games — opt in per group; never affect the tournament */}
+      <div className="section" style={{ paddingTop: 4 }}>
+        <h2>Side games</h2>
+        <div className="card">
+          <div className="field">
+            <div className="who">
+              <div className="n">Stableford</div>
+              <div className="h">
+                {isScramble
+                  ? "not available in a scramble"
+                  : "net points per hole"}
+              </div>
+            </div>
+            <span className="spacer" />
+            <Toggle
+              checked={!!sideGames.stableford}
+              disabled={isScramble}
+              onChange={(v) => updateSideGames(match.id, { stableford: v })}
+              label="Stableford"
+            />
+          </div>
+          {sideGames.stableford && !isScramble && (
+            <div className="sg-panel">
+              {stablefordRows.map((r) => {
+                const p = players[r.playerId];
+                const team = teamMap[p?.teamId ?? ""];
+                return (
+                  <div className="sg-row" key={r.playerId}>
+                    <span className="dot" style={{ background: team?.color }} />
+                    <span className="sg-name">{p?.name ?? "?"}</span>
+                    <span className="sg-thru">
+                      {r.thru > 0 ? `thru ${r.thru}` : "—"}
+                    </span>
+                    <span className="sg-pts">{r.points}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="field">
+            <div className="who">
+              <div className="n">Snake</div>
+              <div className="h">last three-putt holds it</div>
+            </div>
+            <span className="spacer" />
+            <Toggle
+              checked={!!sideGames.snake}
+              onChange={(v) => updateSideGames(match.id, { snake: v })}
+              label="Snake"
+            />
+          </div>
+          {sideGames.snake && (
+            <div className="sg-panel">
+              <div className="snake-badge">
+                🐍{" "}
+                {sideGames.snakeHolder
+                  ? `${players[sideGames.snakeHolder]?.name ?? "?"} has the snake`
+                  : "nobody has the snake yet"}
+              </div>
+              <div className="field">
+                <label>Who has it?</label>
+                <select
+                  className="roster-select"
+                  value={sideGames.snakeHolder ?? ""}
+                  onChange={(e) =>
+                    updateSideGames(match.id, { snakeHolder: e.target.value })
+                  }
+                >
+                  <option value="">Nobody yet</option>
+                  {groupPlayerIds.map((id) => (
+                    <option key={id} value={id}>
+                      {players[id]?.name ?? "?"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="hint">
+          Side games are just for your group — they never affect the tournament
+          standings.
+        </p>
+      </div>
     </>
+  );
+}
+
+/** Small on/off switch. */
+function Toggle({
+  checked,
+  disabled,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className={`switch ${disabled ? "disabled" : ""}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="switch-track">
+        <span className="switch-thumb" />
+      </span>
+    </label>
   );
 }
 
