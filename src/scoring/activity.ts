@@ -20,7 +20,6 @@ import {
   computeStrokePlay,
   courseHandicap,
   isStrokePlay,
-  scrambleTeamHandicap,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -76,20 +75,6 @@ function opponent(match: Match, teamId: string): string {
   return match.sideA.teamId === teamId ? match.sideB.teamId : match.sideA.teamId;
 }
 
-/** Course handicaps of a side's players, for the scramble team allowance. */
-function sideCourseHandicaps(
-  match: Match,
-  side: "A" | "B",
-  players: Player[],
-  ctx: ScoringContext,
-): number[] {
-  const s = side === "A" ? match.sideA : match.sideB;
-  return s.playerIds
-    .map((id) => players.find((p) => p.id === id))
-    .filter((p): p is Player => Boolean(p))
-    .map((p) => courseHandicap(p.handicap, ctx));
-}
-
 /** Classify a net-to-par into a scoring-highlight kind, or null for par/bogey. */
 function classify(netToPar: number): FeedKind | null {
   if (netToPar <= -2) return "eagle";
@@ -136,21 +121,20 @@ function holeEvents(
   };
 
   if (match.format === "scramble") {
-    for (const side of ["A", "B"] as const) {
-      const s = side === "A" ? match.sideA : match.sideB;
-      if (s.playerIds.length === 0) continue; // field-wide: one team per entry
-      const key = teamScoreKey(s.teamId);
-      const hcp = scrambleTeamHandicap(sideCourseHandicaps(match, side, players, ctx));
+    // Raw team ball, no handicap — highlights are gross-to-par.
+    for (const side of [match.sideA, match.sideB]) {
+      if (side.playerIds.length === 0) continue; // one team per entry, sideB empty
+      const key = teamScoreKey(side.teamId);
       for (const h of holes) {
         const g = match.scores[key]?.[h.number];
         if (g == null) continue;
         if (g === 1 && h.par === 3) {
-          emit("ace", h.number, 1 - h.par, { teamId: s.teamId });
+          emit("ace", h.number, 1 - h.par, { teamId: side.teamId });
           continue;
         }
-        const netToPar = g - strokesOnHole(hcp, h.strokeIndex) - h.par;
-        const kind = classify(netToPar);
-        if (kind) emit(kind, h.number, netToPar, { teamId: s.teamId });
+        const toPar = g - h.par;
+        const kind = classify(toPar);
+        if (kind) emit(kind, h.number, toPar, { teamId: side.teamId });
       }
     }
     return items;

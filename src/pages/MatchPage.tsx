@@ -175,7 +175,7 @@ export default function MatchPage() {
           </div>
         </div>
         <span className="net-tag">
-          {val != null ? `net ${val - s}` : ""}
+          {val != null && match.format !== "scramble" ? `net ${val - s}` : ""}
         </span>
         <div className="stepper">
           <button onClick={() => bump(e.key, -1)} disabled={readOnly} aria-label="minus">
@@ -196,11 +196,13 @@ export default function MatchPage() {
       if (teamState.thru === 0) {
         return { result: "—", sub: "not started", cls: "" };
       }
+      // Scramble has no handicap, so its total is a raw score, not a net.
+      const word = match.format === "scramble" ? "score" : "net";
       return {
         result: teamState.toParText,
         sub: teamState.complete
-          ? `net ${teamState.netTotal} · final`
-          : `net ${teamState.netTotal} · thru ${teamState.thru}`,
+          ? `${word} ${teamState.netTotal} · final`
+          : `${word} ${teamState.netTotal} · thru ${teamState.thru}`,
         cls: "",
         flag: teamState.complete,
       };

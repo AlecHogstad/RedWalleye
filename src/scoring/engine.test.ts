@@ -9,7 +9,6 @@ import {
   computeStrokePlay,
   contextForRound,
   courseHandicap,
-  scrambleTeamHandicap,
   stablefordPoints,
   strokesOnHole,
   teamScoreKey,
@@ -138,18 +137,6 @@ describe("allocateStrokes (best ball)", () => {
   });
 });
 
-describe("scrambleTeamHandicap", () => {
-  it("applies 35/15 for a 2-man team", () => {
-    // low 3, high 27 -> 0.35*3 + 0.15*27 = 1.05 + 4.05 = 5.1 -> 5
-    expect(scrambleTeamHandicap([27, 3])).toBe(5);
-  });
-
-  it("applies 25/20/15/10 for a 4-man team", () => {
-    // sorted 3,6,21,27 -> .25*3 + .2*6 + .15*21 + .1*27 = .75+1.2+3.15+2.7 = 7.8 -> 8
-    expect(scrambleTeamHandicap([27, 3, 21, 6])).toBe(8);
-  });
-});
-
 describe("computeMatchState — four-ball match play", () => {
   it("closes out a match as 3&2", () => {
     const match: Match = {
@@ -240,39 +227,33 @@ describe("computeMatchState — four-ball stroke-play sub-result", () => {
   });
 });
 
-describe("allocateStrokes — scramble field-wide stroke play", () => {
-  const fieldPlayers: Player[] = [
+describe("computeStrokePlay — scramble (raw team ball, no handicap)", () => {
+  // High-handicap players to prove their handicaps are ignored entirely.
+  const teamPlayers: Player[] = [
     { id: "a1", name: "A1", handicap: 20, teamId: "tA" },
     { id: "a2", name: "A2", handicap: 20, teamId: "tA" },
-    { id: "b1", name: "B1", handicap: 2, teamId: "tB" },
-    { id: "b2", name: "B2", handicap: 2, teamId: "tB" },
   ];
-  const entry = (teamId: string, ids: string[]): Match => ({
-    id: `s-${teamId}`,
+  const entry = (): Match => ({
+    id: "s-tA",
     roundId: "r2",
     format: "scramble",
-    sideA: { teamId, playerIds: ids },
+    sideA: { teamId: "tA", playerIds: ["a1", "a2"] },
     sideB: { teamId: "", playerIds: [] },
-    scores: { [teamScoreKey(teamId)]: {} },
+    scores: { [teamScoreKey("tA")]: {} },
   });
 
-  it("gives each team strokes off the field's low scramble handicap", () => {
-    // Team A scramble hcp .35*20+.15*20 = 10; Team B .35*2+.15*2 = 1.
-    // Field low is 1 -> A gets 10-1 = 9, B gets 0.
-    const allocA = allocateStrokes(entry("tA", ["a1", "a2"]), fieldPlayers, ctx);
-    expect(allocA.byTeam[teamScoreKey("tA")]).toBe(9);
-    const allocB = allocateStrokes(entry("tB", ["b1", "b2"]), fieldPlayers, ctx);
-    expect(allocB.byTeam[teamScoreKey("tB")]).toBe(0);
+  it("gives the team no strokes regardless of handicap", () => {
+    const alloc = allocateStrokes(entry(), teamPlayers, ctx);
+    expect(alloc.byTeam[teamScoreKey("tA")]).toBe(0);
   });
 
-  it("nets the single team ball with the field-relative strokes", () => {
-    const e = entry("tA", ["a1", "a2"]);
-    // A has 9 strokes: one on SI 1..9, none on SI 10..18.
-    e.scores[teamScoreKey("tA")][1] = 5; // SI 1, par 4 -> net 4 (E)
-    e.scores[teamScoreKey("tA")][10] = 4; // SI 10, par 4 -> net 4 (E)
-    const st = computeStrokePlay(e, fieldPlayers, ctx);
+  it("scores the team ball as gross to par", () => {
+    const e = entry();
+    e.scores[teamScoreKey("tA")][1] = 5; // par 4 -> +1
+    e.scores[teamScoreKey("tA")][2] = 3; // par 4 -> -1
+    const st = computeStrokePlay(e, teamPlayers, ctx);
     expect(st.thru).toBe(2);
-    expect(st.netTotal).toBe(8);
+    expect(st.netTotal).toBe(8); // 5 + 3, no strokes taken off
     expect(st.toPar).toBe(0);
     expect(st.toParText).toBe("E");
   });
@@ -481,7 +462,7 @@ describe("computePlayerTotals — player leaderboard", () => {
     expect(computePlayerTotals(match, "nick", players, ctx)).toBeNull();
   });
 
-  it("uses the team scramble score and team handicap in a scramble", () => {
+  it("uses the raw team score in a scramble (no handicap, net = gross)", () => {
     const match: Match = {
       id: "s1",
       roundId: "r2",
@@ -490,9 +471,9 @@ describe("computePlayerTotals — player leaderboard", () => {
       sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
       scores: { [teamScoreKey("t1")]: { 1: 4 }, [teamScoreKey("t2")]: {} },
     };
-    // Team t1 scramble hcp: 35% of 3 + 15% of 27 = 5.1 -> 5; SI 1 gets a stroke.
+    // No strokes given -> net equals the raw team score.
     const t = computePlayerTotals(match, "hunter", players, ctx);
-    expect(t).toEqual({ gross: 4, net: 3, thru: 1 });
+    expect(t).toEqual({ gross: 4, net: 4, thru: 1 });
     // Same value for the teammate.
     expect(computePlayerTotals(match, "nick", players, ctx)).toEqual(t);
   });

@@ -73,9 +73,8 @@ export const FORMAT_RULES: Record<Format, string> = {
   scramble:
     "Team stroke play — all four go out as one group and play a scramble: " +
     "everyone hits, you pick the best shot and all play from there, one team " +
-    "ball and one score per hole. Each team gets a scramble handicap " +
-    "(25/20/15/10 of the four course handicaps) taken off the field's low so " +
-    "team nets compare. Lowest net round wins: 3 points, 1 for second.",
+    "ball and one score per hole. No handicap — it's the raw team score. " +
+    "Lowest round wins: 3 points, 1 for second.",
   fourman:
     "Team stroke play — every team tees off as its own foursome, no " +
     "head-to-head. Everyone plays their own ball and the team's best net " +

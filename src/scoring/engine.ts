@@ -7,10 +7,8 @@
 //    strokes than short ones.
 //  - Best-ball formats give each player strokes off the LOW player in the
 //    match, allocated hole-by-hole using each hole's stroke index.
-//  - Scramble can't give individual strokes (you only make one team score),
-//    so instead each TEAM gets a scramble handicap; teams play their own ball
-//    and compare net totals against the whole field (stroke play), strokes
-//    given off the field's low team handicap so lopsided teams stay fair.
+//  - Scramble is a team stroke-play round scored on the RAW team ball — one
+//    score per hole, no handicap (a four-man scramble is low enough already).
 // ---------------------------------------------------------------------------
 
 import type {
@@ -92,30 +90,6 @@ export function courseHandicap(handicapIndex: number, ctx?: ScoringContext): num
   return Math.round(handicapIndex);
 }
 
-/**
- * Scramble team handicap allowance, computed from COURSE handicaps.
- *  - 2 players: 35% of low + 15% of high
- *  - 3 players: 30 / 20 / 10
- *  - 4 players: 25 / 20 / 15 / 10
- * Falls back to a simple average for other counts. Result is rounded.
- */
-export function scrambleTeamHandicap(courseHandicaps: number[]): number {
-  const sorted = [...courseHandicaps].sort((a, b) => a - b); // low to high
-  const weightsByCount: Record<number, number[]> = {
-    1: [1],
-    2: [0.35, 0.15],
-    3: [0.3, 0.2, 0.1],
-    4: [0.25, 0.2, 0.15, 0.1],
-  };
-  const weights = weightsByCount[sorted.length];
-  if (!weights) {
-    const avg = sorted.reduce((s, h) => s + h, 0) / sorted.length;
-    return Math.round(avg);
-  }
-  const total = sorted.reduce((sum, h, i) => sum + h * weights[i], 0);
-  return Math.round(total);
-}
-
 export interface StrokeAllocation {
   /** For best-ball: match strokes per playerId. */
   byPlayer: Record<string, number>;
@@ -132,8 +106,8 @@ function sidePlayers(side: Side, players: Player[]): Player[] {
 /**
  * Compute how many match strokes each scoring entity receives.
  *  - Four-ball works off the lowest course handicap in the match.
- *  - Scramble (team stroke play, teams tee off alone) works off the lowest
- *    team scramble handicap in the WHOLE FIELD so team totals are comparable.
+ *  - Scramble (team stroke play, teams tee off alone) is scored on the raw
+ *    team ball — no strokes given.
  *  - 4-man (team stroke play, teams tee off alone) works off the lowest
  *    course handicap in the WHOLE FIELD so team totals are comparable.
  */
@@ -146,31 +120,8 @@ export function allocateStrokes(
   const byTeam: Record<string, number> = {};
 
   if (match.format === "scramble") {
-    // Field-wide team stroke play: every team plays its own scramble ball, so
-    // strokes come off the WHOLE FIELD's low scramble handicap (like fourman)
-    // to keep team nets comparable. The field's teams are reconstructed by
-    // grouping every player by team — each team's roster is its scramble entry.
-    const teamHandicap = (ids: string[]) =>
-      scrambleTeamHandicap(
-        ids
-          .map((id) => players.find((p) => p.id === id))
-          .filter((p): p is Player => Boolean(p))
-          .map((p) => courseHandicap(p.handicap, ctx)),
-      );
-    const rosterByTeam = new Map<string, string[]>();
-    for (const p of players) {
-      if (!p.teamId) continue;
-      const list = rosterByTeam.get(p.teamId) ?? [];
-      list.push(p.id);
-      rosterByTeam.set(p.teamId, list);
-    }
-    const fieldLow = rosterByTeam.size
-      ? Math.min(...[...rosterByTeam.values()].map((ids) => teamHandicap(ids)))
-      : 0;
-    const ownHcp = scrambleTeamHandicap(
-      sidePlayers(match.sideA, players).map((p) => courseHandicap(p.handicap, ctx)),
-    );
-    byTeam[teamScoreKey(match.sideA.teamId)] = Math.max(0, ownHcp - fieldLow);
+    // A team scramble is scored on the RAW team ball — no handicap.
+    byTeam[teamScoreKey(match.sideA.teamId)] = 0;
     return { byPlayer, byTeam };
   }
 
@@ -410,8 +361,8 @@ export interface RoundTotals {
  * A player's gross and net totals for one match/entry, summed over the
  * holes actually played. Net uses the player's FULL course handicap for
  * the round's tees (not the match-relative allocation); in a scramble the
- * player's score is their team's scramble score, netted with the team
- * scramble handicap.
+ * player's score is their team's raw scramble score (no handicap, so net
+ * equals gross).
  */
 export function computePlayerTotals(
   match: Match,
@@ -431,9 +382,7 @@ export function computePlayerTotals(
   if (match.format === "scramble") {
     const side = onA ? match.sideA : match.sideB;
     key = teamScoreKey(side.teamId);
-    hcp = scrambleTeamHandicap(
-      sidePlayers(side, players).map((p) => courseHandicap(p.handicap, ctx)),
-    );
+    hcp = 0; // scramble is scored on the raw team ball — no handicap
   } else {
     hcp = courseHandicap(player.handicap, ctx);
   }

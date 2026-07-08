@@ -48,14 +48,14 @@ All of it lives in `src/scoring/engine.ts` — pure functions, unit-tested in
   (`MatchState.strokePlay`): the lower total of those same best net balls wins
   on strokes — bragging rights only, no tournament points. A side can win the
   match yet lose on strokes.
-- **Scramble (Round 2) is TEAM STROKE PLAY, not match play**: all four of a
-  team play one scramble ball (one Match entry per team, sideB empty, score
-  under `team:<teamId>`). Each team gets a scramble handicap — 35%/15% of
-  low/high for 2-man, 25/20/15/10 for 4-man — taken off the WHOLE FIELD's low
-  team handicap so nets compare. Once all teams finish 18, points are placement
-  based: **3 / 1 / 0 / 0** by finish (ties pool the positions' points and
-  split). See the scramble branch in `allocateStrokes`/`computeStrokePlay` and
-  `awardStrokePlayPoints`.
+- **Scramble (Round 2) is TEAM STROKE PLAY on the RAW score, not match play**:
+  all four of a team play one scramble ball (one Match entry per team, sideB
+  empty, score under `team:<teamId>`). **No handicap** — a four-man scramble is
+  low enough that strokes aren't needed, so the team is ranked on gross to par
+  (`allocateStrokes` returns 0 strokes for the team). Once all teams finish 18,
+  points are placement based: **3 / 1 / 0 / 0** by finish (ties pool the
+  positions' points and split). See the scramble branch in
+  `computeStrokePlay` and `awardStrokePlayPoints`.
 - **4-Man Best Ball (Round 3) is TEAM STROKE PLAY, not match play**: every
   team tees off as its own foursome (one Match entry per team, sideB
   empty). Best net ball per hole, cumulative to par; strokes are given off

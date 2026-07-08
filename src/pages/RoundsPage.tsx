@@ -94,8 +94,8 @@ export default function RoundsPage() {
             )}
             {round.format === "scramble" && (
               <p className="round-where">
-                All four play one scramble ball — lowest net round wins:
-                3 points, 1 for second.
+                All four play one scramble ball, no handicap — lowest raw round
+                wins: 3 points, 1 for second.
               </p>
             )}
 
@@ -273,7 +273,8 @@ function TeamEntryRow({
             "not started"
           ) : st.complete ? (
             <>
-              <CheckFlag size={10} /> net {st.netTotal}
+              <CheckFlag size={10} /> {match.format === "scramble" ? "score" : "net"}{" "}
+              {st.netTotal}
             </>
           ) : (
             `thru ${st.thru}`
