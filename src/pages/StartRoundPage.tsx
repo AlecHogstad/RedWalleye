@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { FORMAT_LABELS, FORMAT_RULES } from "../types";
+import { FORMAT_LABELS } from "../types";
 import { courseHandicap } from "../scoring/engine";
 import { ROUND_DEFAULTS } from "../data/seed";
 import { useStore } from "../store/store";
@@ -75,10 +75,6 @@ export default function StartRoundPage() {
           ← Rounds
         </Link>
         <h2 style={{ marginTop: 10 }}>Start {round.name}</h2>
-        <div className="rules">
-          <span className="rules-title">{FORMAT_LABELS[round.format]}</span>
-          {FORMAT_RULES[round.format]}
-        </div>
         <p className="hint" style={{ padding: "6px 2px" }}>
           Pick the course and tees — they set every player's course handicap for
           this round.

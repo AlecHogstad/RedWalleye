@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { FORMAT_LABELS, FORMAT_RULES, type Match, type Side } from "../types";
+import { type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
@@ -296,9 +296,8 @@ export default function MatchPage() {
           ← Rounds
         </Link>
         <h2 className="hero-title">
-          {strokePlay ? `${teamA?.name} — Team Card` : FORMAT_LABELS[match.format]}
+          {strokePlay ? `${teamA?.name} — Team Card` : "Match Card"}
         </h2>
-        <div className="rules rules-hero">{FORMAT_RULES[match.format]}</div>
         <p className="hero-course">
           {ctx.course.name}
           {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
