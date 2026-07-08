@@ -1,8 +1,11 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
+import { computeMatchState } from "../scoring/engine";
 import { FeedIcon } from "../components/Icons";
+import { CheckFlag } from "../components/CheckFlag";
+import type { Side } from "../types";
 
 /** Compact relative time for the few events that carry a real clock. */
 function timeAgo(ts: number, now: number): string {
@@ -57,6 +60,24 @@ export default function TickerPage() {
     () => buildFeed(state, contexts),
     [state, contexts],
   );
+
+  // Live board for the round in play (or the most recent finished round).
+  const board = useMemo(() => {
+    const round =
+      state.rounds.find((r) => r.status === "active") ??
+      [...state.rounds].reverse().find((r) => r.status === "final");
+    if (!round) return null;
+    const ctx = contexts[round.id];
+    const matches = state.matches
+      .filter((m) => m.roundId === round.id)
+      .map((m) => ({ m, st: computeMatchState(m, state.players, ctx) }));
+    const a = matches.reduce((s, x) => s + x.st.points.a, 0);
+    const b = matches.reduce((s, x) => s + x.st.points.b, 0);
+    return { round, matches, a, b };
+  }, [state.rounds, state.matches, state.players, contexts]);
+
+  const sideNames = (side: Side) =>
+    side.playerIds.map((id) => playerMap[id]?.name ?? "?").join(" / ");
 
   const goBack = () => {
     if (window.history.length > 1) navigate(-1);
@@ -118,6 +139,73 @@ export default function TickerPage() {
           course.
         </p>
       </div>
+
+      {board && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <h2>
+            {board.round.name}
+            {board.round.status === "active" ? (
+              <span className="oval live">Live</span>
+            ) : (
+              <span className="oval">
+                <CheckFlag size={9} /> Final
+              </span>
+            )}
+          </h2>
+          <div className="card">
+            {/* Running team total for the round */}
+            <div
+              className="row"
+              style={{ justifyContent: "center", gap: 10, padding: "4px 0 8px" }}
+            >
+              <span className="row" style={{ gap: 6 }}>
+                <span className="dot" style={{ background: teamMap.tA?.color }} />
+                <strong>{teamMap.tA?.name}</strong>
+              </span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>
+                {fmtPoints(board.a)}–{fmtPoints(board.b)}
+              </span>
+              <span className="row" style={{ gap: 6 }}>
+                <strong>{teamMap.tB?.name}</strong>
+                <span className="dot" style={{ background: teamMap.tB?.color }} />
+              </span>
+            </div>
+
+            {board.matches.map(({ m, st }) => {
+              const leadColor =
+                st.leader === "A"
+                  ? teamMap[m.sideA.teamId]?.color
+                  : st.leader === "B"
+                    ? teamMap[m.sideB.teamId]?.color
+                    : undefined;
+              return (
+                <Link className="match" key={m.id} to={`/match/${m.id}`}>
+                  <div className="sides">
+                    <div className="side a">
+                      <span className="names">{sideNames(m.sideA)}</span>
+                    </div>
+                    <div className="status">
+                      <div className="result" style={{ color: leadColor }}>
+                        {st.thru === 0 ? "—" : st.overall.resultText.replace(/ thru.*/, "")}
+                      </div>
+                      <div className="lead">
+                        {st.thru === 0
+                          ? "not started"
+                          : `${fmtPoints(st.points.a)}–${fmtPoints(st.points.b)} · ${
+                              st.complete ? "final" : `thru ${st.thru}`
+                            }`}
+                      </div>
+                    </div>
+                    <div className="side b">
+                      <span className="names">{sideNames(m.sideB)}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="card">
