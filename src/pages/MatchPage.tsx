@@ -202,6 +202,68 @@ export default function MatchPage() {
 
   const lastHole = ctx.course.holes.length;
 
+  const holeGrid = (
+    <div className="holegrid">
+      {ctx.course.holes.map((h) => {
+        let win: string | undefined;
+        if (teamState) {
+          const res = teamState.perHole.find((p) => p.hole === h.number);
+          if (res?.net != null) {
+            win =
+              res.net < res.par
+                ? "var(--green-bright)"
+                : res.net > res.par
+                  ? "var(--orange)"
+                  : "var(--muted)";
+          }
+        } else if (matchState) {
+          const res = matchState.perHole.find((p) => p.hole === h.number);
+          win =
+            res?.winner === "A"
+              ? teamMap[match.sideA.teamId]?.color
+              : res?.winner === "B"
+                ? teamMap[match.sideB.teamId]?.color
+                : res?.winner === "halve"
+                  ? "var(--muted)"
+                  : undefined;
+        }
+        const scored = win !== undefined;
+        return (
+          <button
+            key={h.number}
+            className={h.number === hole ? "active" : ""}
+            aria-label={`Hole ${h.number}${scored ? ", scored" : ""}`}
+            aria-current={h.number === hole ? "true" : undefined}
+            onClick={() => setHole(h.number)}
+          >
+            {h.number}
+            {win && (
+              <span className="win" style={{ color: win }}>
+                ●
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const ticker = (
+    <div className="ticker-wrap">
+      <div className="ticker-label">Around the course</div>
+      <div className="ticker" aria-label="Live activity from other groups">
+        <div className="ticker-track">
+          <span className="ticker-item ticker-placeholder">
+            ⛳ Live activity from the other groups will show here — coming soon
+          </span>
+          <span className="ticker-item ticker-placeholder" aria-hidden="true">
+            ⛳ Live activity from the other groups will show here — coming soon
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {/* Green hero: format, rules, course, hole grid, live score */}
@@ -218,6 +280,7 @@ export default function MatchPage() {
           {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
           {readOnly ? " · final (view only)" : ""}
         </p>
+        {ticker}
       </section>
 
       {/* Cream body: current hole, score rows, prev/score/next, ticker */}
@@ -264,18 +327,10 @@ export default function MatchPage() {
         </button>
       </div>
 
-      {/* Live activity ticker — placeholder for now */}
-      <div className="ticker-wrap">
-        <div className="ticker-label">Around the course</div>
-        <div className="ticker" aria-label="Live activity from other groups">
-          <div className="ticker-track">
-            <span className="ticker-item ticker-placeholder">
-              ⛳ Live activity from the other groups will show here — coming soon
-            </span>
-            <span className="ticker-item ticker-placeholder" aria-hidden="true">
-              ⛳ Live activity from the other groups will show here — coming soon
-            </span>
-          </div>
+      {/* Hole selection */}
+      <div className="section" style={{ paddingTop: 12 }}>
+        <div className="card" style={{ paddingBottom: 12 }}>
+          {holeGrid}
         </div>
       </div>
     </>

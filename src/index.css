@@ -657,22 +657,23 @@ a.badge {
   margin-top: 2px;
 }
 
-/* Live activity ticker (placeholder for now) */
+/* Live activity ticker (placeholder for now) — sits in the green hero */
 .ticker-wrap {
-  padding: 20px 0 8px;
+  padding: 14px 0 2px;
 }
 .ticker-label {
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 13px;
-  color: var(--muted);
-  padding: 0 18px 8px;
+  color: var(--hero-ink);
+  opacity: 0.82;
+  padding: 0 2px 6px;
 }
 .ticker {
   overflow: hidden;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
   background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 11px 0;
 }
 .ticker-track {
