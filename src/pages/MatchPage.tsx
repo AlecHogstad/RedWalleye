@@ -362,40 +362,86 @@ export default function MatchPage() {
       <div className="section" style={{ paddingTop: 4 }}>
         <h2>Side games</h2>
         <div className="card">
-          <div className="field">
-            <div className="sg-head">
-              <div className="sg-title">Stableford</div>
-              <div className="sg-sub">
-                {isScramble
-                  ? "not available in a scramble"
-                  : "net points per hole"}
+          {!isScramble && (
+            <>
+              <div className="field">
+                <div className="sg-head">
+                  <div className="sg-title">Stableford</div>
+                  <div className="sg-sub">net points per hole</div>
+                </div>
+                <span className="spacer" />
+                <Toggle
+                  checked={!!sideGames.stableford}
+                  onChange={(v) => updateSideGames(match.id, { stableford: v })}
+                  label="Stableford"
+                />
               </div>
-            </div>
-            <span className="spacer" />
-            <Toggle
-              checked={!!sideGames.stableford}
-              disabled={isScramble}
-              onChange={(v) => updateSideGames(match.id, { stableford: v })}
-              label="Stableford"
-            />
-          </div>
-          {sideGames.stableford && !isScramble && (
-            <div className="sg-panel">
-              {stablefordRows.map((r) => {
-                const p = players[r.playerId];
-                const team = teamMap[p?.teamId ?? ""];
-                return (
-                  <div className="sg-row" key={r.playerId}>
-                    <span className="dot" style={{ background: team?.color }} />
-                    <span className="sg-name">{p?.name ?? "?"}</span>
-                    <span className="sg-thru">
-                      {r.thru > 0 ? `thru ${r.thru}` : "—"}
-                    </span>
-                    <span className="sg-pts">{r.points}</span>
-                  </div>
-                );
-              })}
-            </div>
+              {sideGames.stableford && (
+                <div className="sg-panel">
+                  {stablefordRows.map((r) => {
+                    const p = players[r.playerId];
+                    const team = teamMap[p?.teamId ?? ""];
+                    return (
+                      <div className="sg-row" key={r.playerId}>
+                        <span className="dot" style={{ background: team?.color }} />
+                        <span className="sg-name">{p?.name ?? "?"}</span>
+                        <span className="sg-thru">
+                          {r.thru > 0 ? `thru ${r.thru}` : "—"}
+                        </span>
+                        <span className="sg-pts">{r.points}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {isScramble && (
+            <>
+              <div className="field">
+                <div className="sg-head">
+                  <div className="sg-title">Booze mulligans</div>
+                  <div className="sg-sub">a shot buys a do-over</div>
+                </div>
+              </div>
+              <div className="sg-panel">
+                {groupPlayerIds.map((id) => {
+                  const p = players[id];
+                  const team = teamMap[p?.teamId ?? ""];
+                  const count = state.activity.filter(
+                    (e) =>
+                      e.type === "mulligan" &&
+                      e.matchId === match.id &&
+                      e.playerId === id,
+                  ).length;
+                  return (
+                    <div className="sg-row" key={id}>
+                      <span className="dot" style={{ background: team?.color }} />
+                      <span className="sg-name">{p?.name ?? "?"}</span>
+                      <div className="stepper">
+                        <button
+                          onClick={() => removeMulligan(match.id, id)}
+                          disabled={count === 0}
+                          aria-label={`Remove a mulligan from ${p?.name ?? "player"}`}
+                        >
+                          −
+                        </button>
+                        <span className={`val ${count === 0 ? "empty" : ""}`}>
+                          {count}
+                        </span>
+                        <button
+                          onClick={() => addMulligan(match.id, id)}
+                          aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           <div className="field">
@@ -442,67 +488,11 @@ export default function MatchPage() {
           )}
         </div>
         <p className="hint">
-          Side games are just for your group — they never affect the tournament
-          standings.
+          {isScramble
+            ? "Side games are just for your group — mulligans post to the activity feed and none of this affects the tournament."
+            : "Side games are just for your group — they never affect the tournament standings."}
         </p>
       </div>
-
-      {/* Booze mulligans — scramble only; posts to the activity feed */}
-      {isScramble && (
-        <div className="section" style={{ paddingTop: 4 }}>
-          <h2>Booze mulligans</h2>
-          <div className="card">
-            {groupPlayerIds.map((id) => {
-              const p = players[id];
-              const team = teamMap[p?.teamId ?? ""];
-              const count = state.activity.filter(
-                (e) =>
-                  e.type === "mulligan" &&
-                  e.matchId === match.id &&
-                  e.playerId === id,
-              ).length;
-              return (
-                <div className="score-row" key={id}>
-                  <span
-                    className="dot"
-                    style={{ background: team?.color, alignSelf: "center" }}
-                  />
-                  <div className="who">
-                    <div className="n">{p?.name ?? "?"}</div>
-                    <div className="h">
-                      {count === 0
-                        ? "no mulligans yet"
-                        : `🥃 ${count} mulligan${count > 1 ? "s" : ""}`}
-                    </div>
-                  </div>
-                  <div className="stepper">
-                    <button
-                      onClick={() => removeMulligan(match.id, id)}
-                      disabled={count === 0}
-                      aria-label={`Remove a mulligan from ${p?.name ?? "player"}`}
-                    >
-                      −
-                    </button>
-                    <span className={`val ${count === 0 ? "empty" : ""}`}>
-                      {count}
-                    </span>
-                    <button
-                      onClick={() => addMulligan(match.id, id)}
-                      aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="hint">
-            A shot of booze buys a mulligan — tracked here and posted to the
-            activity feed.
-          </p>
-        </div>
-      )}
     </>
   );
 }
