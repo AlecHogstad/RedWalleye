@@ -48,18 +48,16 @@ export interface CourseDef {
   tees: TeeSet[];
 }
 
-export type Format = "fourball" | "fourman" | "scramble";
+export type Format = "fourball" | "scramble";
 
 export const FORMAT_LABELS: Record<Format, string> = {
   fourball: "2-man Best Ball",
-  fourman: "4-man Best Ball",
   scramble: "Scramble",
 };
 
 /** Short labels that fit inside the oval badges. */
 export const FORMAT_SHORT: Record<Format, string> = {
   fourball: "2-man BB",
-  fourman: "4-man BB",
   scramble: "Scramble",
 };
 
@@ -76,11 +74,6 @@ export const FORMAT_RULES: Record<Format, string> = {
     "4-man scramble, A vs B. Each side picks its best shot and plays one team " +
     "ball — no handicap, raw score. It's a Nassau — front 9, back 9, and the " +
     "match are worth 2 points each (6 per match).",
-  fourman:
-    "4-man best-ball match play, A vs B. Everyone plays their own ball and " +
-    "your side's best net score on each hole counts. Strokes come off the " +
-    "lowest course handicap in the match. It's a Nassau — front 9, back 9, and " +
-    "the match are worth 2 points each (6 per match).",
 };
 
 /** One side of a match — a set of player ids playing together. */

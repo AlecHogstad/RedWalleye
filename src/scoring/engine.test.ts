@@ -134,10 +134,9 @@ describe("allocateStrokes", () => {
 });
 
 describe("nassauSegmentValue", () => {
-  it("is 1 for four-ball and 2 for scramble / four-man", () => {
+  it("is 1 for four-ball and 2 for scramble", () => {
     expect(nassauSegmentValue("fourball")).toBe(1);
     expect(nassauSegmentValue("scramble")).toBe(2);
-    expect(nassauSegmentValue("fourman")).toBe(2);
   });
 });
 
@@ -262,8 +261,13 @@ describe("computeStandings — Nassau points per round", () => {
     expect(standings.find((s) => s.teamId === "tA")!.points).toBe(12);
   });
 
-  it("gives a four-man round 12 points to a clean sweep (2 matches × 6)", () => {
-    const matches = [sweep("r3m1", "r3", "fourman"), sweep("r3m2", "r3", "fourman")];
+  it("gives Round 3 (four 2-man matches) 12 points to a clean sweep (4 × 3)", () => {
+    const matches = [
+      sweep("r3m1", "r3", "fourball"),
+      sweep("r3m2", "r3", "fourball"),
+      sweep("r3m3", "r3", "fourball"),
+      sweep("r3m4", "r3", "fourball"),
+    ];
     const standings = computeStandings(matches, twoSided, { r3: ctx });
     expect(standings.find((s) => s.teamId === "tA")!.points).toBe(12);
   });
@@ -363,8 +367,8 @@ describe("seed shape", () => {
       expect(m.sideB.teamId).toBe("tB");
       expect(m.sideB.playerIds.length).toBeGreaterThan(0);
     }
-    // Match counts per round: 4 / 2 / 2.
+    // Match counts per round: 4 / 2 / 4.
     const byRound = (r: string) => s.matches.filter((m) => m.roundId === r).length;
-    expect([byRound("r1"), byRound("r2"), byRound("r3")]).toEqual([4, 2, 2]);
+    expect([byRound("r1"), byRound("r2"), byRound("r3")]).toEqual([4, 2, 4]);
   });
 });

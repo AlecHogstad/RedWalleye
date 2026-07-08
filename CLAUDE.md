@@ -51,18 +51,20 @@ per-hole winners plus a `SegmentResult` for `front`, `back`, and `overall`
 `computeStandings` just sums `MatchState.points` for live standings.
 
 - **How many holes count per side**: best net ball for the best-ball rounds
-  (four-ball, 4-man), the single raw team ball for the scramble.
+  (Rounds 1 & 3), the single raw team ball for the scramble (Round 2).
 - **Stroke allocation** (`allocateStrokes`): best-ball rounds give strokes off
   the LOWEST course handicap in that match, hole-by-hole by stroke index. The
   scramble gives **no** strokes — both team balls are raw.
 - **Segment value varies by format** so every round totals 12 points
-  (`nassauSegmentValue`): four-ball = 1 pt/bet (4 matches × 3 = 12); scramble &
-  4-man = 2 pts/bet (2 matches × 6 = 12). **Total pot: 36** (12 per round).
+  (`nassauSegmentValue`): four-ball = 1 pt/bet (4 matches × 3 = 12); scramble =
+  2 pts/bet (2 matches × 6 = 12). **Total pot: 36** (12 per round).
 - **Match structure**: Round 1 = four 2-man best-ball matches; Round 2 = two
-  4-man scramble matches (score keys `team:tA` / `team:tB`); Round 3 = two 4-man
-  best-ball matches. All are Team A vs Team B — `sideA.teamId` is always `tA`,
-  `sideB.teamId` always `tB`. Match slots are seeded with placeholder rosters
-  until the matchup builder / draft (later phases) fill them.
+  4-man scramble matches (score keys `team:tA` / `team:tB`); Round 3 = four
+  2-man best-ball matches (same format as Round 1, different pairings). Only two
+  formats exist — `fourball` and `scramble`. All matches are Team A vs Team B —
+  `sideA.teamId` is always `tA`, `sideB.teamId` always `tB`. Match slots are
+  seeded with placeholder rosters until the matchup builder / draft (later
+  phases) fill them.
 
 ## Activity feed (derived, not stored)
 
@@ -90,7 +92,7 @@ course/tees.
 
 `src/data/seed.ts` holds the two teams (A / B, each with a `captainId`), all 16
 players with real handicaps from the trip sheet, the head-to-head match slots
-for Round 1 (Four-Ball ×4), Round 2 (Scramble ×2), Round 3 (4-Man Best Ball ×2),
+for Round 1 (Four-Ball ×4), Round 2 (Scramble ×2), Round 3 (Four-Ball ×4),
 and the courses. Rosters/matchups are placeholders until the draft/matchup
 builder fill them. **Both courses are real
 data from their scorecards** — Big Fish Golf Club (5 tees, Tournament
