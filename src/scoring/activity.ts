@@ -21,6 +21,7 @@ import {
   isScrambleFieldMatch,
   strokesOnHole,
   teamScoreKey,
+  type HoleResult,
   type ScoringContext,
 } from "./engine";
 
@@ -31,7 +32,8 @@ export type FeedKind =
   | "blowup" // net double bogey or worse (net-to-par ≥ +2)
   | "matchLead" // a side took the lead in its match
   | "comeback" // a side erased a 3+ deficit to take the lead
-  | "matchFinal" // a match was won / closed out / halved
+  | "matchFinal" // a match (the overall 18 bet) was won / closed out / halved
+  | "segment" // a Nassau nine (front or back) was won or halved
   | "overallLead" // the overall trip lead changed hands (at a round's end)
   | "snake" // who currently holds the snake in a group
   | "mulligan"; // a booze mulligan was taken (stored event)
@@ -48,6 +50,7 @@ export interface FeedItem {
   playerId?: string; // subject player, when it's about one golfer
   value?: number; // net-to-par, match margin, snake pot, or points
   text?: string; // result string like "3&2"
+  segment?: "front" | "back"; // which nine, for `segment` events
   ts?: number; // real timestamp, mulligans only
   mediaPath?: string;
   mediaStatus?: "pending" | "ready";
@@ -58,6 +61,7 @@ const WEIGHT: Record<FeedKind, number> = {
   ace: 9,
   overallLead: 8,
   matchFinal: 7,
+  segment: 6,
   comeback: 6,
   matchLead: 5,
   eagle: 4,
@@ -69,6 +73,13 @@ const WEIGHT: Record<FeedKind, number> = {
 
 function orderOf(roundIndex: number, hole: number | undefined, kind: FeedKind): number {
   return roundIndex * 100000 + (hole ?? 0) * 1000 + WEIGHT[kind];
+}
+
+/** The latest hole scored in a nine — where its result posts in the feed, so
+ *  the nine's summary sits just above that nine's per-hole highlights. */
+function segmentLastHole(holes: HoleResult[]): number {
+  const scored = holes.filter((h) => h.winner != null);
+  return scored.length ? scored[scored.length - 1].hole : (holes[0]?.hole ?? 0);
 }
 
 /** The other team in a match, relative to `teamId`. */
@@ -228,6 +239,32 @@ function matchProgressEvents(
       otherTeamId: opponent(match, subjectTeam),
       value: st.margin,
       text: st.resultText,
+    });
+  }
+
+  // The two nine-hole Nassau bets — announce each as it locks.
+  const nines = [
+    { seg: "front" as const, s: st.front, holes: st.perHole.filter((h) => h.hole <= 9) },
+    { seg: "back" as const, s: st.back, holes: st.perHole.filter((h) => h.hole >= 10) },
+  ];
+  for (const { seg, s, holes } of nines) {
+    if (!s.complete) continue;
+    const winnerTeam =
+      s.leader === "A" ? match.sideA.teamId : s.leader === "B" ? match.sideB.teamId : null;
+    const subject = winnerTeam ?? match.sideA.teamId;
+    const hole = segmentLastHole(holes);
+    items.push({
+      id: `segment:${match.id}:${seg}`,
+      kind: "segment",
+      segment: seg,
+      order: orderOf(roundIndex, hole, "segment"),
+      roundId: match.roundId,
+      hole,
+      matchId: match.id,
+      teamId: subject,
+      otherTeamId: opponent(match, subject),
+      value: s.margin,
+      text: s.winner === "halve" ? "halved" : s.resultText,
     });
   }
   return items;

@@ -86,6 +86,13 @@ export function FeedIcon({ kind, size = 22 }: { kind: FeedKind; size?: number })
           <rect x="12.5" y="9.5" width="6.5" height="4.5" fill="currentColor" stroke="none" />
         </Glyph>
       );
+    case "segment": // won a nine — a pennant flag
+      return (
+        <Glyph size={size}>
+          <path d="M7 4v16" />
+          <path d="M7 5h11l-3.5 3.5L18 12H7" />
+        </Glyph>
+      );
     case "overallLead": // the trip lead — the leaderboard trophy
       return <TrophyIcon size={size} />;
     case "snake": // holding the snake — a squiggle with a head
