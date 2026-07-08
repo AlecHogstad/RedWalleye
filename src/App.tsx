@@ -18,7 +18,7 @@ function themeFor(pathname: string): string {
   if (pathname.startsWith("/match")) return "theme-green";
   if (pathname.startsWith("/settings/courses")) return "theme-sand";
   if (pathname.startsWith("/settings")) return "theme-blue";
-  return "theme-orange";
+  return "theme-green";
 }
 
 export default function App() {
