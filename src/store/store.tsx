@@ -14,7 +14,7 @@ import type {
   Player,
   TournamentState,
 } from "../types";
-import { contextForRound, type ScoringContext } from "../scoring/engine";
+import { contextForRound, teamScoreKey, type ScoringContext } from "../scoring/engine";
 import { reconcileRoster } from "./roster";
 import { seedState, STATE_VERSION } from "../data/seed";
 import {
@@ -79,6 +79,9 @@ interface StoreValue {
   addPlayer: (input: { name: string; handicap: number }) => void;
   removePlayer: (playerId: string) => void;
   setTeamRoster: (teamId: string, playerIds: string[]) => void;
+  /** Set the players in one match's two sides (the matchup builder). Only the
+   *  playerIds change; each side keeps its team. Pending rounds only. */
+  setMatchup: (matchId: string, sideAIds: string[], sideBIds: string[]) => void;
   updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
   addMulligan: (matchId: string, playerId: string, hole?: number) => void;
   removeMulligan: (matchId: string, playerId: string) => void;
@@ -361,6 +364,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [rostersEditable, state],
   );
 
+  const setMatchup = useCallback(
+    (matchId: string, sideAIds: string[], sideBIds: string[]) => {
+      const match = state.matches.find((m) => m.id === matchId);
+      if (!match) return;
+      // A round's matchups are editable right up until that round starts —
+      // independent of the other rounds' status.
+      const round = state.rounds.find((r) => r.id === match.roundId);
+      if (!round || round.status !== "pending") return;
+      const a = Array.from(new Set(sideAIds)).filter(Boolean);
+      const b = Array.from(new Set(sideBIds)).filter(Boolean);
+      const sideA = { ...match.sideA, playerIds: a };
+      const sideB = { ...match.sideB, playerIds: b };
+      if (syncEnabled) {
+        // Sides are patched remotely; scores are separate rows and matchups
+        // are set pre-round, so there's nothing to migrate.
+        remoteWrite.match(matchId, { sideA, sideB });
+        return;
+      }
+      // Local mode: realign the score buckets to the new players (keeping any
+      // that were already there — harmless pre-round, tidy if reopened).
+      const keys =
+        match.format === "scramble"
+          ? [teamScoreKey(sideA.teamId), teamScoreKey(sideB.teamId)]
+          : [...a, ...b];
+      const scores = Object.fromEntries(keys.map((k) => [k, match.scores[k] ?? {}]));
+      setLocalState((prev) => ({
+        ...prev,
+        matches: prev.matches.map((m) =>
+          m.id === matchId ? { ...m, sideA, sideB, scores } : m,
+        ),
+      }));
+    },
+    [state],
+  );
+
   const updateSideGames = useCallback(
     (matchId: string, patch: Partial<MatchSideGames>) => {
       if (syncEnabled) {
@@ -436,6 +474,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPlayer,
       removePlayer,
       setTeamRoster,
+      setMatchup,
       updateSideGames,
       addMulligan,
       removeMulligan,
@@ -455,6 +494,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPlayer,
       removePlayer,
       setTeamRoster,
+      setMatchup,
       updateSideGames,
       addMulligan,
       removeMulligan,

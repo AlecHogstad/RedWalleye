@@ -78,6 +78,21 @@ golf chronology (later round → higher hole → bigger moment), not "5m ago".
 Overall-lead changes settle per finished round (exact), not per hole. Rendered
 in `src/pages/TickerPage.tsx`.
 
+## Matchups (who plays who)
+
+Match slots are seeded (A vs B, correct team on each side) but their **players
+are filled in per round** by the matchup builder — `src/pages/MatchupsPage.tsx`
+at `/matchups/:roundId`, reached from a "Set matchups" button on each pending
+round. Each match shows a seat select per golfer (2 per side for best ball, 4
+for the scramble); options are that team's roster minus anyone already slotted
+elsewhere **in that round**, so nobody plays twice. It writes through
+`store.setMatchup(matchId, sideAIds, sideBIds)`, which patches just the two
+sides (via `remoteWrite.match` when synced) and is allowed only while **that
+round is still `pending`** (independent of the other rounds). A completeness
+banner tracks empty seats / benched golfers. (Team rosters themselves — which 8
+players are on each team — come from the draft, a later phase; today they're the
+seeded split, shown read-only on the Teams settings screen.)
+
 ## Rounds: start gate
 
 Rounds are `pending → active → final` (`Round.status`). One person taps
