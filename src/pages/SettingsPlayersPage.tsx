@@ -115,14 +115,11 @@ export default function SettingsPlayersPage() {
               onChange={(e) => setHandicap(e.target.value)}
             />
           </div>
-          <button
-            className="btn"
-            style={{ margin: 12 }}
-            disabled={!canAdd}
-            onClick={submitAdd}
-          >
-            Add player
-          </button>
+          <div style={{ padding: 12 }}>
+            <button className="btn" disabled={!canAdd} onClick={submitAdd}>
+              Add player
+            </button>
+          </div>
         </div>
       </section>
 
