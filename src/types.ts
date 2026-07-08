@@ -121,6 +121,33 @@ export interface Round {
   teeName?: string;
 }
 
+/**
+ * Optional side games a group can opt into per match. Purely social — these
+ * never touch the tournament standings. Snake just tracks who currently
+ * "holds" it (last three-putt); it's a manual selector, not putt-derived.
+ */
+export interface MatchSideGames {
+  stableford?: boolean;
+  snake?: boolean;
+  snakeHolder?: string; // playerId, or omitted for "nobody yet"
+  /** How many times the snake has changed hands — roughly the group's
+   *  three-putt count, which grows the pot. */
+  snakeChanges?: number;
+}
+
+/**
+ * An entry in the activity feed. Append-only; today the only kind is a
+ * scramble "booze mulligan" (a player took a shot to buy a do-over), but the
+ * shape is generic so birdies / lead changes can be added later.
+ */
+export interface ActivityEvent {
+  id: Id;
+  type: "mulligan";
+  matchId: Id;
+  playerId: Id;
+  ts: number; // Date.now() when it happened
+}
+
 export interface TournamentState {
   version: number;
   courses: CourseDef[];
@@ -128,4 +155,8 @@ export interface TournamentState {
   players: Player[];
   rounds: Round[];
   matches: Match[];
+  /** Side-game opt-ins + snake holder, keyed by matchId. */
+  sideGames: Record<string, MatchSideGames>;
+  /** Append-only activity feed (booze mulligans for now). */
+  activity: ActivityEvent[];
 }

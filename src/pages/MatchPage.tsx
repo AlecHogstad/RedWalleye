@@ -4,6 +4,7 @@ import { FORMAT_LABELS, FORMAT_RULES, type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
+  computeStableford,
   computeStrokePlay,
   strokesOnHole,
   teamScoreKey,
@@ -45,7 +46,8 @@ function entitiesForSide(
 
 export default function MatchPage() {
   const { matchId } = useParams();
-  const { state, setScore } = useStore();
+  const { state, setScore, updateSideGames, addMulligan, removeMulligan } =
+    useStore();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
   const match = state.matches.find((m) => m.id === matchId);
@@ -75,6 +77,10 @@ export default function MatchPage() {
   );
   const alloc = useMemo(
     () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
+    [match, state.players, ctx],
+  );
+  const stablefordRows = useMemo(
+    () => (match && ctx ? computeStableford(match, state.players, ctx) : []),
     [match, state.players, ctx],
   );
 
@@ -112,12 +118,30 @@ export default function MatchPage() {
   const entitiesB = strokePlay ? [] : entitiesForSide(match, match.sideB, players);
   const teamA = teamMap[match.sideA.teamId];
 
+  // Side games — per-group opt-ins + the current snake holder.
+  const isScramble = match.format === "scramble";
+  const sideGames = state.sideGames[match.id] ?? {};
+  const groupPlayerIds = Array.from(
+    new Set([...match.sideA.playerIds, ...match.sideB.playerIds]),
+  );
+
   const strokesFor = (key: string) => {
     const total =
       match.format === "scramble"
         ? alloc.byTeam[key] ?? 0
         : alloc.byPlayer[key] ?? 0;
     return strokesOnHole(total, holeInfo.strokeIndex);
+  };
+
+  // Passing the snake to a new player counts as a three-putt, growing the
+  // pot. Clearing it (or re-picking the same person) doesn't count.
+  const passSnake = (value: string) => {
+    const current = sideGames.snakeHolder ?? "";
+    const changed = value !== "" && value !== current;
+    updateSideGames(match!.id, {
+      snakeHolder: value,
+      ...(changed ? { snakeChanges: (sideGames.snakeChanges ?? 0) + 1 } : {}),
+    });
   };
 
   const bump = (key: string, delta: number) => {
@@ -333,7 +357,171 @@ export default function MatchPage() {
           {holeGrid}
         </div>
       </div>
+
+      {/* Side games — opt in per group; never affect the tournament */}
+      <div className="section" style={{ paddingTop: 4 }}>
+        <h2>Side games</h2>
+        <div className="card">
+          {!isScramble && (
+            <>
+              <div className="field">
+                <div className="sg-head">
+                  <div className="sg-title">Stableford</div>
+                  <div className="sg-sub">net points per hole</div>
+                </div>
+                <span className="spacer" />
+                <Toggle
+                  checked={!!sideGames.stableford}
+                  onChange={(v) => updateSideGames(match.id, { stableford: v })}
+                  label="Stableford"
+                />
+              </div>
+              {sideGames.stableford && (
+                <div className="sg-panel">
+                  {stablefordRows.map((r) => {
+                    const p = players[r.playerId];
+                    const team = teamMap[p?.teamId ?? ""];
+                    return (
+                      <div className="sg-row" key={r.playerId}>
+                        <span className="dot" style={{ background: team?.color }} />
+                        <span className="sg-name">{p?.name ?? "?"}</span>
+                        <span className="sg-thru">
+                          {r.thru > 0 ? `thru ${r.thru}` : "—"}
+                        </span>
+                        <span className="sg-pts">{r.points}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {isScramble && (
+            <>
+              <div className="field">
+                <div className="sg-head">
+                  <div className="sg-title">Booze mulligans</div>
+                  <div className="sg-sub">a shot buys a do-over</div>
+                </div>
+              </div>
+              <div className="sg-panel">
+                {groupPlayerIds.map((id) => {
+                  const p = players[id];
+                  const team = teamMap[p?.teamId ?? ""];
+                  const count = state.activity.filter(
+                    (e) =>
+                      e.type === "mulligan" &&
+                      e.matchId === match.id &&
+                      e.playerId === id,
+                  ).length;
+                  return (
+                    <div className="sg-row" key={id}>
+                      <span className="dot" style={{ background: team?.color }} />
+                      <span className="sg-name">{p?.name ?? "?"}</span>
+                      <div className="stepper">
+                        <button
+                          onClick={() => removeMulligan(match.id, id)}
+                          disabled={count === 0}
+                          aria-label={`Remove a mulligan from ${p?.name ?? "player"}`}
+                        >
+                          −
+                        </button>
+                        <span className={`val ${count === 0 ? "empty" : ""}`}>
+                          {count}
+                        </span>
+                        <button
+                          onClick={() => addMulligan(match.id, id)}
+                          aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="field">
+            <div className="sg-head">
+              <div className="sg-title">Snake</div>
+              <div className="sg-sub">last three-putt holds it</div>
+            </div>
+            <span className="spacer" />
+            <Toggle
+              checked={!!sideGames.snake}
+              onChange={(v) => updateSideGames(match.id, { snake: v })}
+              label="Snake"
+            />
+          </div>
+          {sideGames.snake && (
+            <div className="sg-panel">
+              <div className="snake-badge">
+                🐍{" "}
+                {sideGames.snakeHolder
+                  ? `${players[sideGames.snakeHolder]?.name ?? "?"} has the snake`
+                  : "nobody has the snake yet"}
+              </div>
+              <div className="sg-row">
+                <span className="sg-name">Three-putts (pot)</span>
+                <span className="sg-thru">tap to pass the snake</span>
+                <span className="sg-pts">{sideGames.snakeChanges ?? 0}</span>
+              </div>
+              <div className="field">
+                <label>Who has it?</label>
+                <select
+                  className="roster-select"
+                  value={sideGames.snakeHolder ?? ""}
+                  onChange={(e) => passSnake(e.target.value)}
+                >
+                  <option value="">Nobody yet</option>
+                  {groupPlayerIds.map((id) => (
+                    <option key={id} value={id}>
+                      {players[id]?.name ?? "?"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="hint">
+          {isScramble
+            ? "Side games are just for your group — mulligans post to the activity feed and none of this affects the tournament."
+            : "Side games are just for your group — they never affect the tournament standings."}
+        </p>
+      </div>
     </>
+  );
+}
+
+/** Small on/off switch. */
+function Toggle({
+  checked,
+  disabled,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className={`switch ${disabled ? "disabled" : ""}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="switch-track">
+        <span className="switch-thumb" />
+      </span>
+    </label>
   );
 }
 
