@@ -14,6 +14,7 @@ import SettingsResetPage from "./pages/SettingsResetPage";
 import TickerPage from "./pages/TickerPage";
 import { PoleFlag } from "./components/CheckFlag";
 import { TrophyIcon, FlagIcon, GearIcon, TickerIcon } from "./components/Icons";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import { useStore } from "./store/store";
 import { watchForUpdate } from "./sync/versionCheck";
 
@@ -47,6 +48,7 @@ export default function App() {
   const onTicker = pathname.startsWith("/ticker");
 
   return (
+    <ConfirmProvider>
     <div className={`app ${themeFor(pathname)} ${showTabs ? "" : "no-tabs"}`}>
       {updateReady && (
         <button
@@ -129,5 +131,6 @@ export default function App() {
         </nav>
       )}
     </div>
+    </ConfirmProvider>
   );
 }

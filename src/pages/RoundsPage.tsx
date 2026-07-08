@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
 import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
+import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
 import { CheckFlag } from "../components/CheckFlag";
@@ -30,6 +31,7 @@ function pendingVenue(
 
 export default function RoundsPage() {
   const { state, finishRound, reopenRound } = useStore();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const players = usePlayerMap();
   const contexts = useRoundContexts();
@@ -40,15 +42,18 @@ export default function RoundsPage() {
 
   const anyActive = state.rounds.some((r) => r.status === "active");
 
-  const confirmFinish = (round: Round) => {
+  const confirmFinish = async (round: Round) => {
     const matches = state.matches.filter((m) => m.roundId === round.id);
     const incomplete = matches.filter(
       (m) => !computeMatchState(m, state.players, contexts[round.id]).complete,
     ).length;
-    const warn = incomplete > 0 ? `\n\n${incomplete} match(es) aren't finished.` : "";
-    if (window.confirm(`Finish ${round.name}? This unlocks the other rounds.${warn}`)) {
-      finishRound(round.id);
-    }
+    const ok = await confirm({
+      title: `Finish ${round.name}?`,
+      message: "This unlocks the other rounds.",
+      detail: incomplete > 0 ? `${incomplete} match(es) aren't finished.` : undefined,
+      confirmLabel: "Finish round",
+    });
+    if (ok) finishRound(round.id);
   };
 
   return (
