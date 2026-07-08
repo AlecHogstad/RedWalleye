@@ -33,6 +33,9 @@ export default function DraftPage() {
   );
 
   const setup = !draft || draft.status === "setup";
+  // The draft can only run before play begins — re-drafting mid-trip would
+  // scramble live scores. Name the round that's holding the lock.
+  const lockedRound = state.rounds.find((r) => r.status !== "pending");
 
   return (
     <>
@@ -41,14 +44,30 @@ export default function DraftPage() {
           ← Settings
         </Link>
         <h2 style={{ marginTop: 10 }}>Team Draft</h2>
-        {!rostersEditable && (
-          <p className="hint" style={{ padding: "0 2px 8px", color: "var(--accent)" }}>
-            The draft is locked once a round has started.
-          </p>
-        )}
       </div>
 
-      {setup ? (
+      {!rostersEditable ? (
+        <div className="section" style={{ paddingTop: 4 }}>
+          <div
+            className="card"
+            style={{ padding: 14, borderLeft: "5px solid var(--accent)" }}
+          >
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>Draft locked</div>
+            <p className="hint" style={{ padding: "0 0 8px" }}>
+              {lockedRound
+                ? `${lockedRound.name} has already been ${
+                    lockedRound.status === "final" ? "finished" : "started"
+                  }. `
+                : "A round is already underway. "}
+              The draft only runs before any round begins, so live scores can't
+              get scrambled. To draft again, reset the app first.
+            </p>
+            <Link className="btn" to="/settings/reset">
+              Reset app data
+            </Link>
+          </div>
+        </div>
+      ) : setup ? (
         <DraftSetup
           players={byName}
           initial={draft}
