@@ -49,6 +49,25 @@ export function FlagIcon({ size = 20 }: IconProps) {
   );
 }
 
+/** Header ticker entry — a live-activity pulse. */
+export function TickerIcon({ size = 22 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12h4l2 6 4-14 2 8h6" />
+    </svg>
+  );
+}
+
 /** Header settings entry — a gear. */
 export function GearIcon({ size = 22 }: IconProps) {
   return (

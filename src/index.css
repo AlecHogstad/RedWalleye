@@ -146,8 +146,8 @@ a {
   opacity: 0.55;
 }
 
-/* Header settings gear — sits to the right of the live indicator ----------- */
-.settings-btn {
+/* Header action button (ticker) — sits right of the live indicator -------- */
+.header-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -156,8 +156,27 @@ a {
   opacity: 0.85;
   touch-action: manipulation;
 }
-.settings-btn.active {
+.header-btn.active {
   opacity: 1;
+}
+
+/* Ticker feed (activity page) --------------------------------------------- */
+.ticker-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ticker-feed li {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ticker-feed li:last-child {
+  border-bottom: none;
+}
+.ticker-feed-empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--muted);
 }
 
 /* Settings hub link rows --------------------------------------------------- */

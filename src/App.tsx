@@ -8,15 +8,15 @@ import SettingsTeamsPage from "./pages/SettingsTeamsPage";
 import SettingsPlayersPage from "./pages/SettingsPlayersPage";
 import SettingsCoursesPage from "./pages/SettingsCoursesPage";
 import SettingsResetPage from "./pages/SettingsResetPage";
+import TickerPage from "./pages/TickerPage";
 import { PoleFlag } from "./components/CheckFlag";
-import { TrophyIcon, FlagIcon, GearIcon } from "./components/Icons";
+import { TrophyIcon, FlagIcon, GearIcon, TickerIcon } from "./components/Icons";
 import { useStore } from "./store/store";
 
 /** Each screen gets its own block color, like the inspo phones. */
 function themeFor(pathname: string): string {
   if (pathname.startsWith("/match")) return "theme-green";
   if (pathname.startsWith("/settings/courses")) return "theme-sand";
-  if (pathname.startsWith("/settings/teams")) return "theme-blue";
   if (pathname.startsWith("/settings")) return "theme-blue";
   return "theme-orange";
 }
@@ -24,13 +24,11 @@ function themeFor(pathname: string): string {
 export default function App() {
   const { pathname } = useLocation();
   const { syncStatus } = useStore();
-  // Scoring and settings sub-flows drop the tab bar — the ← back pill is the
-  // way out, and the reclaimed space keeps steppers clear of accidental taps.
+  // Scoring drops the tab bar — the ← back pill is the way out, and the
+  // reclaimed space keeps steppers clear of accidental taps.
   const showTabs =
-    !pathname.startsWith("/match") &&
-    !pathname.startsWith("/start") &&
-    !pathname.startsWith("/settings");
-  const onSettings = pathname.startsWith("/settings");
+    !pathname.startsWith("/match") && !pathname.startsWith("/start");
+  const onTicker = pathname.startsWith("/ticker");
 
   return (
     <div className={`app ${themeFor(pathname)} ${showTabs ? "" : "no-tabs"}`}>
@@ -54,11 +52,11 @@ export default function App() {
           </span>
         )}
         <Link
-          to="/settings"
-          className={`settings-btn ${onSettings ? "active" : ""}`}
-          aria-label="Settings"
+          to="/ticker"
+          className={`header-btn ${onTicker ? "active" : ""}`}
+          aria-label="Activity ticker"
         >
-          <GearIcon />
+          <TickerIcon />
         </Link>
       </header>
 
@@ -73,6 +71,7 @@ export default function App() {
           <Route path="/settings/players" element={<SettingsPlayersPage />} />
           <Route path="/settings/courses" element={<SettingsCoursesPage />} />
           <Route path="/settings/reset" element={<SettingsResetPage />} />
+          <Route path="/ticker" element={<TickerPage />} />
         </Routes>
       </main>
 
@@ -92,6 +91,14 @@ export default function App() {
                 <FlagIcon />
               </span>
               <span className="tab-label">Rounds</span>
+            </span>
+          </NavLink>
+          <NavLink to="/settings">
+            <span className="tab-inner">
+              <span className="tab-icon">
+                <GearIcon size={20} />
+              </span>
+              <span className="tab-label">Settings</span>
             </span>
           </NavLink>
         </nav>

@@ -92,6 +92,22 @@ describe("applyRemote", () => {
     expect(m.sideB.teamId).toBe("t2");
   });
 
+  it("merges side-game opt-ins and the snake holder", () => {
+    const remote: RemoteData = {
+      sideGames: {
+        r1m1: { stableford: true, snake: true, snakeHolder: "hunter" },
+      },
+    };
+    const state = applyRemote(seedState(), remote);
+    expect(state.sideGames.r1m1).toEqual({
+      stableford: true,
+      snake: true,
+      snakeHolder: "hunter",
+    });
+    // untouched matches have no side-game entry
+    expect(state.sideGames.r1m2).toBeUndefined();
+  });
+
   it("ignores unknown ids and null leaves without crashing", () => {
     const remote = {
       scores: { ghost: { nobody: { h1: 4 } }, r1m1: { hunter: { h3: null } } },
@@ -122,6 +138,7 @@ describe("kvToRemote", () => {
       [`${V}|holes|hayward|h6`, { strokeIndex: 2 }],
       [`${V}|teams|t1`, { name: "Walleye Crushers" }],
       [`${V}|matches|r1m1`, { sideA: { teamId: "t1", playerIds: ["hunter"] } }],
+      [`${V}|sidegames|r1m1`, { stableford: true, snakeHolder: "nick" }],
     ]);
     const remote = kvToRemote(kv);
     expect(remote.scores?.r1m1?.hunter?.h3).toBe(5);
@@ -131,6 +148,8 @@ describe("kvToRemote", () => {
     expect(remote.holes?.hayward?.h6?.strokeIndex).toBe(2);
     expect(remote.teams?.t1?.name).toBe("Walleye Crushers");
     expect(remote.matches?.r1m1?.sideA?.playerIds).toEqual(["hunter"]);
+    expect(remote.sideGames?.r1m1?.stableford).toBe(true);
+    expect(remote.sideGames?.r1m1?.snakeHolder).toBe("nick");
   });
 
   it("ignores rows from other seed versions and null values", () => {
