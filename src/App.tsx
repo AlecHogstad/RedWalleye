@@ -49,7 +49,7 @@ export default function App() {
           className="update-banner"
           onClick={() => window.location.reload()}
         >
-          ⛳ New version available — tap to update
+          New version available — tap to update
         </button>
       )}
       <header className="topbar">
