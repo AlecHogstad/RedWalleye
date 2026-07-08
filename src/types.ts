@@ -121,6 +121,17 @@ export interface Round {
   teeName?: string;
 }
 
+/**
+ * Optional side games a group can opt into per match. Purely social — these
+ * never touch the tournament standings. Snake just tracks who currently
+ * "holds" it (last three-putt); it's a manual selector, not putt-derived.
+ */
+export interface MatchSideGames {
+  stableford?: boolean;
+  snake?: boolean;
+  snakeHolder?: string; // playerId, or omitted for "nobody yet"
+}
+
 export interface TournamentState {
   version: number;
   courses: CourseDef[];
@@ -128,4 +139,6 @@ export interface TournamentState {
   players: Player[];
   rounds: Round[];
   matches: Match[];
+  /** Side-game opt-ins + snake holder, keyed by matchId. */
+  sideGames: Record<string, MatchSideGames>;
 }

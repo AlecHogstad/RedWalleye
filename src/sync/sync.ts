@@ -29,7 +29,7 @@
 // ---------------------------------------------------------------------------
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { RoundStatus, Side, TournamentState } from "../types";
+import type { MatchSideGames, RoundStatus, Side, TournamentState } from "../types";
 import { STATE_VERSION } from "../data/seed";
 import { supabaseConfig } from "./supabaseConfig";
 
@@ -77,6 +77,7 @@ export interface RemoteData {
   holes?: Record<string, Record<string, { par?: number; strokeIndex?: number }>>;
   teams?: Record<string, { name?: string }>;
   matches?: Record<string, { sideA?: Side; sideB?: Side }>;
+  sideGames?: Record<string, MatchSideGames>;
 }
 
 const holeKey = (n: number) => `h${n}`;
@@ -146,6 +147,11 @@ export function applyRemote(base: TournamentState, remote: RemoteData | null): T
     if (patch.sideB) match.sideB = patch.sideB;
   }
 
+  for (const [matchId, patch] of Object.entries(remote.sideGames ?? {})) {
+    if (!patch) continue;
+    state.sideGames[matchId] = { ...(state.sideGames[matchId] ?? {}), ...patch };
+  }
+
   for (const [courseId, byHole] of Object.entries(remote.holes ?? {})) {
     const course = state.courses.find((c) => c.id === courseId);
     if (!course || !byHole) continue;
@@ -187,6 +193,8 @@ export function kvToRemote(kv: Map<string, unknown>): RemoteData {
       (remote.teams ??= {})[a] = value as { name?: string };
     } else if (kind === "matches" && a) {
       (remote.matches ??= {})[a] = value as { sideA?: Side; sideB?: Side };
+    } else if (kind === "sidegames" && a) {
+      (remote.sideGames ??= {})[a] = value as MatchSideGames;
     }
   }
   return remote;
@@ -380,6 +388,13 @@ export const remoteWrite = {
   /** Overwrite a match's sides after a roster change. */
   match(matchId: string, patch: { sideA?: Side; sideB?: Side }): void {
     const id = `${V}|matches|${matchId}`;
+    const current = (kv.get(id) as object | undefined) ?? {};
+    write(id, { ...current, ...patch });
+  },
+
+  /** Per-group side-game opt-ins and snake holder. */
+  sideGames(matchId: string, patch: MatchSideGames): void {
+    const id = `${V}|sidegames|${matchId}`;
     const current = (kv.get(id) as object | undefined) ?? {};
     write(id, { ...current, ...patch });
   },

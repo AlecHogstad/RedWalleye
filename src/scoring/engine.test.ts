@@ -4,11 +4,13 @@ import {
   allocateStrokes,
   computeMatchState,
   computePlayerTotals,
+  computeStableford,
   computeStandings,
   computeStrokePlay,
   contextForRound,
   courseHandicap,
   scrambleTeamHandicap,
+  stablefordPoints,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
@@ -428,5 +430,67 @@ describe("course seed data", () => {
     expect(courseHandicap(27, white)).toBe(26);
     // 3 × (121/113) − 2.8 = 3.21 − 2.8 = 0.41 → 0
     expect(courseHandicap(3, white)).toBe(0);
+  });
+});
+
+describe("stablefordPoints — standard net scale", () => {
+  it("maps net-to-par to points", () => {
+    expect(stablefordPoints(-3)).toBe(5); // albatross+
+    expect(stablefordPoints(-2)).toBe(4); // eagle
+    expect(stablefordPoints(-1)).toBe(3); // birdie
+    expect(stablefordPoints(0)).toBe(2); // par
+    expect(stablefordPoints(1)).toBe(1); // bogey
+    expect(stablefordPoints(2)).toBe(0); // double or worse
+    expect(stablefordPoints(5)).toBe(0);
+  });
+});
+
+describe("computeStableford", () => {
+  it("scores net points per player, sorted, and caps blow-ups at 0", () => {
+    const match: Match = {
+      id: "m",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "t1", playerIds: ["nick"] }, // CH 3, strokes SI 1-3
+      sideB: { teamId: "t2", playerIds: ["jay"] }, // CH 6, strokes SI 1-6
+      scores: {
+        nick: { 1: 4, 2: 6, 3: 4 }, // net 3,5,3 -> -1,+1,-1 -> 3+1+3 = 7
+        jay: { 1: 4, 2: 4, 3: 8 }, // net 3,3,7 -> -1,-1,+3 -> 3+3+0 = 6
+      },
+    };
+    const rows = computeStableford(match, players, ctx);
+    expect(rows).toEqual([
+      { playerId: "nick", points: 7, thru: 3 },
+      { playerId: "jay", points: 6, thru: 3 },
+    ]);
+  });
+
+  it("returns an empty list for a scramble (no individual balls)", () => {
+    const match: Match = {
+      id: "m",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "t1", playerIds: ["hunter", "nick"] },
+      sideB: { teamId: "t2", playerIds: ["nate", "jay"] },
+      scores: { [teamScoreKey("t1")]: { 1: 4 }, [teamScoreKey("t2")]: {} },
+    };
+    expect(computeStableford(match, players, ctx)).toEqual([]);
+  });
+
+  it("counts a player with no scores as 0 points thru 0", () => {
+    const match: Match = {
+      id: "m",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "t1", playerIds: ["nick"] },
+      sideB: { teamId: "t2", playerIds: ["jay"] },
+      scores: { nick: { 1: 4 }, jay: {} },
+    };
+    const rows = computeStableford(match, players, ctx);
+    expect(rows.find((r) => r.playerId === "jay")).toEqual({
+      playerId: "jay",
+      points: 0,
+      thru: 0,
+    });
   });
 });

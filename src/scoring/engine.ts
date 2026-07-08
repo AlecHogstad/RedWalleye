@@ -384,6 +384,60 @@ export function computePlayerTotals(
   return thru > 0 ? { gross, net, thru } : null;
 }
 
+// --- Stableford (opt-in side game) ------------------------------------------
+
+/**
+ * Standard net Stableford points for a hole, from net-minus-par:
+ * albatross+ (≤ -3) = 5, eagle (-2) = 4, birdie (-1) = 3, par (0) = 2,
+ * bogey (+1) = 1, double bogey or worse = 0.
+ */
+export function stablefordPoints(netToPar: number): number {
+  if (netToPar <= -3) return 5;
+  if (netToPar === -2) return 4;
+  if (netToPar === -1) return 3;
+  if (netToPar === 0) return 2;
+  if (netToPar === 1) return 1;
+  return 0;
+}
+
+export interface StablefordRow {
+  playerId: string;
+  points: number;
+  thru: number;
+}
+
+/**
+ * Per-player net Stableford standings for a match, highest points first.
+ * Only meaningful where players hole their own ball (four-ball, four-man);
+ * a scramble has one team score, so this returns an empty list for it.
+ */
+export function computeStableford(
+  match: Match,
+  players: Player[],
+  ctx: ScoringContext,
+): StablefordRow[] {
+  if (match.format === "scramble") return [];
+
+  const ids = [...match.sideA.playerIds, ...match.sideB.playerIds];
+  const rows: StablefordRow[] = [];
+  for (const id of ids) {
+    const player = players.find((p) => p.id === id);
+    if (!player) continue;
+    const hcp = courseHandicap(player.handicap, ctx);
+    let points = 0;
+    let thru = 0;
+    for (const h of ctx.course.holes) {
+      const g = match.scores[id]?.[h.number];
+      if (g == null) continue;
+      thru += 1;
+      const net = g - strokesOnHole(hcp, h.strokeIndex);
+      points += stablefordPoints(net - h.par);
+    }
+    rows.push({ playerId: id, points, thru });
+  }
+  return rows.sort((a, b) => b.points - a.points);
+}
+
 export interface TeamStanding {
   teamId: string;
   points: number;

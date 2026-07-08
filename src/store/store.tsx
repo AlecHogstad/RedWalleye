@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Hole, Player, TournamentState } from "../types";
+import type { Hole, MatchSideGames, Player, TournamentState } from "../types";
 import { contextForRound, type ScoringContext } from "../scoring/engine";
 import { reconcileRoster } from "./roster";
 import { seedState, STATE_VERSION } from "../data/seed";
@@ -73,6 +73,7 @@ interface StoreValue {
   addPlayer: (input: { name: string; handicap: number }) => void;
   removePlayer: (playerId: string) => void;
   setTeamRoster: (teamId: string, playerIds: string[]) => void;
+  updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
 }
 
 /** Stable id for a newly-created player. */
@@ -352,6 +353,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [rostersEditable, state],
   );
 
+  const updateSideGames = useCallback(
+    (matchId: string, patch: Partial<MatchSideGames>) => {
+      if (syncEnabled) {
+        remoteWrite.sideGames(matchId, patch);
+        return;
+      }
+      setLocalState((prev) => ({
+        ...prev,
+        sideGames: {
+          ...prev.sideGames,
+          [matchId]: { ...(prev.sideGames[matchId] ?? {}), ...patch },
+        },
+      }));
+    },
+    [],
+  );
+
   const syncStatus: SyncStatus = !syncEnabled ? "local" : connected ? "online" : "offline";
 
   const value = useMemo<StoreValue>(
@@ -370,6 +388,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPlayer,
       removePlayer,
       setTeamRoster,
+      updateSideGames,
     }),
     [
       state,
@@ -386,6 +405,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPlayer,
       removePlayer,
       setTeamRoster,
+      updateSideGames,
     ],
   );
 
