@@ -2,9 +2,15 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
-import { computeMatchState } from "../scoring/engine";
+import {
+  computeMatchState,
+  computeScrambleGroupTotal,
+  computeScramblePlacement,
+  isScrambleFieldMatch,
+  scrambleGroupPlacementPoints,
+  teamScoreKey,
+} from "../scoring/engine";
 import { FeedIcon } from "../components/Icons";
-import { CheckFlag } from "../components/CheckFlag";
 import { resolveMediaUrl } from "../sync/media";
 import type { Side } from "../types";
 
@@ -25,6 +31,19 @@ function fmtPoints(n: number): string {
   const half = n - whole >= 0.5;
   if (whole === 0 && half) return "½";
   return `${whole}${half ? "½" : ""}`;
+}
+
+/** Compact Nassau-segment result: "AS", "A 2", "B 1", or "–" before it starts. */
+function segText(seg: {
+  thru: number;
+  winner: "A" | "B" | "halve" | null;
+  leader: "A" | "B" | null;
+  margin: number;
+}): string {
+  if (seg.thru === 0) return "–";
+  if (seg.winner === "halve") return "AS";
+  if (!seg.leader) return "AS";
+  return `${seg.leader} ${seg.margin}`;
 }
 
 /** The score-highlight labels ("net eagle", "net double", …) from net-to-par. */
@@ -63,20 +82,42 @@ export default function TickerPage() {
     [state, contexts],
   );
 
-  // Live board for the round in play (or the most recent finished round).
+  // Live scorecard for the round currently being played — nothing when none is
+  // active (finished rounds live on the Rounds tab).
   const board = useMemo(() => {
-    const round =
-      state.rounds.find((r) => r.status === "active") ??
-      [...state.rounds].reverse().find((r) => r.status === "final");
+    const round = state.rounds.find((r) => r.status === "active");
     if (!round) return null;
     const ctx = contexts[round.id];
-    const matches = state.matches
-      .filter((m) => m.roundId === round.id)
-      .map((m) => ({ m, st: computeMatchState(m, state.players, ctx) }));
-    const a = matches.reduce((s, x) => s + x.st.points.a, 0);
-    const b = matches.reduce((s, x) => s + x.st.points.b, 0);
-    return { round, matches, a, b };
+    const roundMatches = state.matches.filter((m) => m.roundId === round.id);
+    const scramble = roundMatches.some(isScrambleFieldMatch);
+    const matches = roundMatches.map((m) => ({
+      m,
+      st: computeMatchState(m, state.players, ctx),
+      group: scramble ? computeScrambleGroupTotal(m, ctx) : null,
+      placement: scramble ? scrambleGroupPlacementPoints(m, roundMatches, ctx) : null,
+    }));
+
+    let a = 0;
+    let b = 0;
+    if (scramble) {
+      // Placement points accrue to each foursome's team (resolves once all four
+      // groups finish; 0–0 while the round is still in progress).
+      const placement = computeScramblePlacement(roundMatches, ctx);
+      for (const m of roundMatches) {
+        const pts = placement.get(m.id) ?? 0;
+        if (m.sideA.teamId === "tA") a += pts;
+        else b += pts;
+      }
+    } else {
+      a = matches.reduce((s, x) => s + x.st.points.a, 0);
+      b = matches.reduce((s, x) => s + x.st.points.b, 0);
+    }
+    return { round, matches, a, b, holes: ctx.course.holes, scramble };
   }, [state.rounds, state.matches, state.players, contexts]);
+
+  const [tab, setTab] = useState<"scorecard" | "feed">(() =>
+    state.rounds.some((r) => r.status === "active") ? "scorecard" : "feed",
+  );
 
   const sideNames = (side: Side) =>
     side.playerIds.map((id) => playerMap[id]?.name ?? "?").join(" / ");
@@ -112,6 +153,12 @@ export default function TickerPage() {
         return e.text === "Halved (AS)"
           ? `${team} and ${other} halved their match`
           : `${team} closed out ${other}, ${e.text}`;
+      case "segment": {
+        const nine = e.segment === "front" ? "front nine" : "back nine";
+        return e.text === "halved"
+          ? `${team} and ${other} split the ${nine}`
+          : `${team} won the ${nine} — ${e.text}`;
+      }
       case "overallLead":
         return `${team} grabbed the overall lead — ${fmtPoints(e.value ?? 0)} pts`;
       case "snake":
@@ -135,134 +182,294 @@ export default function TickerPage() {
         <button className="badge" onClick={goBack}>
           ← Back
         </button>
-        <h2 style={{ marginTop: 10 }}>Activity</h2>
-        <p className="hint" style={{ padding: "0 2px 8px" }}>
-          Birdies, blow-ups, lead changes and general chaos from around the
-          course.
-        </p>
+        <div className="segmented" style={{ marginTop: 10 }}>
+          <button
+            className={`seg ${tab === "scorecard" ? "active" : ""}`}
+            onClick={() => setTab("scorecard")}
+          >
+            Scorecard
+          </button>
+          <button
+            className={`seg ${tab === "feed" ? "active" : ""}`}
+            onClick={() => setTab("feed")}
+          >
+            Feed
+          </button>
+        </div>
       </div>
 
-      {board && (
-        <section className="section" style={{ paddingTop: 0 }}>
-          <h2>
-            {board.round.name}
-            {board.round.status === "active" ? (
-              <span className="oval live">Live</span>
-            ) : (
-              <span className="oval">
-                <CheckFlag size={9} /> Final
-              </span>
-            )}
-          </h2>
-          <div className="card">
-            {/* Running team total for the round */}
-            <div
-              className="row"
-              style={{ justifyContent: "center", gap: 10, padding: "4px 0 8px" }}
-            >
-              <span className="row" style={{ gap: 6 }}>
-                <span className="dot" style={{ background: teamMap.tA?.color }} />
-                <strong>{teamMap.tA?.name}</strong>
-              </span>
-              <span style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>
-                {fmtPoints(board.a)}–{fmtPoints(board.b)}
-              </span>
-              <span className="row" style={{ gap: 6 }}>
-                <strong>{teamMap.tB?.name}</strong>
-                <span className="dot" style={{ background: teamMap.tB?.color }} />
-              </span>
-            </div>
+      {tab === "scorecard" &&
+        (board ? (
+          <>
+            <section className="section" style={{ paddingTop: 4 }}>
+              <h2>
+                {board.round.name}
+                <span className="oval live">Live</span>
+              </h2>
+              <div className="card">
+                <div
+                  className="row"
+                  style={{ justifyContent: "center", gap: 10, padding: "4px 0" }}
+                >
+                  <span className="row" style={{ gap: 6 }}>
+                    <span className="dot" style={{ background: teamMap.tA?.color }} />
+                    <strong>{teamMap.tA?.name}</strong>
+                  </span>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>
+                    {fmtPoints(board.a)}–{fmtPoints(board.b)}
+                  </span>
+                  <span className="row" style={{ gap: 6 }}>
+                    <strong>{teamMap.tB?.name}</strong>
+                    <span className="dot" style={{ background: teamMap.tB?.color }} />
+                  </span>
+                </div>
+              </div>
+            </section>
 
-            {board.matches.map(({ m, st }) => {
+            {board.matches.map(({ m, st, group, placement }) => {
+              const colorA = teamMap[m.sideA.teamId]?.color;
+
+              // Scramble foursome: one gross row vs the field (no head-to-head).
+              if (board.scramble) {
+                const key = teamScoreKey(m.sideA.teamId);
+                const grossByHole = m.scores[key] ?? {};
+                return (
+                  <section className="section" style={{ paddingTop: 0 }} key={m.id}>
+                    <div className="card" style={{ padding: "12px 0" }}>
+                      <Link
+                        to={`/match/${m.id}`}
+                        className="row"
+                        style={{
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          gap: 8,
+                          padding: "0 14px 6px",
+                        }}
+                      >
+                        <span className="names" style={{ flex: 1, minWidth: 0 }}>
+                          {sideNames(m.sideA)}
+                        </span>
+                        <span
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: 14,
+                            color: colorA,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {group && group.thru > 0 ? group.gross : "—"}
+                        </span>
+                      </Link>
+                      <div className="hint" style={{ textAlign: "center", margin: "0 0 8px" }}>
+                        {group && group.thru > 0
+                          ? group.complete
+                            ? `Gross ${group.gross} · 18 holes`
+                            : `Gross ${group.gross} · thru ${group.thru}`
+                          : "not started"}
+                        {placement != null && ` · ${fmtPoints(placement)} pts`}
+                      </div>
+
+                      <div className="scorecard-wrap">
+                        <table className="scorecard">
+                          <thead>
+                            <tr>
+                              <th className="lbl">Hole</th>
+                              {board.holes.map((h) => (
+                                <th key={h.number}>{h.number}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="par-row">
+                              <th className="lbl">Par</th>
+                              {board.holes.map((h) => (
+                                <td key={h.number}>{h.par}</td>
+                              ))}
+                            </tr>
+                            <tr>
+                              <th className="lbl">
+                                <span className="dot" style={{ background: colorA }} />
+                                {teamMap[m.sideA.teamId]?.name}
+                              </th>
+                              {board.holes.map((h) => (
+                                <td key={h.number}>{grossByHole[h.number] ?? "–"}</td>
+                              ))}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </section>
+                );
+              }
+
+              // Four-ball: head-to-head net counting ball per hole.
+              const colorB = teamMap[m.sideB.teamId]?.color;
               const leadColor =
-                st.leader === "A"
-                  ? teamMap[m.sideA.teamId]?.color
-                  : st.leader === "B"
-                    ? teamMap[m.sideB.teamId]?.color
-                    : undefined;
+                st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
+              const byHole = new Map(st.perHole.map((p) => [p.hole, p]));
               return (
-                <Link className="match" key={m.id} to={`/match/${m.id}`}>
-                  <div className="sides">
-                    <div className="side a">
-                      <span className="names">{sideNames(m.sideA)}</span>
-                    </div>
-                    <div className="status">
-                      <div className="result" style={{ color: leadColor }}>
+                <section className="section" style={{ paddingTop: 0 }} key={m.id}>
+                  <div className="card" style={{ padding: "12px 0" }}>
+                    <Link
+                      to={`/match/${m.id}`}
+                      className="row"
+                      style={{
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: 8,
+                        padding: "0 14px 6px",
+                      }}
+                    >
+                      <span className="names" style={{ flex: 1, minWidth: 0 }}>
+                        {sideNames(m.sideA)}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--font-display)",
+                          fontSize: 14,
+                          color: leadColor,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {st.thru === 0 ? "—" : st.overall.resultText.replace(/ thru.*/, "")}
-                      </div>
-                      <div className="lead">
-                        {st.thru === 0
-                          ? "not started"
-                          : `${fmtPoints(st.points.a)}–${fmtPoints(st.points.b)} · ${
-                              st.complete ? "final" : `thru ${st.thru}`
-                            }`}
-                      </div>
+                      </span>
+                      <span
+                        className="names"
+                        style={{ flex: 1, minWidth: 0, textAlign: "right" }}
+                      >
+                        {sideNames(m.sideB)}
+                      </span>
+                    </Link>
+                    <div className="hint" style={{ textAlign: "center", margin: "0 0 8px" }}>
+                      F {segText(st.front)} · B {segText(st.back)} · M {segText(st.overall)} ·{" "}
+                      {fmtPoints(st.points.a)}–{fmtPoints(st.points.b)} pts
                     </div>
-                    <div className="side b">
-                      <span className="names">{sideNames(m.sideB)}</span>
+
+                    <div className="scorecard-wrap">
+                      <table className="scorecard">
+                        <thead>
+                          <tr>
+                            <th className="lbl">Hole</th>
+                            {board.holes.map((h) => (
+                              <th key={h.number}>{h.number}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="par-row">
+                            <th className="lbl">Par</th>
+                            {board.holes.map((h) => (
+                              <td key={h.number}>{h.par}</td>
+                            ))}
+                          </tr>
+                          <tr>
+                            <th className="lbl">
+                              <span className="dot" style={{ background: colorA }} />
+                              {teamMap[m.sideA.teamId]?.name}
+                            </th>
+                            {board.holes.map((h) => {
+                              const p = byHole.get(h.number);
+                              return (
+                                <td
+                                  key={h.number}
+                                  style={p?.winner === "A" ? { background: `${colorA}33` } : undefined}
+                                >
+                                  {p?.netA ?? "–"}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                          <tr>
+                            <th className="lbl">
+                              <span className="dot" style={{ background: colorB }} />
+                              {teamMap[m.sideB.teamId]?.name}
+                            </th>
+                            {board.holes.map((h) => {
+                              const p = byHole.get(h.number);
+                              return (
+                                <td
+                                  key={h.number}
+                                  style={p?.winner === "B" ? { background: `${colorB}33` } : undefined}
+                                >
+                                  {p?.netB ?? "–"}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                </Link>
+                </section>
               );
             })}
+          </>
+        ) : (
+          <div className="section">
+            <p className="hint center">
+              No round is live right now — the scorecard shows up while a round
+              is being played.
+            </p>
+          </div>
+        ))}
+
+      {tab === "feed" && (
+        <section className="section" style={{ paddingTop: 4 }}>
+          <div className="card">
+            <ul className="ticker-feed">
+              {feed.length === 0 && (
+                <li className="ticker-feed-empty">
+                  Nothing yet — once scores start rolling in, the action shows up
+                  here.
+                </li>
+              )}
+              {feed.map((e) => {
+                const team = teamMap[e.teamId ?? ""];
+                const mediaUrl =
+                  e.kind === "mulligan" && e.mediaPath
+                    ? resolveMediaUrl(e.mediaPath)
+                    : null;
+                return (
+                  <li className="feed-item" key={e.id}>
+                    <span className="feed-icon">
+                      <FeedIcon kind={e.kind} />
+                    </span>
+                    <span className="feed-text">
+                      <span className="feed-title">{title(e)}</span>
+                      <span className="feed-sub">
+                        {team && (
+                          <span
+                            className="feed-dot"
+                            style={{ background: team.color }}
+                          />
+                        )}
+                        {sub(e)}
+                      </span>
+                      {e.kind === "mulligan" && e.mediaStatus === "pending" && !mediaUrl && (
+                        <span className="feed-media-pending">Uploading photo…</span>
+                      )}
+                      {mediaUrl && (
+                        <button
+                          type="button"
+                          className="feed-mulligan-photo-btn"
+                          onClick={() => setLightboxUrl(mediaUrl)}
+                        >
+                          <img
+                            src={mediaUrl}
+                            alt=""
+                            className="feed-mulligan-photo"
+                          />
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </section>
       )}
-
-      <section className="section" style={{ paddingTop: 0 }}>
-        <div className="card">
-          <ul className="ticker-feed">
-            {feed.length === 0 && (
-              <li className="ticker-feed-empty">
-                Nothing yet — once scores start rolling in, the action shows up
-                here.
-              </li>
-            )}
-            {feed.map((e) => {
-              const team = teamMap[e.teamId ?? ""];
-              const mediaUrl =
-                e.kind === "mulligan" && e.mediaPath
-                  ? resolveMediaUrl(e.mediaPath)
-                  : null;
-              return (
-                <li className="feed-item" key={e.id}>
-                  <span className="feed-icon">
-                    <FeedIcon kind={e.kind} />
-                  </span>
-                  <span className="feed-text">
-                    <span className="feed-title">{title(e)}</span>
-                    <span className="feed-sub">
-                      {team && (
-                        <span
-                          className="feed-dot"
-                          style={{ background: team.color }}
-                        />
-                      )}
-                      {sub(e)}
-                    </span>
-                    {e.kind === "mulligan" && e.mediaStatus === "pending" && !mediaUrl && (
-                      <span className="feed-media-pending">Uploading photo…</span>
-                    )}
-                    {mediaUrl && (
-                      <button
-                        type="button"
-                        className="feed-mulligan-photo-btn"
-                        onClick={() => setLightboxUrl(mediaUrl)}
-                      >
-                        <img
-                          src={mediaUrl}
-                          alt=""
-                          className="feed-mulligan-photo"
-                        />
-                      </button>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </section>
 
       {lightboxUrl && (
         <div

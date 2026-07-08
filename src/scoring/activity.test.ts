@@ -84,6 +84,24 @@ describe("buildFeed — match drama", () => {
     expect(fin!.teamId).toBe("tA");
     expect(fin!.text).toMatch(/&/); // e.g. "10&8"
   });
+
+  it("announces a team winning the front nine", () => {
+    const s = startedState();
+    const m = s.matches.find((x) => x.id === "r1m1")!; // tA (hunter/frank) v tB
+    for (let h = 1; h <= 9; h++) {
+      m.scores.hunter[h] = 3;
+      m.scores.frank[h] = 3;
+      m.scores.nated[h] = 8;
+      m.scores.mike[h] = 8;
+    }
+    const feed = buildFeed(s, contexts(s));
+    const seg = feed.find((f) => f.kind === "segment" && f.segment === "front");
+    expect(seg).toBeDefined();
+    expect(seg!.teamId).toBe("tA");
+    expect(seg!.otherTeamId).toBe("tB");
+    // The back nine hasn't been played, so no back-nine segment yet.
+    expect(feed.some((f) => f.kind === "segment" && f.segment === "back")).toBe(false);
+  });
 });
 
 describe("buildFeed — snake & mulligans", () => {

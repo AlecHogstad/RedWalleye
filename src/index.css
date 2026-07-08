@@ -280,6 +280,75 @@ a {
   box-shadow: var(--shadow);
 }
 
+/* In-page segmented control (Activity: Scorecard / Feed) ------------------- */
+.segmented {
+  display: flex;
+  gap: 6px;
+  background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+}
+.seg {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.seg.active {
+  background: var(--accent);
+  color: var(--cream-card);
+}
+
+/* Live scorecard table (horizontally scrollable, sticky label column) ------ */
+.scorecard-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.scorecard {
+  border-collapse: collapse;
+  width: max-content;
+  font-size: 13px;
+}
+.scorecard th,
+.scorecard td {
+  min-width: 26px;
+  text-align: center;
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.scorecard thead th {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--muted);
+}
+.scorecard .par-row td {
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+.scorecard .lbl {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--cream-card);
+  text-align: left;
+  min-width: 92px;
+  padding-left: 14px;
+  white-space: nowrap;
+  box-shadow: 1px 0 0 var(--line);
+}
+.scorecard .lbl .dot {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 /* Settings hub link rows --------------------------------------------------- */
 .settings-link {
   display: flex;
