@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation, Link } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import RoundsPage from "./pages/RoundsPage";
@@ -12,6 +13,15 @@ import TickerPage from "./pages/TickerPage";
 import { PoleFlag } from "./components/CheckFlag";
 import { TrophyIcon, FlagIcon, GearIcon, TickerIcon } from "./components/Icons";
 import { useStore } from "./store/store";
+import { watchForUpdate } from "./sync/versionCheck";
+
+/** Surfaces true once a newer build has been deployed so a stale device can
+ *  refresh onto it — the whole group stays on one build. No-ops in dev. */
+function useUpdateReady(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => watchForUpdate(() => setReady(true)), []);
+  return ready;
+}
 
 /** Each screen gets its own block color, like the inspo phones. */
 function themeFor(pathname: string): string {
@@ -23,6 +33,7 @@ function themeFor(pathname: string): string {
 export default function App() {
   const { pathname } = useLocation();
   const { syncStatus } = useStore();
+  const updateReady = useUpdateReady();
   // Scoring and the activity page drop the tab bar — the ← back pill is the
   // way out, and the reclaimed space keeps steppers clear of accidental taps.
   const showTabs =
@@ -33,6 +44,14 @@ export default function App() {
 
   return (
     <div className={`app ${themeFor(pathname)} ${showTabs ? "" : "no-tabs"}`}>
+      {updateReady && (
+        <button
+          className="update-banner"
+          onClick={() => window.location.reload()}
+        >
+          New version available — tap to update
+        </button>
+      )}
       <header className="topbar">
         <div className="lockup" aria-label="RWGC — Red Walleye Golf Club">
           <PoleFlag />

@@ -4,6 +4,7 @@ import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "
 import {
   computeMatchState,
   computeStrokePlay,
+  isStrokePlay,
   type ScoringContext,
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
@@ -42,11 +43,11 @@ export default function RoundsPage() {
   const confirmFinish = (round: Round) => {
     const matches = state.matches.filter((m) => m.roundId === round.id);
     const incomplete = matches.filter((m) =>
-      round.format === "fourman"
+      isStrokePlay(round.format)
         ? !computeStrokePlay(m, state.players, contexts[round.id]).complete
         : !computeMatchState(m, state.players, contexts[round.id]).complete,
     ).length;
-    const what = round.format === "fourman" ? "team card(s)" : "match(es)";
+    const what = isStrokePlay(round.format) ? "team card(s)" : "match(es)";
     const warn = incomplete > 0 ? `\n\n${incomplete} ${what} aren't finished.` : "";
     if (window.confirm(`Finish ${round.name}? This unlocks the other rounds.${warn}`)) {
       finishRound(round.id);
@@ -90,7 +91,7 @@ export default function RoundsPage() {
 
             <div className={`card ${round.status === "pending" ? "dimmed" : ""}`}>
               {matches.map((m) =>
-                round.format === "fourman" ? (
+                isStrokePlay(round.format) ? (
                   <TeamEntryRow
                     key={m.id}
                     match={m}
@@ -257,7 +258,8 @@ function TeamEntryRow({
             "not started"
           ) : st.complete ? (
             <>
-              <CheckFlag size={10} /> net {st.netTotal}
+              <CheckFlag size={10} /> {match.format === "scramble" ? "score" : "net"}{" "}
+              {st.netTotal}
             </>
           ) : (
             `thru ${st.thru}`

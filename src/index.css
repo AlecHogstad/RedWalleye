@@ -83,6 +83,24 @@ a {
 }
 
 /* Header — RWGC lockup with the flag through it ---------------------------- */
+/* Sits above everything: a stale device shows this until it refreshes onto
+   the current build, keeping the whole group in sync. */
+.update-banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  background: var(--orange);
+  color: #f7efdc;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  box-shadow: var(--shadow);
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -184,8 +202,11 @@ a {
   gap: 12px;
 }
 .feed-icon {
-  font-size: 20px;
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
 }
 .feed-text {
   display: flex;
@@ -202,6 +223,15 @@ a {
   font-size: 12.5px;
   color: var(--muted);
   margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.feed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
 }
 
 /* Settings hub link rows --------------------------------------------------- */
@@ -1108,6 +1138,10 @@ button.badge {
   font-style: italic;
   font-size: 14px;
   padding: 2px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
 }
 .sg-panel .field {
   padding: 8px 0;

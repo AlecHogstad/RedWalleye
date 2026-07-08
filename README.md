@@ -13,13 +13,15 @@ backend — open the link and keep score.
 - **Live match play** — running "who's up" and a team leaderboard that update as
   scores go in (`2 UP thru 7`, closes out to `3&2`, etc.).
 - **Handicaps done for you** — the hard part the group was stuck on:
-  - **Four-Ball / 4-Man Best Ball:** every player gets strokes off the **low
+  - **Four-Ball (match play):** every player gets strokes off the **low
     player in the match**, allocated hole-by-hole by each hole's stroke index.
-    Best net ball on each hole counts.
-  - **Scramble:** you can't give individual strokes, so each **team** gets a
-    scramble handicap (35/15 for pairs, 25/20/15/10 for foursomes) and the
-    higher team is handed the difference as match strokes. Keeps lopsided teams
-    fair without messing up the one-ball-per-team format.
+    Best net ball on each hole counts. The lower total of those best net balls
+    also takes a stroke-play win — bragging rights only.
+  - **4-Man Best Ball (stroke play):** best net ball per hole, strokes off the
+    **whole field's** low player. Lowest team total to par wins the round.
+  - **Scramble (stroke play):** all four play one ball and it's scored on the
+    **raw team score** — no handicap, since a four-man scramble is low enough on
+    its own. Lowest round wins.
 - **Pre-loaded** with the four teams, everyone's handicaps, and the Round 1 / 2 /
   3 matchups from the group chat — all editable in the app.
 - **Saves automatically** on each phone (localStorage). One scorekeeper per group.
@@ -38,14 +40,16 @@ Edit players/handicaps on the **Teams** tab and pars/stroke index on the
 
 ## Formats & how points work
 
-| Round | Format | Strokes |
-| ----- | ------ | ------- |
-| 1 | Four-Ball (2-man best ball) | Off low player in the match |
-| 2 | Scramble | Team scramble handicap, difference given to higher team |
-| 3 | 4-Man Best Ball | Off low player in the match |
+| Round | Format | Strokes | Points |
+| ----- | ------ | ------- | ------ |
+| 1 | Four-Ball (2-man best ball, match play) | Off low player in the match | 1 per match won, ½ for a halve (4 total) |
+| 2 | Scramble (team stroke play) | None — raw team score | 3 / 1 / 0 / 0 by finish (4 total) |
+| 3 | 4-Man Best Ball (team stroke play) | Off the field's low player | 2 to the low-net team, split on ties |
 
-1 point per match won, ½ for a halved match. Points lock in when a match is
-closed out or all 18 holes are entered.
+Match-play points lock in when a match is closed out or all 18 holes are
+entered; a stroke-play round pays out once every team finishes. Total pot: 10.
+Round 1 also crowns a stroke-play winner per match, but that's bragging rights
+only — no points.
 
 ---
 

@@ -6,12 +6,14 @@ import {
   computeMatchState,
   computeStableford,
   computeStrokePlay,
+  isStrokePlay,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
+import { FeedIcon } from "../components/Icons";
 
 interface ScoreEntity {
   key: string; // playerId or team:<id>
@@ -63,7 +65,7 @@ export default function MatchPage() {
   // Keep the screen awake while scoring — no re-tapping between shots.
   useWakeLock();
 
-  const strokePlay = match?.format === "fourman";
+  const strokePlay = match ? isStrokePlay(match.format) : false;
 
   const matchState = useMemo(
     () =>
@@ -173,7 +175,7 @@ export default function MatchPage() {
           </div>
         </div>
         <span className="net-tag">
-          {val != null ? `net ${val - s}` : ""}
+          {val != null && match.format !== "scramble" ? `net ${val - s}` : ""}
         </span>
         <div className="stepper">
           <button onClick={() => bump(e.key, -1)} disabled={readOnly} aria-label="minus">
@@ -194,11 +196,13 @@ export default function MatchPage() {
       if (teamState.thru === 0) {
         return { result: "—", sub: "not started", cls: "" };
       }
+      // Scramble has no handicap, so its total is a raw score, not a net.
+      const word = match.format === "scramble" ? "score" : "net";
       return {
         result: teamState.toParText,
         sub: teamState.complete
-          ? `net ${teamState.netTotal} · final`
-          : `net ${teamState.netTotal} · thru ${teamState.thru}`,
+          ? `${word} ${teamState.netTotal} · final`
+          : `${word} ${teamState.netTotal} · thru ${teamState.thru}`,
         cls: "",
         flag: teamState.complete,
       };
@@ -278,10 +282,10 @@ export default function MatchPage() {
       <div className="ticker" aria-label="Live activity from other groups">
         <div className="ticker-track">
           <span className="ticker-item ticker-placeholder">
-            ⛳ Live activity from the other groups will show here — coming soon
+            Live activity from the other groups will show here — coming soon
           </span>
           <span className="ticker-item ticker-placeholder" aria-hidden="true">
-            ⛳ Live activity from the other groups will show here — coming soon
+            Live activity from the other groups will show here — coming soon
           </span>
         </div>
       </div>
@@ -296,7 +300,9 @@ export default function MatchPage() {
           ← Rounds
         </Link>
         <h2 className="hero-title">
-          {strokePlay ? `${teamA?.name} — Team Card` : "Match Card"}
+          {strokePlay
+            ? `${teamA?.name} — ${match.format === "scramble" ? "Scramble" : "Team Card"}`
+            : "Match Card"}
         </h2>
         <p className="hero-course">
           {ctx.course.name}
@@ -349,6 +355,13 @@ export default function MatchPage() {
           Next
         </button>
       </div>
+
+      {/* Stroke-play sub-result (four-ball) — bragging rights, no points */}
+      {matchState && matchState.strokePlay.thru > 0 && (
+        <p className="hint center" style={{ paddingTop: 8, margin: 0 }}>
+          Stroke play: {strokePlayCaption(matchState.strokePlay, match, teamMap)}
+        </p>
+      )}
 
       {/* Hole selection */}
       <div className="section" style={{ paddingTop: 12 }}>
@@ -430,7 +443,7 @@ export default function MatchPage() {
                           {count}
                         </span>
                         <button
-                          onClick={() => addMulligan(match.id, id)}
+                          onClick={() => addMulligan(match.id, id, hole)}
                           aria-label={`Add a mulligan for ${p?.name ?? "player"}`}
                         >
                           +
@@ -458,7 +471,7 @@ export default function MatchPage() {
           {sideGames.snake && (
             <div className="sg-panel">
               <div className="snake-badge">
-                🐍{" "}
+                <FeedIcon kind="snake" size={18} />
                 {sideGames.snakeHolder
                   ? `${players[sideGames.snakeHolder]?.name ?? "?"} has the snake`
                   : "nobody has the snake yet"}
@@ -522,6 +535,22 @@ function Toggle({
       </span>
     </label>
   );
+}
+
+/** One-line stroke-play readout for a four-ball match: who's lower on total
+ *  best-net-ball strokes (or all-square), and the running net. */
+function strokePlayCaption(
+  sp: { netA: number; netB: number; thru: number; winner: "A" | "B" | "halve" | null },
+  match: Match,
+  teamMap: Record<string, { name: string }>,
+): string {
+  const nameA = teamMap[match.sideA.teamId]?.name ?? "A";
+  const nameB = teamMap[match.sideB.teamId]?.name ?? "B";
+  const tail = ` · thru ${sp.thru}`;
+  if (sp.winner === "halve") return `all square (net ${sp.netA})${tail}`;
+  const leadName = sp.winner === "A" ? nameA : nameB;
+  const low = Math.min(sp.netA, sp.netB);
+  return `${leadName} by ${Math.abs(sp.netA - sp.netB)} (net ${low})${tail}`;
 }
 
 function leaderName(
