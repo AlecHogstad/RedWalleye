@@ -31,6 +31,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   ActivityEvent,
+  DraftState,
   MatchSideGames,
   RoundStatus,
   Side,
@@ -91,6 +92,8 @@ export interface RemoteData {
   matches?: Record<string, { sideA?: Side; sideB?: Side }>;
   sideGames?: Record<string, MatchSideGames>;
   activity?: Record<string, ActivityEvent>;
+  /** The draft singleton (whole object, overwritten on each write). */
+  draft?: DraftState;
 }
 
 const holeKey = (n: number) => `h${n}`;
@@ -170,6 +173,8 @@ export function applyRemote(base: TournamentState, remote: RemoteData | null): T
     state.activity = [...state.activity, ...events].sort((a, b) => a.ts - b.ts);
   }
 
+  if (remote.draft) state.draft = remote.draft;
+
   for (const [courseId, byHole] of Object.entries(remote.holes ?? {})) {
     const course = state.courses.find((c) => c.id === courseId);
     if (!course || !byHole) continue;
@@ -215,6 +220,8 @@ export function kvToRemote(kv: Map<string, unknown>): RemoteData {
       (remote.sideGames ??= {})[a] = value as MatchSideGames;
     } else if (kind === "activity" && a) {
       (remote.activity ??= {})[a] = value as ActivityEvent;
+    } else if (kind === "draft" && a === "state") {
+      remote.draft = value as DraftState;
     }
   }
   return remote;
@@ -453,6 +460,11 @@ export const remoteWrite = {
     const id = `${V}|holes|${courseId}|${holeKey(hole)}`;
     const current = (kv.get(id) as object | undefined) ?? {};
     write(id, { ...current, ...patch });
+  },
+
+  /** The draft singleton — the whole object is written atomically. */
+  draft(draft: DraftState): void {
+    write(`${V}|draft|state`, draft);
   },
 
   /** Wipes the shared event data for EVERYONE. */

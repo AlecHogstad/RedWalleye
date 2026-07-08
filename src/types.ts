@@ -145,6 +145,20 @@ export interface ActivityEvent {
   hole?: number;
 }
 
+/**
+ * The team draft. Two captains are chosen, then players are picked in a snake
+ * order until each team has eight. Picks are stored in order; a player's team
+ * assignment (`Player.teamId`) is set live as they're drafted. Optional —
+ * `undefined` until a draft is set up (the seed ships a placeholder split).
+ */
+export interface DraftState {
+  status: "setup" | "active" | "done";
+  captainA?: Id; // captains are pre-assigned to their team, then draft the rest
+  captainB?: Id;
+  firstPick?: "tA" | "tB";
+  picks: Id[]; // playerIds in the order they were drafted
+}
+
 export interface TournamentState {
   version: number;
   courses: CourseDef[];
@@ -156,4 +170,6 @@ export interface TournamentState {
   sideGames: Record<string, MatchSideGames>;
   /** Append-only activity feed (booze mulligans for now). */
   activity: ActivityEvent[];
+  /** The team draft, once one has been set up. */
+  draft?: DraftState;
 }

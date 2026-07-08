@@ -7,6 +7,7 @@ interface HubLink {
 }
 
 const LINKS: HubLink[] = [
+  { to: "/draft", title: "Draft", desc: "Captains draft the two teams" },
   { to: "/settings/teams", title: "Teams", desc: "Team names and rosters" },
   { to: "/settings/players", title: "Players", desc: "Add, edit, or remove golfers" },
   { to: "/settings/courses", title: "Courses", desc: "Pars, HDCP ranks, and tees" },

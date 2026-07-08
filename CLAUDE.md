@@ -90,8 +90,23 @@ elsewhere **in that round**, so nobody plays twice. It writes through
 sides (via `remoteWrite.match` when synced) and is allowed only while **that
 round is still `pending`** (independent of the other rounds). A completeness
 banner tracks empty seats / benched golfers. (Team rosters themselves — which 8
-players are on each team — come from the draft, a later phase; today they're the
-seeded split, shown read-only on the Teams settings screen.)
+players are on each team — come from the draft below; the seed ships a
+placeholder split so everything works before a draft is run.)
+
+## Draft (who's on each team)
+
+`src/pages/DraftPage.tsx` at `/draft` (linked from Settings). Two captains are
+chosen, then the rest snake-draft to eight a side. Pure order logic lives in
+`src/store/draft.ts` (unit-tested in `draft.test.ts`): captains are pre-assigned,
+so **14 players** are drafted 7-per-side in a snake — first pick, then the other
+team picks twice, back and forth (`pickTeam`, `currentPickTeam`, `picksLeftFor`).
+State is a `DraftState` on `TournamentState.draft` (`status: setup|active|done`,
+captains, `firstPick`, `picks[]`), synced as a **singleton row** `rw|draft|state`
+(the one new sync entity — added to `RemoteData`/`kvToRemote`/`applyRemote`/
+`remoteWrite.draft`). Store actions `startDraft` / `draftPick` / `undoLastPick` /
+`resetDraft` set each `Player.teamId` **live** as picks happen. **Starting a
+draft re-pools every non-captain and clears all match slots**, so matchups are
+rebuilt afterward. Guarded on `rostersEditable` (pre-tournament only).
 
 ## Rounds: start gate
 

@@ -120,6 +120,21 @@ describe("applyRemote", () => {
     expect(state.activity[0].playerId).toBe("hunter");
   });
 
+  it("applies the draft singleton", () => {
+    const remote: RemoteData = {
+      draft: {
+        status: "active",
+        captainA: "hunter",
+        captainB: "mike",
+        firstPick: "tA",
+        picks: ["nick"],
+      },
+    };
+    const state = applyRemote(seedState(), remote);
+    expect(state.draft?.status).toBe("active");
+    expect(state.draft?.picks).toEqual(["nick"]);
+  });
+
   it("ignores unknown ids and null leaves without crashing", () => {
     const remote = {
       scores: { ghost: { nobody: { h1: 4 } }, r1m1: { hunter: { h3: null } } },
@@ -152,6 +167,7 @@ describe("kvToRemote", () => {
       [`${V}|matches|r1m1`, { sideA: { teamId: "t1", playerIds: ["hunter"] } }],
       [`${V}|sidegames|r1m1`, { stableford: true, snakeHolder: "nick" }],
       [`${V}|activity|a1`, { id: "a1", type: "mulligan", matchId: "r2m1", playerId: "nick", ts: 5 }],
+      [`${V}|draft|state`, { status: "done", captainA: "hunter", captainB: "mike", firstPick: "tA", picks: [] }],
     ]);
     const remote = kvToRemote(kv);
     expect(remote.scores?.r1m1?.hunter?.h3).toBe(5);
@@ -165,6 +181,8 @@ describe("kvToRemote", () => {
     expect(remote.sideGames?.r1m1?.snakeHolder).toBe("nick");
     expect(remote.activity?.a1?.playerId).toBe("nick");
     expect(remote.activity?.a1?.type).toBe("mulligan");
+    expect(remote.draft?.status).toBe("done");
+    expect(remote.draft?.captainA).toBe("hunter");
   });
 
   it("ignores rows from other seed versions and null values", () => {
