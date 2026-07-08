@@ -7,12 +7,24 @@ import {
   type ScoringContext,
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
+import { ROUND_DEFAULTS } from "../data/seed";
 import { CheckFlag } from "../components/CheckFlag";
 
 function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string {
   return side.playerIds
     .map((id) => players[id]?.name ?? "?")
     .join(" / ");
+}
+
+/** The expected venue name for a round that hasn't been started yet,
+ *  or "" when its default course isn't on this device. */
+function pendingVenue(
+  roundId: string,
+  courses: { id: string; name: string }[],
+): string {
+  const def = ROUND_DEFAULTS[roundId];
+  const course = def && courses.find((c) => c.id === def.courseId);
+  return course ? course.name : "";
 }
 
 export default function RoundsPage() {
@@ -63,11 +75,15 @@ export default function RoundsPage() {
               {locked && <span className="oval muted-oval">Locked</span>}
             </h2>
 
-            {round.status !== "pending" && (
+            {round.status !== "pending" ? (
               <p className="round-where">
                 {ctx.course.name}
                 {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
               </p>
+            ) : (
+              pendingVenue(round.id, state.courses) && (
+                <p className="round-where">{pendingVenue(round.id, state.courses)}</p>
+              )
             )}
             {round.format === "fourman" && (
               <p className="round-where">
@@ -155,9 +171,10 @@ function MatchRow({
     [match, state.players, ctx],
   );
 
-  const leadClass = st.leader === "A" ? "leadA" : st.leader === "B" ? "leadB" : "";
   const colorA = teamMap[match.sideA.teamId]?.color;
   const colorB = teamMap[match.sideB.teamId]?.color;
+  const leadColor =
+    st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
 
   const body = (
     <div className="sides">
@@ -168,7 +185,7 @@ function MatchRow({
         </div>
       </div>
       <div className="status">
-        <div className={`result ${leadClass}`}>
+        <div className="result" style={{ color: leadColor }}>
           {st.thru === 0 ? "—" : st.resultText.replace(/ thru.*/, "")}
         </div>
         <div className="lead">
