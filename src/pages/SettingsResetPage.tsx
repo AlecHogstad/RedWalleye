@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { usePrompt } from "../components/ConfirmDialog";
 import { useStore } from "../store/store";
@@ -5,9 +6,10 @@ import { useStore } from "../store/store";
 const CONFIRM_WORD = "Reset";
 
 export default function SettingsResetPage() {
-  const { resetAll, syncStatus } = useStore();
+  const { resetAll, resyncDevice, syncStatus } = useStore();
   const prompt = usePrompt();
   const navigate = useNavigate();
+  const [resynced, setResynced] = useState(false);
 
   const scope =
     syncStatus === "local"
@@ -30,6 +32,12 @@ export default function SettingsResetPage() {
     }
   };
 
+  const refresh = () => {
+    resyncDevice();
+    setResynced(true);
+    setTimeout(() => setResynced(false), 2500);
+  };
+
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
@@ -39,7 +47,24 @@ export default function SettingsResetPage() {
         <h2 style={{ marginTop: 10 }}>Reset app data</h2>
       </div>
 
-      <section className="section" style={{ paddingTop: 8 }}>
+      {syncStatus !== "local" && (
+        <section className="section" style={{ paddingTop: 8, paddingBottom: 0 }}>
+          <div className="card">
+            <p className="hint" style={{ margin: 0, padding: "14px 16px 0" }}>
+              <strong>This phone looks out of sync?</strong> Pull the latest from
+              the other phones. This only refreshes <em>this</em> device — it
+              doesn't change anyone else's scores, so it's safe to tap mid-round.
+            </p>
+            <div style={{ padding: "14px 16px 16px" }}>
+              <button className="btn" onClick={refresh}>
+                {resynced ? "Refreshed ✓" : "Refresh from server"}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="section" style={{ paddingTop: 12 }}>
         <div className="card">
           <p className="hint" style={{ margin: 0, padding: "14px 16px 0" }}>
             This wipes all scores, round starts, and edits {scope} and restores
@@ -55,6 +80,9 @@ export default function SettingsResetPage() {
           {syncStatus === "local"
             ? "Local mode — this only affects this phone."
             : "Synced mode — this clears the shared tournament for every phone."}
+        </p>
+        <p className="hint center" style={{ paddingTop: 14, opacity: 0.7 }}>
+          build {__BUILD_ID__}
         </p>
       </section>
     </>

@@ -27,6 +27,7 @@ import { seedState, STATE_VERSION } from "../data/seed";
 import {
   applyRemote,
   remoteWrite,
+  resyncFromServer,
   subscribeConnected,
   subscribeRemote,
   syncEnabled,
@@ -87,6 +88,7 @@ interface StoreValue {
   finishRound: (roundId: string) => void;
   reopenRound: (roundId: string) => void;
   resetAll: () => void;
+  resyncDevice: () => void;
   /** True while every round is still pending — the only time the roster
    *  (team names aside) can be safely restructured. */
   rostersEditable: boolean;
@@ -313,6 +315,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     clearLocalMedia();
     setLocalState(seedState());
+  }, []);
+
+  // Fix a device stuck on an old snapshot: drop its local sync state and
+  // re-pull from the server. Doesn't touch the shared table (safe mid-round).
+  const resyncDevice = useCallback(() => {
+    if (syncEnabled) resyncFromServer();
   }, []);
 
   const rostersEditable = state.rounds.every((r) => r.status === "pending");
@@ -685,6 +693,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       finishRound,
       reopenRound,
       resetAll,
+      resyncDevice,
       rostersEditable,
       updateTeam,
       addPlayer,
@@ -710,6 +719,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       finishRound,
       reopenRound,
       resetAll,
+      resyncDevice,
       rostersEditable,
       updateTeam,
       addPlayer,

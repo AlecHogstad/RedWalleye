@@ -409,6 +409,21 @@ async function fetchAll(): Promise<void> {
   }
 }
 
+/**
+ * Nuke THIS device's local sync state and re-pull from the server. Fixes a
+ * phone that's stuck showing an old snapshot — a poisoned pending write, or a
+ * cached mirror — without touching the shared table (so it's safe to tap
+ * mid-round and it affects nobody else). Bumping `generation` drops any
+ * in-flight flush so a stale queued write can't be re-sent.
+ */
+export function resyncFromServer(): void {
+  generation += 1;
+  kv.clear();
+  savePending([]);
+  emit();
+  void fetchAll();
+}
+
 // --- Subscriptions -----------------------------------------------------------
 
 /** Stream the merged event delta. Fires immediately with the local mirror

@@ -5,8 +5,17 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // Deployed to GitHub Pages at https://<user>.github.io/RedWalleye/
 // so production assets need the repo name as the base path.
+// A human-comparable build id (UTC minute + short commit sha when CI sets it)
+// so two phones can be checked at a glance to see if one is on a stale build.
+const buildId =
+  new Date().toISOString().slice(0, 16).replace("T", " ") +
+  (process.env.GITHUB_SHA ? ` · ${process.env.GITHUB_SHA.slice(0, 7)}` : "");
+
 export default defineConfig(({ command }) => ({
   base: command === "build" ? "/RedWalleye/" : "/",
+  define: {
+    __BUILD_ID__: JSON.stringify(buildId),
+  },
   plugins: [
     react(),
     // Installable web app (home-screen icon + manifest), but NO precaching
