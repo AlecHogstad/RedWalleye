@@ -681,6 +681,18 @@ button.badge {
 .round-card-head h2 {
   margin: 0 0 8px;
 }
+.round-scoring-link {
+  flex: none;
+  margin: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.round-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
 .round-card-head .round-where {
   margin: 0 0 8px;
 }
@@ -994,6 +1006,11 @@ button.badge {
   opacity: 0.9;
   margin: 0 0 8px;
 }
+.score-hero .hero-scoring-link {
+  color: var(--hero-ink);
+  font-style: normal;
+  opacity: 1;
+}
 .score-hero-nassau {
   padding: 12px 16px;
   margin: 0 0 4px;
@@ -1027,6 +1044,15 @@ button.badge {
 .hole-head + .match-score-card {
   margin: 12px 16px 0;
 }
+.hole-head-scramble {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.hole-head-copy {
+  flex: 1;
+  min-width: 0;
+}
 .hole-head .hole-num {
   display: flex;
   align-items: center;
@@ -1037,6 +1063,24 @@ button.badge {
   letter-spacing: 0.01em;
   color: var(--ink);
   margin: 0;
+}
+.hole-head-score {
+  flex: none;
+  text-align: right;
+}
+.hole-head-score .result {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.hole-head-score .sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 4px;
 }
 .hole-head .hole-meta {
   font-family: var(--font-serif);
@@ -1090,6 +1134,9 @@ button.badge {
   border-radius: 0;
   border-left: none;
   border-right: none;
+}
+.hole-nav-scramble .navbtn {
+  flex: 1;
 }
 .ticker-label {
   font-family: var(--font-serif);
@@ -1621,11 +1668,11 @@ textarea:disabled {
 }
 .bottom-sheet-copy {
   font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 15px;
+  font-style: normal;
+  font-size: 17px;
   color: var(--ink);
   margin: 0 2px 16px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 .bottom-sheet .btn.start {
   width: 100%;
