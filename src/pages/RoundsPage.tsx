@@ -216,15 +216,19 @@ export default function RoundsPage() {
             onClick={() => setRulesRoundId(null)}
           />
           <div
-            className="bottom-sheet"
+            className="bottom-sheet rules-sheet"
             role="dialog"
             aria-labelledby="scoring-sheet-title"
           >
-            <RulesArt format={rulesRound.format} className="rules-art" />
-            <h3 id="scoring-sheet-title" className="bottom-sheet-title">
-              {rulesRound.name}: {FORMAT_LABELS[rulesRound.format]}
-            </h3>
-            <p className="bottom-sheet-copy">{FORMAT_RULES[rulesRound.format]}</p>
+            <div className="rules-sheet-body">
+              <RulesArt format={rulesRound.format} className="rules-art" />
+              <h3 id="scoring-sheet-title" className="bottom-sheet-title">
+                {rulesRound.name}: {FORMAT_LABELS[rulesRound.format]}
+              </h3>
+              <p className="bottom-sheet-copy">
+                {FORMAT_RULES[rulesRound.format]}
+              </p>
+            </div>
             <button
               type="button"
               className="btn ghost bottom-sheet-skip"

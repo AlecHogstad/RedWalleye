@@ -1667,6 +1667,42 @@ textarea:disabled {
   padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 32px rgba(38, 48, 31, 0.12);
 }
+/* Rules sheet — a taller sheet (~65% of the screen) whose content sits in the
+   vertical middle for easy reading, with the dismiss button pinned to the
+   bottom. Scoped so the mulligan proof sheet keeps its compact auto height. */
+.bottom-sheet.rules-sheet {
+  height: 65vh;
+  max-height: 65vh;
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+}
+.rules-sheet-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow-y: auto;
+}
+.rules-sheet .rules-art {
+  margin: 0 auto 20px;
+}
+.rules-sheet .bottom-sheet-title {
+  text-align: center;
+  margin-bottom: 14px;
+}
+.rules-sheet .bottom-sheet-copy {
+  text-align: center;
+  max-width: 340px;
+  margin: 0 auto;
+}
+.rules-sheet .bottom-sheet-skip {
+  margin-top: 16px;
+}
+
 /* Format illustration atop the rules sheet — a vintage green line-art banner. */
 .rules-art {
   display: block;
