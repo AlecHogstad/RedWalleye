@@ -42,10 +42,7 @@ export default function DraftPage() {
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <Link className="badge" to="/settings">
-          ← Settings
-        </Link>
-        <h2 style={{ marginTop: 10 }}>Team Draft</h2>
+        <h2>Team Draft</h2>
       </div>
 
       {!rostersEditable ? (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
 import {
@@ -58,7 +58,6 @@ function scoreLabel(netToPar: number): string {
 }
 
 export default function TickerPage() {
-  const navigate = useNavigate();
   const { state } = useStore();
   const contexts = useRoundContexts();
   const now = Date.now();
@@ -122,11 +121,6 @@ export default function TickerPage() {
   const sideNames = (side: Side) =>
     side.playerIds.map((id) => playerMap[id]?.name ?? "?").join(" / ");
 
-  const goBack = () => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate("/");
-  };
-
   const playerName = (id?: string) => (id ? playerMap[id]?.name ?? "Someone" : "Someone");
   const teamName = (id?: string) => (id ? teamMap[id]?.name ?? "A team" : "A team");
 
@@ -179,10 +173,7 @@ export default function TickerPage() {
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <button className="badge" onClick={goBack}>
-          ← Back
-        </button>
-        <div className="segmented" style={{ marginTop: 10 }}>
+        <div className="segmented">
           <button
             className={`seg ${tab === "scorecard" ? "active" : ""}`}
             onClick={() => setTab("scorecard")}

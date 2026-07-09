@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes, useLocation, Link } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation, Link, useNavigate } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import RoundsPage from "./pages/RoundsPage";
 import MatchPage from "./pages/MatchPage";
@@ -33,8 +33,22 @@ function themeFor(pathname: string): string {
   return "theme-green";
 }
 
+/** Back link for interior screens that drop the tab bar. */
+function interiorBack(pathname: string):
+  | { type: "link"; to: string; label: string }
+  | { type: "back"; label: string }
+  | null {
+  if (pathname.startsWith("/match/")) return { type: "link", to: "/rounds", label: "← Rounds" };
+  if (pathname.startsWith("/start/")) return { type: "link", to: "/rounds", label: "← Rounds" };
+  if (pathname.startsWith("/matchups/")) return { type: "link", to: "/rounds", label: "← Rounds" };
+  if (pathname === "/draft") return { type: "link", to: "/settings", label: "← Settings" };
+  if (pathname.startsWith("/ticker")) return { type: "back", label: "← Back" };
+  return null;
+}
+
 export default function App() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { syncStatus } = useStore();
   const updateReady = useUpdateReady();
   // Scoring and the activity page drop the tab bar — the ← back pill is the
@@ -46,6 +60,7 @@ export default function App() {
     !pathname.startsWith("/draft") &&
     !pathname.startsWith("/ticker");
   const onTicker = pathname.startsWith("/ticker");
+  const back = !showTabs ? interiorBack(pathname) : null;
 
   return (
     <ConfirmProvider>
@@ -59,15 +74,36 @@ export default function App() {
         </button>
       )}
       <header className="topbar">
-        <div className="lockup" aria-label="5th Annual Hayward Invitational">
-          <PoleFlag />
-          <span>5th</span>
-        </div>
-        <div className="wordmark">
-          Hayward
-          <br />
-          Invitational
-        </div>
+        {back ? (
+          back.type === "link" ? (
+            <Link className="badge topbar-back" to={back.to}>
+              {back.label}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="badge topbar-back"
+              onClick={() => {
+                if (window.history.length > 1) navigate(-1);
+                else navigate("/");
+              }}
+            >
+              {back.label}
+            </button>
+          )
+        ) : (
+          <>
+            <div className="lockup" aria-label="5th Annual Hayward Invitational">
+              <PoleFlag />
+              <span>5th</span>
+            </div>
+            <div className="wordmark">
+              Hayward
+              <br />
+              Invitational
+            </div>
+          </>
+        )}
         <span className="spacer" />
         {syncStatus === "local" ? (
           <span className="est">est. 2026</span>

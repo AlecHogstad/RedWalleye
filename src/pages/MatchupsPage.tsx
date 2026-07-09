@@ -145,10 +145,7 @@ export default function MatchupsPage() {
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <Link className="badge" to="/rounds">
-          ← Rounds
-        </Link>
-        <h2 style={{ marginTop: 10 }}>{round.name} matchups</h2>
+        <h2>{round.name} matchups</h2>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
           {fieldScramble
             ? `${FORMAT_LABELS[round.format]} — each team fields two foursomes. Place every golfer once (${seats} per group).`

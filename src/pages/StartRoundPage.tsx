@@ -76,10 +76,7 @@ export default function StartRoundPage() {
   return (
     <>
       <div className="section" style={{ paddingBottom: 0 }}>
-        <Link className="badge" to="/rounds">
-          ← Rounds
-        </Link>
-        <h2 style={{ marginTop: 10 }}>Start {round.name}</h2>
+        <h2>Start {round.name}</h2>
         <p className="hint" style={{ padding: "6px 2px" }}>
           Pick the course and tees — they set every player's course handicap for
           this round.
