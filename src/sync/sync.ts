@@ -264,11 +264,24 @@ export function getSyncDebug(): {
   lastRows: number;
   lastError: string;
   pending: number;
+  pendingKinds: string;
+  flushing: boolean;
   mirror: number;
 } {
+  const pending = loadPending();
+  const kinds: Record<string, number> = {};
+  for (const op of pending) {
+    const k = String(op.id).split("|")[1] ?? "?";
+    kinds[k] = (kinds[k] ?? 0) + 1;
+  }
   return {
     ...syncDebug,
-    pending: loadPending().length,
+    pending: pending.length,
+    pendingKinds:
+      Object.entries(kinds)
+        .map(([k, n]) => `${k}×${n}`)
+        .join(" ") || "—",
+    flushing,
     mirror: kv.size,
   };
 }
@@ -351,19 +364,28 @@ function writeMany(rows: { id: string; value: unknown | null }[]): void {
   void flush();
 }
 
-/** Abort a hung Supabase request instead of leaving the flush/fetch loop stuck
- *  forever with nothing logged — iOS Safari and flaky course signal can hang a
- *  request that never resolves or rejects on its own. */
+/** Bound a hung Supabase request so the flush/fetch loop can never wedge. We
+ *  race the request against a timer that REJECTS on its own — so the await
+ *  always settles within `ms` even if the request never resolves and aborting
+ *  it doesn't reject (which is exactly how the queue got stuck: a hung upsert
+ *  left `flushing` true forever with nothing logged). We still abort to try to
+ *  cancel the underlying request, but we don't depend on it. */
 async function withTimeout<T>(
   run: (signal: AbortSignal) => PromiseLike<T>,
   ms = 12000,
 ): Promise<T> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      ctrl.abort();
+      reject(new Error(`request timed out after ${ms}ms`));
+    }, ms);
+  });
   try {
-    return await run(ctrl.signal);
+    return await Promise.race([run(ctrl.signal), timeout]);
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer!);
   }
 }
 

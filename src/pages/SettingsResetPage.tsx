@@ -109,6 +109,9 @@ export default function SettingsResetPage() {
                 : "never"}
               <br />
               pending writes&nbsp;&nbsp;{dbg.pending}
+              {dbg.pending > 0 && ` (${dbg.pendingKinds})`}
+              <br />
+              flushing&nbsp;&nbsp;{dbg.flushing ? "yes" : "no"}
               <br />
               mirror rows&nbsp;&nbsp;{dbg.mirror}
               <br />
