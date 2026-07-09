@@ -407,6 +407,7 @@ describe("computePlayerTotals — player leaderboard", () => {
       gross: 9,
       net: 7,
       thru: 2,
+      toPar: -1,
     });
   });
 
@@ -420,7 +421,7 @@ describe("computePlayerTotals — player leaderboard", () => {
       scores: { [teamScoreKey("tA")]: { 1: 4 }, [teamScoreKey("tB")]: {} },
     };
     const t = computePlayerTotals(match, "hunter", players, ctx);
-    expect(t).toEqual({ gross: 4, net: 4, thru: 1 });
+    expect(t).toEqual({ gross: 4, net: 4, thru: 1, toPar: 0 });
     expect(computePlayerTotals(match, "nick", players, ctx)).toEqual(t);
   });
 });

@@ -466,6 +466,8 @@ export interface RoundTotals {
   gross: number;
   net: number;
   thru: number;
+  /** Net strokes relative to par for holes played. */
+  toPar: number;
 }
 
 /**
@@ -499,6 +501,7 @@ export function computePlayerTotals(
 
   let gross = 0;
   let net = 0;
+  let par = 0;
   let thru = 0;
   for (const h of ctx.course.holes) {
     const g = match.scores[key]?.[h.number];
@@ -506,8 +509,9 @@ export function computePlayerTotals(
     thru += 1;
     gross += g;
     net += g - strokesOnHole(hcp, h.strokeIndex);
+    par += h.par;
   }
-  return thru > 0 ? { gross, net, thru } : null;
+  return thru > 0 ? { gross, net, thru, toPar: net - par } : null;
 }
 
 // --- Stableford (opt-in side game) ------------------------------------------
