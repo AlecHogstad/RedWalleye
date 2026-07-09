@@ -1667,6 +1667,14 @@ textarea:disabled {
   padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 32px rgba(38, 48, 31, 0.12);
 }
+/* Format illustration atop the rules sheet — a vintage green line-art banner. */
+.rules-art {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 2px auto 10px;
+}
 .bottom-sheet-title {
   font-family: var(--font-display);
   font-weight: 400;
