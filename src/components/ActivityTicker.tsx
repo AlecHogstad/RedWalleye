@@ -79,6 +79,12 @@ export function ActivityTicker({ roundId, excludeMatchId }: ActivityTickerProps)
     [players, teamMap, roundMatches],
   );
 
+  const round = state.rounds.find((r) => r.id === roundId);
+  const activeRound = state.rounds.find((r) => r.status === "active");
+  if (!round || round.status !== "active" || activeRound?.id !== roundId) {
+    return null;
+  }
+
   const empty = items.length === 0;
 
   const renderItems = (suffix = "") =>
