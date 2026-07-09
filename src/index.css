@@ -320,19 +320,23 @@ a {
 .evcam-frame {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  margin: auto 0; /* center the polaroid in the leftover space */
   background: var(--cream-card);
   padding: 10px 10px 0; /* polaroid: thin sides, chin below the view */
-  border-radius: 6px;
+  border-radius: var(--radius); /* match the app's card corners */
   box-shadow: var(--shadow);
 }
 .evcam-view {
   position: relative;
-  flex: 1;
-  min-height: 0;
+  width: 100%;
+  max-width: min(100%, 58vh); /* keep the square from crowding out controls */
+  align-self: center;
+  aspect-ratio: 1 / 1; /* a real polaroid is square */
   background: #14210f;
   overflow: hidden;
+  /* concentric with the frame: outer radius minus the 10px cream border */
+  border-radius: calc(var(--radius) - 10px);
 }
 .evcam-view video,
 .evcam-view .evcam-shot {
