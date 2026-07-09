@@ -1048,6 +1048,22 @@ button.badge {
 .stepper .val.empty {
   color: var(--line);
 }
+/* Final (view-only) match: the score sits where the stepper was — same type,
+   no buttons — so a finished match reads as a record, not a dead control. */
+.val-final {
+  width: 134px; /* stepper width (44+46+44) so rows keep their rhythm */
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+.val-final.lg {
+  width: 160px;
+  font-size: 52px;
+  line-height: 1;
+}
+.val-final.empty {
+  color: var(--line);
+}
 .net-tag {
   font-family: var(--font-serif);
   font-style: italic;

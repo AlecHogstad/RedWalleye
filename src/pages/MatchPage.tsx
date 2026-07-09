@@ -202,15 +202,19 @@ export default function MatchPage() {
     return (
       <div className="score-row score-row-scramble" key={e.key}>
         <div className="scramble-score">
-          <div className="stepper stepper-lg">
-            <button onClick={() => bump(e.key, -1)} disabled={readOnly} aria-label="minus">
-              −
-            </button>
-            <span className={`val ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
-            <button onClick={() => bump(e.key, +1)} disabled={readOnly} aria-label="plus">
-              +
-            </button>
-          </div>
+          {readOnly ? (
+            <span className={`val-final lg ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
+          ) : (
+            <div className="stepper stepper-lg">
+              <button onClick={() => bump(e.key, -1)} aria-label={`Subtract a stroke for ${e.label}`}>
+                −
+              </button>
+              <span className={`val ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
+              <button onClick={() => bump(e.key, +1)} aria-label={`Add a stroke for ${e.label}`}>
+                +
+              </button>
+            </div>
+          )}
         </div>
         <div className="scramble-team">
           <div className="who">
@@ -239,15 +243,19 @@ export default function MatchPage() {
         <span className="net-tag">
           {val != null && match.format !== "scramble" ? `net ${val - s}` : ""}
         </span>
-        <div className="stepper">
-          <button onClick={() => bump(e.key, -1)} disabled={readOnly} aria-label="minus">
-            −
-          </button>
-          <span className={`val ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
-          <button onClick={() => bump(e.key, +1)} disabled={readOnly} aria-label="plus">
-            +
-          </button>
-        </div>
+        {readOnly ? (
+          <span className={`val-final ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
+        ) : (
+          <div className="stepper">
+            <button onClick={() => bump(e.key, -1)} aria-label={`Subtract a stroke for ${e.label}`}>
+              −
+            </button>
+            <span className={`val ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
+            <button onClick={() => bump(e.key, +1)} aria-label={`Add a stroke for ${e.label}`}>
+              +
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -369,7 +377,14 @@ export default function MatchPage() {
 
       {/* Cream body: current hole, score rows, prev/score/next, ticker */}
       <div className="hole-head">
-        <h2 className="hole-num">Hole {String(hole).padStart(2, "0")}</h2>
+        <h2 className="hole-num">
+          Hole {String(hole).padStart(2, "0")}
+          {readOnly && (
+            <span className="oval">
+              <CheckFlag size={9} /> Final
+            </span>
+          )}
+        </h2>
         <p className="hole-meta">
           Par {holeInfo.par}
           {holeInfo.yards ? ` - ${holeInfo.yards} yards` : ""} - HDCP{" "}
