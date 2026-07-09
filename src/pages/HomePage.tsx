@@ -1,10 +1,27 @@
 import { useMemo } from "react";
-import { computePlayerTotals, computeStandings, type RoundTotals } from "../scoring/engine";
+import { computePlayerTotals, computeStandings, formatStrokesToPar, type RoundTotals } from "../scoring/engine";
 import { draftHasRosters, teamRosterIds, type DraftTeam } from "../store/draft";
 import { rosterOf } from "../store/roster";
 import { useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 import type { Player, Team } from "../types";
+
+function cumulativeToPar(
+  byRound: Record<string, RoundTotals | null>,
+  rounds: { id: string }[],
+): { toPar: number; thru: number } | null {
+  let toPar = 0;
+  let thru = 0;
+  let any = false;
+  for (const r of rounds) {
+    const t = byRound[r.id];
+    if (!t) continue;
+    toPar += t.toPar;
+    thru += t.thru;
+    any = true;
+  }
+  return any ? { toPar, thru } : null;
+}
 
 /** Leaderboard: team standings on top, all 16 players with per-round
  *  gross & net below. */
@@ -78,7 +95,38 @@ export default function HomePage() {
     return byPlayer;
   }, [state.players, statRounds, state.matches, contexts]);
 
-  const tableGrid = { gridTemplateColumns: `1fr ${statRounds.map(() => "64px").join(" ")}` };
+  const playerCols = useMemo(() => {
+    type Col = { kind: "round"; roundId: string; label: string } | { kind: "cum" };
+    const cols: Col[] = statRounds.map((r) => ({
+      kind: "round",
+      roundId: r.id,
+      label: r.name.replace("Round ", "R"),
+    }));
+    cols.push({ kind: "cum" });
+    return cols;
+  }, [statRounds]);
+
+  const tableGrid = {
+    gridTemplateColumns: `1fr ${playerCols.map((c) => (c.kind === "cum" ? "52px" : "64px")).join(" ")}`,
+  };
+
+  const renderCumCell = (byRound: Record<string, RoundTotals | null>) => {
+    const cum = cumulativeToPar(byRound, statRounds);
+    return (
+      <span key="cum" className="pr-cell">
+        {cum ? (
+          <>
+            <b>{formatStrokesToPar(cum.toPar)}</b>
+            {cum.thru < statRounds.length * 18 && (
+              <span className="pr-gross">·{cum.thru}</span>
+            )}
+          </>
+        ) : (
+          <span className="pr-empty">—</span>
+        )}
+      </span>
+    );
+  };
 
   return (
     <>
@@ -117,13 +165,21 @@ export default function HomePage() {
         <div className="card">
           <div className="ptable-row ptable-head" style={tableGrid}>
             <span>Player</span>
-            {statRounds.map((r) => (
-              <span key={r.id} className="pr-cell">
-                {r.name.replace("Round ", "R")}
-              </span>
-            ))}
+            {playerCols.map((col) =>
+              col.kind === "round" ? (
+                <span key={col.roundId} className="pr-cell">
+                  {col.label}
+                </span>
+              ) : (
+                <span key="cum" className="pr-cell">
+                  ±
+                </span>
+              ),
+            )}
           </div>
-          {playerRows.map(({ player: p, team }) => (
+          {playerRows.map(({ player: p, team }) => {
+            const playerTotals = totals[p.id] ?? {};
+            return (
                 <div className="ptable-row" key={p.id} style={tableGrid}>
                   <span className="pt-name">
                     {team ? (
@@ -133,10 +189,11 @@ export default function HomePage() {
                     )}
                     {p.name}
                   </span>
-                  {statRounds.map((r) => {
-                    const t = totals[p.id]?.[r.id];
+                  {playerCols.map((col) => {
+                    if (col.kind === "cum") return renderCumCell(playerTotals);
+                    const t = playerTotals[col.roundId];
                     return (
-                      <span key={r.id} className="pr-cell">
+                      <span key={col.roundId} className="pr-cell">
                         {t ? (
                           <>
                             <b>{t.net}</b>
@@ -152,12 +209,13 @@ export default function HomePage() {
                     );
                   })}
                 </div>
-              ))}
+            );
+          })}
         </div>
         <p className="hint">
-          Big number = net, small = gross (·n = thru n holes). Net uses each
-          player's full course handicap for that round's tees. The scramble
-          round isn't shown — one team ball, no individual scores.
+          Big number = net, small = gross (·n = thru n holes). ± = cumulative
+          net to par across individual-ball rounds. The scramble round isn't
+          shown — one team ball, no individual scores.
           {showTeamRosters && (
             <>
               {" "}
