@@ -1837,27 +1837,24 @@ textarea:disabled {
 /* Rules sheet — a taller sheet (~65% of the screen) whose content sits in the
    vertical middle for easy reading, with the dismiss button pinned to the
    bottom. Scoped so the mulligan proof sheet keeps its compact auto height. */
+/* The sheet hugs its content so the whole rules card shows without scrolling,
+   capped just short of full-screen so the page still peeks behind it. Only
+   an unusually short screen falls back to scrolling the body. */
 .bottom-sheet.rules-sheet {
-  height: 70vh;
-  max-height: 70vh;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   padding-top: 12px;
 }
 .rules-sheet-body {
-  flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
-/* Centers the content when it fits, but grows and scrolls (from the top, no
-   clipping) when the copy is tall on a small screen. */
 .rules-sheet-content {
-  min-height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
 }
 .rules-sheet .rules-art {
   max-width: 240px;
