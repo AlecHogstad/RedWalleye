@@ -675,6 +675,16 @@ button.badge {
   opacity: 0.92;
   z-index: 1;
 }
+/* A finished round is settled history: flatten its card and fade the score
+   rows so the verdict stamp overprinting it reads clearly. The foot (Reopen)
+   stays full-strength since it's still actionable. */
+.round-card.final {
+  background: var(--cream);
+}
+.round-card.final .round-card-head,
+.round-card.final .round-matches {
+  opacity: 0.55;
+}
 .round-card-head {
   padding: 14px 16px 2px;
 }

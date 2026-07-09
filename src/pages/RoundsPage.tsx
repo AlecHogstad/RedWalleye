@@ -102,7 +102,11 @@ export default function RoundsPage() {
 
         return (
           <section className="section" key={round.id}>
-            <div className={`round-card card ${round.status === "pending" ? "dimmed" : ""}`}>
+            <div
+              className={`round-card card ${round.status === "pending" ? "dimmed" : ""} ${
+                round.status === "final" ? "final" : ""
+              }`}
+            >
               {stamp && (
                 <FinalStamp
                   className="round-stamp"
