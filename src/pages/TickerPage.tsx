@@ -143,11 +143,16 @@ function segText(seg: {
   return `${seg.leader} ${seg.margin}`;
 }
 
+/** How many feed moments to show at once — the rest sit behind "show earlier"
+ *  so a multi-day trip doesn't render an endless scroll of every birdie. */
+const FEED_PAGE = 30;
+
 export default function TickerPage() {
   const { state } = useStore();
   const contexts = useRoundContexts();
   const now = Date.now();
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [feedShown, setFeedShown] = useState(FEED_PAGE);
 
   const playerMap = useMemo(
     () => Object.fromEntries(state.players.map((p) => [p.id, p])),
@@ -544,7 +549,7 @@ export default function TickerPage() {
                   here.
                 </li>
               )}
-              {feed.map((e) => {
+              {feed.slice(0, feedShown).map((e) => {
                 const team = teamMap[e.teamId ?? ""];
                 const mediaUrl =
                   e.kind === "mulligan" && e.mediaPath
@@ -587,6 +592,15 @@ export default function TickerPage() {
                 );
               })}
             </ul>
+            {feed.length > feedShown && (
+              <button
+                type="button"
+                className="feed-more"
+                onClick={() => setFeedShown((n) => n + FEED_PAGE)}
+              >
+                Show earlier moments ({feed.length - feedShown} more)
+              </button>
+            )}
           </div>
         </section>
       )}
