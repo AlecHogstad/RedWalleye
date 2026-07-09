@@ -264,8 +264,15 @@ export interface ScrambleGroupTotal {
   matchId: string;
   teamId: string;
   gross: number;
+  toPar: number;
   thru: number;
   complete: boolean;
+}
+
+/** Strokes relative to par for display (E, +2, -1, …). */
+export function formatStrokesToPar(toPar: number): string {
+  if (toPar === 0) return "E";
+  return toPar > 0 ? `+${toPar}` : `${toPar}`;
 }
 
 /** Gross stroke total for one scramble foursome. */
@@ -276,11 +283,13 @@ export function computeScrambleGroupTotal(
   const key = teamScoreKey(match.sideA.teamId);
   const byHole = match.scores[key] ?? {};
   let gross = 0;
+  let par = 0;
   let thru = 0;
   for (const h of ctx.course.holes) {
     const s = byHole[h.number];
     if (s != null) {
       gross += s;
+      par += h.par;
       thru += 1;
     }
   }
@@ -288,6 +297,7 @@ export function computeScrambleGroupTotal(
     matchId: match.id,
     teamId: match.sideA.teamId,
     gross,
+    toPar: gross - par,
     thru,
     complete: thru === ctx.course.holes.length,
   };
@@ -372,8 +382,8 @@ export function computeMatchState(
       g.thru === 0
         ? "Not started"
         : g.complete
-          ? `Gross ${g.gross}`
-          : `${g.gross} thru ${g.thru}`;
+          ? formatStrokesToPar(g.toPar)
+          : `${formatStrokesToPar(g.toPar)} thru ${g.thru}`;
     const seg = emptySegment(g.thru, ctx.course.holes.length, text);
     return {
       perHole: [],
