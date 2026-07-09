@@ -12,7 +12,17 @@ let _client: SupabaseClient | null | undefined;
 export function getSupabaseClient(): SupabaseClient | null {
   if (_client === undefined) {
     _client = supabaseConfig
-      ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
+      ? createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+          global: {
+            // iOS Safari otherwise serves a CACHED response to the REST reads,
+            // so the app keeps "reconciling" to a stale snapshot and reverts to
+            // an old state (Chrome doesn't cache these the same way). Force
+            // every request to skip the HTTP cache. Realtime is a WebSocket and
+            // isn't affected by this.
+            fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+              fetch(input, { ...init, cache: "no-store" }),
+          },
+        })
       : null;
   }
   return _client;
