@@ -365,6 +365,50 @@ async function flush(): Promise<void> {
   }
 }
 
+// Pull the whole delta and reconcile the local mirror with it. The app can't
+// rely on realtime alone — a dropped event (Safari WebSocket hiccup, a phone
+// that loaded before another's writes, flaky course signal) would otherwise
+// leave a device drifted until a manual reload. So we also re-fetch on
+// (re)connect, on tab focus, and on a slow timer, and clients self-heal.
+let fetching = false;
+async function fetchAll(): Promise<void> {
+  const supabase = getClient();
+  if (!supabase || fetching || suppressIncoming) return;
+  fetching = true;
+  const g = generation;
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("id,value")
+      .like("id", `${V}|%`);
+    if (error) {
+      console.error("[rw-sync] fetch FAILED:", error.message ?? error, error);
+      return;
+    }
+    // A reset landed while the fetch was in flight — don't reapply old rows.
+    if (!data || g !== generation || suppressIncoming) return;
+
+    const serverIds = new Set<string>();
+    for (const row of data) {
+      serverIds.add(row.id as string);
+      mergeIncomingRow(row.id as string, row.value);
+    }
+    // Drop rows the server no longer has (e.g. a reset on another phone),
+    // except ones we still have an unflushed local write for.
+    for (const id of [...kv.keys()]) {
+      if (id.startsWith(`${V}|`) && !serverIds.has(id) && !pendingHasId(id)) {
+        kv.delete(id);
+      }
+    }
+    // Re-assert optimistic writes on top of the fetched truth.
+    for (const op of loadPending()) writeLocal(op.id, op.value);
+    console.info(`[rw-sync] reconciled ${data.length} row(s)`);
+    emit();
+  } finally {
+    fetching = false;
+  }
+}
+
 // --- Subscriptions -----------------------------------------------------------
 
 /** Stream the merged event delta. Fires immediately with the local mirror
@@ -380,25 +424,8 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
   }
   emit();
 
-  // Full fetch, then live changes. Merge into the mirror — never kv.clear(),
-  // so optimistic picks made while the fetch was in flight aren't wiped.
-  void supabase
-    .from(TABLE)
-    .select("id,value")
-    .like("id", `${V}|%`)
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("[rw-sync] initial fetch FAILED:", error.message ?? error, error);
-        return;
-      }
-      if (!data) return;
-      console.info(`[rw-sync] initial fetch: ${data.length} row(s)`);
-      for (const row of data) mergeIncomingRow(row.id as string, row.value);
-      for (const op of loadPending()) {
-        writeLocal(op.id, op.value);
-      }
-      emit();
-    });
+  // Full fetch now, and again on every reconnect / focus / timer tick below.
+  void fetchAll();
 
   const channel = supabase
     .channel("rw-live")
@@ -427,14 +454,33 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
       console.info(`[rw-sync] channel status: ${status}`, err ?? "");
       const connected = status === "SUBSCRIBED";
       notifyConnected?.(connected);
-      if (connected) void flush();
+      // On (re)connect, both drain our queue AND re-pull the truth, so a device
+      // that missed live events while disconnected catches back up.
+      if (connected) {
+        void flush();
+        void fetchAll();
+      }
     });
 
-  // Keep retrying queued writes: on regained network and on a slow timer.
-  const onOnline = () => void flush();
+  // Catch up whenever the app comes back to the foreground.
+  const onVisible = () => {
+    if (document.visibilityState === "visible") {
+      void flush();
+      void fetchAll();
+    }
+  };
+  document.addEventListener("visibilitychange", onVisible);
+
+  // Regained network + a slow timer: retry writes AND reconcile against the
+  // server, so clients converge even if a realtime event was silently dropped.
+  const onOnline = () => {
+    void flush();
+    void fetchAll();
+  };
   window.addEventListener("online", onOnline);
   flushTimer = setInterval(() => {
     if (loadPending().length > 0) void flush();
+    void fetchAll();
   }, 15000);
 
   const stopMediaFlush = startMediaFlushLoop();
@@ -442,6 +488,7 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
   return () => {
     notifyData = null;
     window.removeEventListener("online", onOnline);
+    document.removeEventListener("visibilitychange", onVisible);
     if (flushTimer) clearInterval(flushTimer);
     stopMediaFlush();
     void supabase?.removeChannel(channel);
