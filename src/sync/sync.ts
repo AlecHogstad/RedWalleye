@@ -28,7 +28,7 @@
 //   alter publication supabase_realtime add table public.rw_kv;
 // ---------------------------------------------------------------------------
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseClient } from "./client";
 import type {
   ActivityEvent,
   DraftState,
@@ -53,18 +53,9 @@ const TABLE = "rw_kv";
 const V = "rw";
 const PENDING_KEY = "red-walleye-pending-v1";
 
-// Created lazily on first use so importing this module (e.g. from unit
-// tests that only need the pure merge helpers) never touches the network
-// stack — the realtime client requires a WebSocket implementation.
-let _client: SupabaseClient | null | undefined;
-function getClient(): SupabaseClient | null {
-  if (_client === undefined) {
-    _client = supabaseConfig
-      ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
-      : null;
-  }
-  return _client;
-}
+// The one shared app-wide client (see client.ts) — sharing it with the media
+// layer avoids a second GoTrueClient under the same auth storage key.
+const getClient = getSupabaseClient;
 
 // --- Remote data shape (all optional deltas) --------------------------------
 

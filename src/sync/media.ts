@@ -14,7 +14,7 @@
 //   create policy "rw-media delete" on storage.objects for delete using (bucket_id = 'rw-media');
 // ---------------------------------------------------------------------------
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseClient } from "./client";
 import { supabaseConfig } from "./supabaseConfig";
 
 export const MEDIA_BUCKET = "rw-media";
@@ -24,16 +24,8 @@ const MAX_DIMENSION = 1200;
 const JPEG_QUALITY = 0.82;
 const MAX_BYTES = 2 * 1024 * 1024;
 
-let _client: SupabaseClient | null | undefined;
-
-function getClient(): SupabaseClient | null {
-  if (_client === undefined) {
-    _client = supabaseConfig
-      ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
-      : null;
-  }
-  return _client;
-}
+// Shared with the sync layer so the app runs a single Supabase client.
+const getClient = getSupabaseClient;
 
 /** Object path for a mulligan activity event's JPEG. */
 export function mediaPathForEvent(eventId: string): string {
