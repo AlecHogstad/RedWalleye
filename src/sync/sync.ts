@@ -427,8 +427,25 @@ async function flush(): Promise<void> {
         break;
       }
       console.info(`[rw-sync] wrote "${op.id}"`);
-      ops = loadPending().filter((o) => o.id !== op.id || o.value !== op.value);
+      // Remove the op we just sent — by VALUE, not reference. Queue ops
+      // round-trip through localStorage as JSON, so `o.value !== op.value` on
+      // objects was always true (fresh parse = fresh reference): object rows
+      // (matches/players/draft/sidegames) were re-upserted in an infinite
+      // loop — wedging the queue and blasting a realtime echo per rewrite —
+      // while number-valued score rows drained fine. Keep an op only if the
+      // user wrote a NEWER value for the same id while this one was in flight.
+      const sent = JSON.stringify(op.value ?? null);
+      ops = loadPending().filter(
+        (o) => o.id !== op.id || JSON.stringify(o.value ?? null) !== sent,
+      );
       savePending(ops);
+      // Progress guard: if the head op somehow survived (it shouldn't), stop
+      // rather than rewrite the same row forever.
+      if (ops[0]?.id === op.id && JSON.stringify(ops[0]?.value ?? null) === sent) {
+        syncDebug.lastError = `write loop stalled on "${op.id}"`;
+        console.error(`[rw-sync] LOOP GUARD tripped for "${op.id}"`);
+        break;
+      }
     }
     if (loadPending().length === 0) console.info("[rw-sync] queue drained");
   } finally {
