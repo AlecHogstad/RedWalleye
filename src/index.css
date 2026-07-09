@@ -1842,27 +1842,24 @@ textarea:disabled {
 /* Rules sheet — a taller sheet (~65% of the screen) whose content sits in the
    vertical middle for easy reading, with the dismiss button pinned to the
    bottom. Scoped so the mulligan proof sheet keeps its compact auto height. */
+/* The sheet hugs its content so the whole rules card shows without scrolling,
+   capped just short of full-screen so the page still peeks behind it. Only
+   an unusually short screen falls back to scrolling the body. */
 .bottom-sheet.rules-sheet {
-  height: 70vh;
-  max-height: 70vh;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   padding-top: 12px;
 }
 .rules-sheet-body {
-  flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
-/* Centers the content when it fits, but grows and scrolls (from the top, no
-   clipping) when the copy is tall on a small screen. */
 .rules-sheet-content {
-  min-height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
 }
 .rules-sheet .rules-art {
   max-width: 240px;
@@ -2073,4 +2070,67 @@ textarea:disabled {
 }
 .center {
   text-align: center;
+}
+
+/* Course GPS prototype (/gps) ------------------------------------------------ */
+.gps-card {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  text-align: center;
+}
+.gps-card .btn {
+  width: 100%;
+}
+.gps-status {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--muted);
+}
+.gps-status.gps-bad {
+  color: var(--orange);
+  font-style: normal;
+}
+.gps-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gps-yards {
+  font-family: var(--font-display);
+  font-size: 68px;
+  line-height: 1;
+  color: var(--ink);
+}
+.gps-yards-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--muted);
+}
+.gps-facts {
+  display: flex;
+  gap: 28px;
+  margin: 0;
+  justify-content: center;
+}
+.gps-facts dt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--accent);
+}
+.gps-facts dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.gps-actions {
+  width: 100%;
 }
