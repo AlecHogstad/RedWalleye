@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { FORMAT_LABELS, type Match, type Side } from "../types";
+import { type Match, type Side } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
@@ -183,6 +183,17 @@ export default function MatchPage() {
   const placementPts = isFieldScramble
     ? scrambleGroupPlacementPoints(match, roundMatches, ctx)
     : null;
+  const roundNum = String(
+    state.rounds.findIndex((r) => r.id === round.id) + 1,
+  ).padStart(2, "0");
+  const matchNum = String(
+    roundMatches.findIndex((m) => m.id === match.id) + 1,
+  ).padStart(2, "0");
+  const namesOnSide = (side: typeof match.sideA) =>
+    side.playerIds.map((id) => players[id]?.name ?? "?").join(" + ");
+  const matchPlayers = isFieldScramble
+    ? namesOnSide(match.sideA)
+    : `${namesOnSide(match.sideA)} vs ${namesOnSide(match.sideB)}`;
 
   const strokesFor = (key: string) => {
     const total =
@@ -361,7 +372,6 @@ export default function MatchPage() {
 
   const ticker = (
     <div className="ticker-wrap">
-      <div className="ticker-label">Around the course</div>
       <div className="ticker" aria-label="Live activity from other groups">
         <div className="ticker-track">
           <span className="ticker-item ticker-placeholder">
@@ -375,27 +385,66 @@ export default function MatchPage() {
     </div>
   );
 
+  const nassauCard = !isScramble && (
+    <div className="card score-hero-nassau">
+      <div
+        className="row"
+        style={{ gap: 8, justifyContent: "space-between", textAlign: "center" }}
+      >
+        {(
+          [
+            { key: "front", label: "Front 9", st: matchState.front },
+            { key: "back", label: "Back 9", st: matchState.back },
+            { key: "match", label: "Match", st: matchState.overall },
+          ] as const
+        ).map(({ key, label, st }) => {
+          const leadName =
+            st.leader === "A" ? teamA?.name : st.leader === "B" ? teamB?.name : "";
+          const line =
+            st.thru === 0
+              ? "—"
+              : st.winner === "halve"
+                ? "Halved"
+                : st.leader
+                  ? `${leadName} ${st.resultText}`
+                  : st.resultText;
+          const foot = st.complete
+            ? `${fmtPts(st.points.a)}–${fmtPts(st.points.b)} pt`
+            : `${segValue} pt${segValue > 1 ? "s" : ""} each`;
+          return (
+            <div key={key} style={{ flex: 1, minWidth: 0 }}>
+              <div className="hint" style={{ margin: 0 }}>
+                {label}
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{line}</div>
+              <div className="muted" style={{ fontSize: 11 }}>
+                {foot}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <>
       {/* Green hero: format, rules, course, hole grid, live score */}
       <section className="score-hero">
-        <Link className="badge" to="/rounds">
-          ← Rounds
-        </Link>
         <h2 className="hero-title">
-          {isFieldScramble
-            ? `${teamA?.name} foursome — ${FORMAT_LABELS[match.format]}`
-            : `${teamA?.name} vs ${teamB?.name} — ${FORMAT_LABELS[match.format]}`}
+          Round {roundNum}, Match {matchNum}
         </h2>
+        <p className="hero-players">{matchPlayers}</p>
         <p className="hero-course">
           {ctx.course.name}
           {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
           {readOnly ? " · final (view only)" : ""}
         </p>
+        {nassauCard}
         {ticker}
       </section>
 
-      {/* Cream body: current hole, score rows, prev/score/next, ticker */}
+      {/* Cream body: current hole, score rows, prev/score/next */}
       <div className="hole-head">
         <h2 className="hole-num">
           Hole {String(hole).padStart(2, "0")}
@@ -445,51 +494,6 @@ export default function MatchPage() {
           Next
         </button>
       </div>
-
-      {/* Nassau bets — four-ball only (scramble is field placement, not Nassau) */}
-      {!isScramble && (
-      <div className="section" style={{ paddingTop: 12 }}>
-        <div className="card" style={{ padding: "12px 16px" }}>
-          <div
-            className="row"
-            style={{ gap: 8, justifyContent: "space-between", textAlign: "center" }}
-          >
-            {(
-              [
-                { key: "front", label: "Front 9", st: matchState.front },
-                { key: "back", label: "Back 9", st: matchState.back },
-                { key: "match", label: "Match", st: matchState.overall },
-              ] as const
-            ).map(({ key, label, st }) => {
-              const leadName =
-                st.leader === "A" ? teamA?.name : st.leader === "B" ? teamB?.name : "";
-              const line =
-                st.thru === 0
-                  ? "—"
-                  : st.winner === "halve"
-                    ? "Halved"
-                    : st.leader
-                      ? `${leadName} ${st.resultText}`
-                      : st.resultText;
-              const foot = st.complete
-                ? `${fmtPts(st.points.a)}–${fmtPts(st.points.b)} pt`
-                : `${segValue} pt${segValue > 1 ? "s" : ""} each`;
-              return (
-                <div key={key} style={{ flex: 1, minWidth: 0 }}>
-                  <div className="hint" style={{ margin: 0 }}>
-                    {label}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{line}</div>
-                  <div className="muted" style={{ fontSize: 11 }}>
-                    {foot}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      )}
 
       {isFieldScramble && placementPts != null && (
         <div className="section" style={{ paddingTop: 12 }}>
