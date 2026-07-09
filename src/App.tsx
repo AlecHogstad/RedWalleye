@@ -46,6 +46,15 @@ function interiorBack(pathname: string):
   return null;
 }
 
+/** Scroll to top on every route change — phones keep the old position otherwise. */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -64,6 +73,7 @@ export default function App() {
 
   return (
     <ConfirmProvider>
+    <ScrollToTop />
     <div className={`app ${themeFor(pathname)} ${showTabs ? "" : "no-tabs"}`}>
       {updateReady && (
         <button

@@ -8,6 +8,8 @@ import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 interface ActivityTickerProps {
   roundId: string;
   excludeMatchId: string;
+  /** Pin the ticker to the bottom of the viewport while scrolling. */
+  dock?: "bottom";
 }
 
 const EMPTY = "Nothing yet from the other groups";
@@ -42,7 +44,7 @@ function TickerEvent({
   );
 }
 
-export function ActivityTicker({ roundId, excludeMatchId }: ActivityTickerProps) {
+export function ActivityTicker({ roundId, excludeMatchId, dock }: ActivityTickerProps) {
   const { state } = useStore();
   const contexts = useRoundContexts();
   const players = usePlayerMap();
@@ -99,7 +101,11 @@ export function ActivityTicker({ roundId, excludeMatchId }: ActivityTickerProps)
     ));
 
   return (
-    <div className="ticker-wrap ticker-wrap--live">
+    <div
+      className={`ticker-wrap ticker-wrap--live${
+        dock === "bottom" ? " ticker-wrap--dock" : ""
+      }`}
+    >
       <div className="ticker" aria-label="Live activity from other groups">
         <div className="ticker-track">
           {empty ? (
