@@ -12,6 +12,7 @@ const LINKS: HubLink[] = [
   { to: "/settings/teams", title: "Teams", desc: "Rename teams after the draft" },
   { to: "/settings/players", title: "Players", desc: "Add, edit, or remove golfers" },
   { to: "/settings/courses", title: "Courses", desc: "Pars, HDCP ranks, and tees" },
+  { to: "/gps", title: "Course GPS", desc: "Prototype — live yards to the pin" },
   { to: "/settings/reset", title: "Reset app data", desc: "Wipe scores and start over" },
 ];
 

@@ -12,6 +12,7 @@ import SettingsPlayersPage from "./pages/SettingsPlayersPage";
 import SettingsCoursesPage from "./pages/SettingsCoursesPage";
 import SettingsResetPage from "./pages/SettingsResetPage";
 import TickerPage from "./pages/TickerPage";
+import GpsDemoPage from "./pages/GpsDemoPage";
 import { PoleFlag } from "./components/CheckFlag";
 import { TrophyIcon, FlagIcon, GearIcon, TickerIcon } from "./components/Icons";
 import { ConfirmProvider } from "./components/ConfirmDialog";
@@ -29,6 +30,7 @@ function useUpdateReady(): boolean {
 /** Each screen gets its own block color, like the inspo phones. */
 function themeFor(pathname: string): string {
   if (pathname.startsWith("/match")) return "theme-blue";
+  if (pathname.startsWith("/gps")) return "theme-sand";
   if (pathname.startsWith("/settings")) return "theme-green";
   return "theme-green";
 }
@@ -42,6 +44,7 @@ function interiorBack(pathname: string):
   if (pathname.startsWith("/start/")) return { type: "link", to: "/rounds", label: "← Rounds" };
   if (pathname.startsWith("/matchups/")) return { type: "link", to: "/rounds", label: "← Rounds" };
   if (pathname === "/draft") return { type: "link", to: "/settings", label: "← Settings" };
+  if (pathname === "/gps") return { type: "link", to: "/settings", label: "← Settings" };
   if (pathname.startsWith("/ticker")) return { type: "back", label: "← Back" };
   return null;
 }
@@ -67,6 +70,7 @@ export default function App() {
     !pathname.startsWith("/start") &&
     !pathname.startsWith("/matchups") &&
     !pathname.startsWith("/draft") &&
+    !pathname.startsWith("/gps") &&
     !pathname.startsWith("/ticker");
   const onTicker = pathname.startsWith("/ticker");
   const back = !showTabs ? interiorBack(pathname) : null;
@@ -145,6 +149,7 @@ export default function App() {
           <Route path="/settings/courses" element={<SettingsCoursesPage />} />
           <Route path="/settings/reset" element={<SettingsResetPage />} />
           <Route path="/ticker" element={<TickerPage />} />
+          <Route path="/gps" element={<GpsDemoPage />} />
         </Routes>
       </main>
 

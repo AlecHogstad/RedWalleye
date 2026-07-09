@@ -2069,3 +2069,66 @@ textarea:disabled {
 .center {
   text-align: center;
 }
+
+/* Course GPS prototype (/gps) ------------------------------------------------ */
+.gps-card {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  text-align: center;
+}
+.gps-card .btn {
+  width: 100%;
+}
+.gps-status {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--muted);
+}
+.gps-status.gps-bad {
+  color: var(--orange);
+  font-style: normal;
+}
+.gps-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gps-yards {
+  font-family: var(--font-display);
+  font-size: 68px;
+  line-height: 1;
+  color: var(--ink);
+}
+.gps-yards-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--muted);
+}
+.gps-facts {
+  display: flex;
+  gap: 28px;
+  margin: 0;
+  justify-content: center;
+}
+.gps-facts dt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--accent);
+}
+.gps-facts dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.gps-actions {
+  width: 100%;
+}
