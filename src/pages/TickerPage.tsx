@@ -2,11 +2,14 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
+import { feedHeadline, feedSubline, fmtFeedPoints, type FeedCopyContext } from "../scoring/feedCopy";
 import {
   computeMatchState,
   computeScrambleGroupTotal,
   computeScramblePlacement,
+  formatScrambleGroup,
   isScrambleFieldMatch,
+  scrambleGroupNum,
   scrambleGroupPlacementPoints,
   teamScoreKey,
 } from "../scoring/engine";
@@ -25,14 +28,6 @@ function timeAgo(ts: number, now: number): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-/** Points read nicely with a ½ instead of ".5". */
-function fmtPoints(n: number): string {
-  const whole = Math.floor(n);
-  const half = n - whole >= 0.5;
-  if (whole === 0 && half) return "½";
-  return `${whole}${half ? "½" : ""}`;
-}
-
 /** Compact Nassau-segment result: "AS", "A 2", "B 1", or "–" before it starts. */
 function segText(seg: {
   thru: number;
@@ -44,17 +39,6 @@ function segText(seg: {
   if (seg.winner === "halve") return "AS";
   if (!seg.leader) return "AS";
   return `${seg.leader} ${seg.margin}`;
-}
-
-/** The score-highlight labels ("net eagle", "net double", …) from net-to-par. */
-function scoreLabel(netToPar: number): string {
-  if (netToPar <= -3) return "net albatross";
-  if (netToPar === -2) return "net eagle";
-  if (netToPar === -1) return "net birdie";
-  if (netToPar === 2) return "net double bogey";
-  if (netToPar === 3) return "net triple bogey";
-  if (netToPar >= 4) return `net +${netToPar}`;
-  return "net par";
 }
 
 export default function TickerPage() {
@@ -121,51 +105,25 @@ export default function TickerPage() {
   const sideNames = (side: Side) =>
     side.playerIds.map((id) => playerMap[id]?.name ?? "?").join(" / ");
 
-  const playerName = (id?: string) => (id ? playerMap[id]?.name ?? "Someone" : "Someone");
-  const teamName = (id?: string) => (id ? teamMap[id]?.name ?? "A team" : "A team");
+  const feedCopy = useMemo(
+    (): FeedCopyContext => ({
+      playerName: (id?: string) => (id ? playerMap[id]?.name ?? "Someone" : "Someone"),
+      teamName: (id?: string) => (id ? teamMap[id]?.name ?? "A team" : "A team"),
+      scrambleGroupLabel: (matchId?: string) => {
+        if (!matchId) return null;
+        const m = state.matches.find((x) => x.id === matchId);
+        if (!m) return null;
+        const roundMatches = state.matches.filter((rm) => rm.roundId === m.roundId);
+        const n = scrambleGroupNum(matchId, roundMatches);
+        return n ? formatScrambleGroup(n) : null;
+      },
+    }),
+    [state.matches, playerMap, teamMap],
+  );
 
-  /** Headline for one feed item. */
-  const title = (e: FeedItem): string => {
-    const who = playerName(e.playerId);
-    const team = teamName(e.teamId);
-    const other = teamName(e.otherTeamId);
-    const subject = e.playerId ? who : team; // scramble items are team-level
-    switch (e.kind) {
-      case "ace":
-        return `${subject} ACED hole ${e.hole}!`;
-      case "eagle":
-        return `${subject} carded a ${scoreLabel(e.value ?? -2)} on ${e.hole}`;
-      case "birdie":
-        return `${subject} rolled in a net birdie on ${e.hole}`;
-      case "blowup":
-        return `${subject} blew up to a ${scoreLabel(e.value ?? 2)} on ${e.hole}`;
-      case "matchLead":
-        return `${team} took the lead on ${other} — ${e.value} up thru ${e.hole}`;
-      case "comeback":
-        return `${team} clawed back from ${e.value} down to lead ${other}`;
-      case "matchFinal":
-        return e.text === "Halved (AS)"
-          ? `${team} and ${other} halved their match`
-          : `${team} closed out ${other}, ${e.text}`;
-      case "segment": {
-        const nine = e.segment === "front" ? "front nine" : "back nine";
-        return e.text === "halved"
-          ? `${team} and ${other} split the ${nine}`
-          : `${team} won the ${nine} — ${e.text}`;
-      }
-      case "overallLead":
-        return `${team} grabbed the overall lead — ${fmtPoints(e.value ?? 0)} pts`;
-      case "snake":
-        return `${who} is stuck with the snake — ${e.value} in the pot`;
-      case "mulligan":
-        return `${who} took a booze mulligan`;
-    }
-  };
-
-  /** Sub-line: where it happened + (for timed events) how long ago. */
+  /** Sub-line: round, team/group/hole, and mulligan timing. */
   const sub = (e: FeedItem): string => {
-    const round = roundMap[e.roundId]?.name;
-    const parts = [round, e.hole ? `Hole ${e.hole}` : ""].filter(Boolean);
+    const parts = [roundMap[e.roundId]?.name, feedSubline(e, feedCopy)].filter(Boolean);
     if (e.kind === "mulligan" && e.ts) parts.push(timeAgo(e.ts, now));
     return parts.join(" · ");
   };
@@ -207,7 +165,7 @@ export default function TickerPage() {
                     <strong>{teamMap.tA?.name}</strong>
                   </span>
                   <span style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>
-                    {fmtPoints(board.a)}–{fmtPoints(board.b)}
+                    {fmtFeedPoints(board.a)}–{fmtFeedPoints(board.b)}
                   </span>
                   <span className="row" style={{ gap: 6 }}>
                     <strong>{teamMap.tB?.name}</strong>
@@ -257,7 +215,7 @@ export default function TickerPage() {
                             ? `Gross ${group.gross} · 18 holes`
                             : `Gross ${group.gross} · thru ${group.thru}`
                           : "not started"}
-                        {placement != null && ` · ${fmtPoints(placement)} pts`}
+                        {placement != null && ` · ${fmtFeedPoints(placement)} pts`}
                       </div>
 
                       <div className="scorecard-wrap">
@@ -334,7 +292,7 @@ export default function TickerPage() {
                     </Link>
                     <div className="hint" style={{ textAlign: "center", margin: "0 0 8px" }}>
                       F {segText(st.front)} · B {segText(st.back)} · M {segText(st.overall)} ·{" "}
-                      {fmtPoints(st.points.a)}–{fmtPoints(st.points.b)} pts
+                      {fmtFeedPoints(st.points.a)}–{fmtFeedPoints(st.points.b)} pts
                     </div>
 
                     <div className="scorecard-wrap">
@@ -427,7 +385,7 @@ export default function TickerPage() {
                       <FeedIcon kind={e.kind} />
                     </span>
                     <span className="feed-text">
-                      <span className="feed-title">{title(e)}</span>
+                      <span className="feed-title">{feedHeadline(e, feedCopy)}</span>
                       <span className="feed-sub">
                         {team && (
                           <span

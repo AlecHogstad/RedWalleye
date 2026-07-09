@@ -10,6 +10,7 @@ import {
   contextForRound,
   courseHandicap,
   nassauSegmentValue,
+  scrambleGroupNum,
   stablefordPoints,
   strokesOnHole,
   teamScoreKey,
@@ -253,6 +254,34 @@ function scrambleFieldGroup(
     scores,
   };
 }
+
+describe("scrambleGroupNum", () => {
+  const matches = [
+    scrambleFieldGroup("r2m1", "tA", 72),
+    scrambleFieldGroup("r2m2", "tA", 90),
+    scrambleFieldGroup("r2m3", "tB", 73),
+    scrambleFieldGroup("r2m4", "tB", 74),
+  ];
+
+  it("numbers each team's foursomes 1 and 2", () => {
+    expect(scrambleGroupNum("r2m1", matches)).toBe(1);
+    expect(scrambleGroupNum("r2m2", matches)).toBe(2);
+    expect(scrambleGroupNum("r2m3", matches)).toBe(1);
+    expect(scrambleGroupNum("r2m4", matches)).toBe(2);
+  });
+
+  it("returns null for non-field scramble matches", () => {
+    const headToHead: Match = {
+      id: "x",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "tA", playerIds: ["a", "b", "c", "d"] },
+      sideB: { teamId: "tB", playerIds: ["e", "f", "g", "h"] },
+      scores: {},
+    };
+    expect(scrambleGroupNum("x", [headToHead])).toBeNull();
+  });
+});
 
 describe("computeScramblePlacement", () => {
   it("awards 6/4/2/0 once all four foursomes finish", () => {

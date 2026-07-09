@@ -1055,7 +1055,7 @@ button.badge {
   background: var(--cream-card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 11px 0;
+  padding: 12px 0;
 }
 .ticker-track {
   display: inline-flex;
@@ -1066,9 +1066,40 @@ button.badge {
   animation: ticker 26s linear infinite;
 }
 .ticker-item {
+  flex: none;
+}
+.ticker-event {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ticker-event-icon {
+  flex: none;
+  display: flex;
+  color: var(--green);
+  padding-top: 1px;
+}
+.ticker-event-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ticker-event-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+  white-space: nowrap;
+}
+.ticker-event-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
 }
 .ticker-placeholder {
   font-family: var(--font-serif);

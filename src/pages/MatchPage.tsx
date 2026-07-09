@@ -5,8 +5,10 @@ import {
   allocateStrokes,
   computeMatchState,
   computeStableford,
+  formatScrambleGroup,
   isScrambleFieldMatch,
   nassauSegmentValue,
+  scrambleGroupNum,
   scrambleGroupPlacementPoints,
   strokesOnHole,
   teamScoreKey,
@@ -14,6 +16,7 @@ import {
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
+import { ActivityTicker } from "../components/ActivityTicker";
 import { MulliganCamera } from "../components/MulliganCamera";
 
 interface ScoreEntity {
@@ -189,11 +192,16 @@ export default function MatchPage() {
   const matchNum = String(
     roundMatches.findIndex((m) => m.id === match.id) + 1,
   ).padStart(2, "0");
+  const groupNum = scrambleGroupNum(match.id, roundMatches);
   const namesOnSide = (side: typeof match.sideA) =>
     side.playerIds.map((id) => players[id]?.name ?? "?").join(" + ");
   const matchPlayers = isFieldScramble
-    ? namesOnSide(match.sideA)
+    ? `${teamA?.name ?? "Team"} · ${namesOnSide(match.sideA)}`
     : `${namesOnSide(match.sideA)} vs ${namesOnSide(match.sideB)}`;
+  const heroSlot =
+    isFieldScramble && groupNum
+      ? formatScrambleGroup(groupNum)
+      : `Match ${matchNum}`;
 
   const strokesFor = (key: string) => {
     const total =
@@ -371,18 +379,7 @@ export default function MatchPage() {
   );
 
   const ticker = (
-    <div className="ticker-wrap">
-      <div className="ticker" aria-label="Live activity from other groups">
-        <div className="ticker-track">
-          <span className="ticker-item ticker-placeholder">
-            Live activity from the other groups will show here — coming soon
-          </span>
-          <span className="ticker-item ticker-placeholder" aria-hidden="true">
-            Live activity from the other groups will show here — coming soon
-          </span>
-        </div>
-      </div>
-    </div>
+    <ActivityTicker roundId={match.roundId} excludeMatchId={match.id} />
   );
 
   const nassauCard = !isScramble && (
@@ -432,7 +429,7 @@ export default function MatchPage() {
       {/* Green hero: format, rules, course, hole grid, live score */}
       <section className="score-hero">
         <h2 className="hero-title">
-          Round {roundNum}, Match {matchNum}
+          Round {roundNum}, {heroSlot}
         </h2>
         <p className="hero-players">{matchPlayers}</p>
         <p className="hero-course">

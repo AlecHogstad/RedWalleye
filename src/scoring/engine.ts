@@ -74,6 +74,26 @@ export function isScrambleFieldMatch(match: Match): boolean {
   return match.format === "scramble" && match.sideB.playerIds.length === 0;
 }
 
+/** 1-based group index within a team for a scramble round (two per team). */
+export function scrambleGroupNum(
+  matchId: string,
+  roundMatches: Match[],
+): number | null {
+  const match = roundMatches.find((m) => m.id === matchId);
+  if (!match || !isScrambleFieldMatch(match)) return null;
+  const teamId = match.sideA.teamId;
+  const teamGroups = roundMatches.filter(
+    (m) => isScrambleFieldMatch(m) && m.sideA.teamId === teamId,
+  );
+  const idx = teamGroups.findIndex((m) => m.id === matchId);
+  return idx >= 0 ? idx + 1 : null;
+}
+
+/** Display label for a scramble foursome within its team. */
+export function formatScrambleGroup(num: number): string {
+  return `Group ${String(num).padStart(2, "0")}`;
+}
+
 export function nassauSegmentValue(format: Format): number {
   return NASSAU_SEGMENT_VALUE[format];
 }
