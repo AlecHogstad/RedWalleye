@@ -70,23 +70,26 @@ export function mulliganStampText(playerName?: string, hole?: number): string {
   return parts.filter(Boolean).join(" · ");
 }
 
-/** Resize and compress a camera photo for course LTE uploads. When `stamp`
- *  is given, a cream evidence strip is baked into the JPEG itself — so the
- *  photo stays a trip artifact wherever it gets shared. */
+/** Center-crop to 1:1 (polaroid), resize, and compress a camera photo for
+ *  course LTE uploads. When `stamp` is given, a cream evidence strip is baked
+ *  into the JPEG itself — so the photo stays a trip artifact wherever it gets
+ *  shared. The square crop applies to native-picker photos too, keeping every
+ *  proof photo the same polaroid shape. */
 export async function compressPhoto(file: File | Blob, stamp?: string): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const sx = (bitmap.width - side) / 2;
+  const sy = (bitmap.height - side) / 2;
+  const out = Math.min(MAX_DIMENSION, side);
 
   const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = out;
+  canvas.height = out;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas not available");
-  ctx.drawImage(bitmap, 0, 0, w, h);
+  ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, out, out);
   bitmap.close();
-  if (stamp) drawStamp(ctx, w, h, stamp);
+  if (stamp) drawStamp(ctx, out, out, stamp);
 
   let quality = JPEG_QUALITY;
   let blob = await canvasToJpeg(canvas, quality);

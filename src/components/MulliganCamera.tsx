@@ -70,20 +70,23 @@ export function MulliganCamera({
   const snap = async () => {
     const video = videoRef.current;
     if (!video || video.videoWidth === 0) return;
-    const scale = Math.min(1, 1200 / Math.max(video.videoWidth, video.videoHeight));
-    const w = Math.round(video.videoWidth * scale);
-    const h = Math.round(video.videoHeight * scale);
+    // Center-crop to a 1:1 square — a proper polaroid — matching the square
+    // viewfinder, so what you framed is what you get.
+    const side = Math.min(video.videoWidth, video.videoHeight);
+    const sx = (video.videoWidth - side) / 2;
+    const sy = (video.videoHeight - side) / 2;
+    const out = Math.min(1200, side);
     const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = out;
+    canvas.height = out;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (facing === "user") {
       // Mirror the capture so it matches the mirrored preview.
-      ctx.translate(w, 0);
+      ctx.translate(out, 0);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, out, out);
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", 0.9),
     );
@@ -117,7 +120,7 @@ export function MulliganCamera({
           {shot && <img src={shot.url} alt="Captured proof" className="evcam-shot" />}
         </div>
         <div className="evcam-caption">
-          {shot ? "Hold it right there." : `Get ${playerName} in frame`}
+          {shot ? "This guy stinks" : `Get ${playerName} in frame`}
         </div>
       </div>
 
