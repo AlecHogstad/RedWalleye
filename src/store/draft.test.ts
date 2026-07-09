@@ -11,15 +11,15 @@ import {
   draftHasRosters,
 } from "./draft";
 
-describe("pickTeam — snake order", () => {
-  it("runs A B B A A B B A … when A picks first", () => {
+describe("pickTeam — alternating order", () => {
+  it("runs A B A B A B A B … when A picks first", () => {
     const order = Array.from({ length: 8 }, (_, i) => pickTeam(i, "tA"));
-    expect(order).toEqual(["tA", "tB", "tB", "tA", "tA", "tB", "tB", "tA"]);
+    expect(order).toEqual(["tA", "tB", "tA", "tB", "tA", "tB", "tA", "tB"]);
   });
 
   it("mirrors when B picks first", () => {
     const order = Array.from({ length: 4 }, (_, i) => pickTeam(i, "tB"));
-    expect(order).toEqual(["tB", "tA", "tA", "tB"]);
+    expect(order).toEqual(["tB", "tA", "tB", "tA"]);
   });
 
   it("gives each team exactly 7 of the 14 picks", () => {
@@ -33,8 +33,8 @@ describe("currentPickTeam", () => {
   it("is whoever owns the next index", () => {
     expect(currentPickTeam([], "tA")).toBe("tA");
     expect(currentPickTeam(["p0"], "tA")).toBe("tB");
-    expect(currentPickTeam(["p0", "p1"], "tA")).toBe("tB");
-    expect(currentPickTeam(["p0", "p1", "p2"], "tA")).toBe("tA");
+    expect(currentPickTeam(["p0", "p1"], "tA")).toBe("tA");
+    expect(currentPickTeam(["p0", "p1", "p2"], "tA")).toBe("tB");
   });
 
   it("is null once the draft is full", () => {
@@ -60,7 +60,7 @@ describe("picksLeftFor", () => {
 });
 
 describe("rosterFromDraft", () => {
-  it("lists captain plus snake picks for each team", () => {
+  it("lists captain plus alternating picks for each team", () => {
     const picks = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12", "p13", "p14"];
     const tA = rosterFromDraft("tA", picks, "tA", "capA", "capB");
     const tB = rosterFromDraft("tB", picks, "tA", "capA", "capB");
@@ -68,7 +68,8 @@ describe("rosterFromDraft", () => {
     expect(tB).toHaveLength(8);
     expect(tA[0]).toBe("capA");
     expect(tB[0]).toBe("capB");
-    expect(tB).toContain("p14"); // last snake pick goes to B when A picks first
+    expect(tA).toEqual(["capA", "p1", "p3", "p5", "p7", "p9", "p11", "p13"]);
+    expect(tB).toContain("p14"); // last pick goes to B when A picks first
   });
 });
 

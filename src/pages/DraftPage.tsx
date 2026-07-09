@@ -134,7 +134,7 @@ function DraftSetup({
       <div className="section" style={{ paddingTop: 4 }}>
         <p className="hint" style={{ padding: "0 2px 8px" }}>
           Pick the two captains and who drafts first. Everyone else goes into the
-          pool; captains snake-draft seven each until both teams have eight.
+          pool; captains alternate picks, seven each, until both teams have eight.
         </p>
         <div className="card">
           <div className="field">
