@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
-import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
+import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, formatScrambleGroup, scrambleGroupNum, type ScoringContext } from "../scoring/engine";
 import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
@@ -57,7 +57,7 @@ export default function RoundsPage() {
   };
 
   return (
-    <>
+    <div className="rounds-page">
       {state.rounds.map((round) => {
         const matches = state.matches.filter((m) => m.roundId === round.id);
         const ctx = contexts[round.id];
@@ -66,73 +66,83 @@ export default function RoundsPage() {
 
         return (
           <section className="section" key={round.id}>
-            <h2>
-              {round.name}: {FORMAT_LABELS[round.format]}
-              {round.status === "active" && <span className="oval live">Live</span>}
-              {round.status === "final" && (
-                <span className="oval">
-                  <CheckFlag size={9} /> Final
-                </span>
+            <div className={`round-card card ${round.status === "pending" ? "dimmed" : ""}`}>
+              <div className="round-card-head">
+                <h2>
+                  {round.name}: {FORMAT_LABELS[round.format]}
+                  {round.status === "active" && <span className="oval live">Live</span>}
+                  {round.status === "final" && (
+                    <span className="oval">
+                      <CheckFlag size={9} /> Final
+                    </span>
+                  )}
+                  {locked && <span className="oval muted-oval">Locked</span>}
+                </h2>
+
+                <p className="round-where">{FORMAT_RULES[round.format]}</p>
+
+                {round.status !== "pending" ? (
+                  <p className="round-where">
+                    {ctx.course.name}
+                    {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
+                  </p>
+                ) : (
+                  pendingVenue(round.id, state.courses) && (
+                    <p className="round-where">{pendingVenue(round.id, state.courses)}</p>
+                  )
+                )}
+              </div>
+
+              <div className="round-matches">
+                {matches.map((m) => (
+                  <MatchRow
+                    key={m.id}
+                    match={m}
+                    roundMatches={matches}
+                    players={players}
+                    playerList={state.players}
+                    teamMap={teamMap}
+                    ctx={ctx}
+                    clickable={round.status !== "pending"}
+                  />
+                ))}
+              </div>
+
+              {(round.status === "pending" ||
+                startable ||
+                round.status === "active" ||
+                (round.status === "final" && !anyActive)) && (
+                <div className="round-card-foot">
+                  {round.status === "pending" && (
+                    <button
+                      className="btn ghost start"
+                      onClick={() => navigate(`/matchups/${round.id}`)}
+                    >
+                      Set matchups
+                    </button>
+                  )}
+                  {startable && (
+                    <button className="btn start" onClick={() => navigate(`/start/${round.id}`)}>
+                      Start {round.name}
+                    </button>
+                  )}
+                  {round.status === "active" && (
+                    <button className="btn ghost start" onClick={() => confirmFinish(round)}>
+                      Finish {round.name}
+                    </button>
+                  )}
+                  {round.status === "final" && !anyActive && (
+                    <p className="hint center" style={{ padding: 0 }}>
+                      Round is final.{" "}
+                      <button className="linklike" onClick={() => reopenRound(round.id)}>
+                        Reopen
+                      </button>{" "}
+                      if something needs fixing.
+                    </p>
+                  )}
+                </div>
               )}
-              {locked && <span className="oval muted-oval">Locked</span>}
-            </h2>
-
-            {/* Where the match rules live now: each round card tells you how it works. */}
-            <p className="round-where">{FORMAT_RULES[round.format]}</p>
-
-            {round.status !== "pending" ? (
-              <p className="round-where">
-                {ctx.course.name}
-                {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
-              </p>
-            ) : (
-              pendingVenue(round.id, state.courses) && (
-                <p className="round-where">{pendingVenue(round.id, state.courses)}</p>
-              )
-            )}
-
-            <div className={`card ${round.status === "pending" ? "dimmed" : ""}`}>
-              {matches.map((m) => (
-                <MatchRow
-                  key={m.id}
-                  match={m}
-                  roundMatches={matches}
-                  players={players}
-                  playerList={state.players}
-                  teamMap={teamMap}
-                  ctx={ctx}
-                  clickable={round.status !== "pending"}
-                />
-              ))}
             </div>
-
-            {round.status === "pending" && (
-              <button
-                className="btn ghost start"
-                onClick={() => navigate(`/matchups/${round.id}`)}
-              >
-                Set matchups
-              </button>
-            )}
-            {startable && (
-              <button className="btn start" onClick={() => navigate(`/start/${round.id}`)}>
-                Start {round.name}
-              </button>
-            )}
-            {round.status === "active" && (
-              <button className="btn ghost start" onClick={() => confirmFinish(round)}>
-                Finish {round.name}
-              </button>
-            )}
-            {round.status === "final" && !anyActive && (
-              <p className="hint center" style={{ paddingTop: 8 }}>
-                Round is final.{" "}
-                <button className="linklike" onClick={() => reopenRound(round.id)}>
-                  Reopen
-                </button>{" "}
-                if something needs fixing.
-              </p>
-            )}
           </section>
         );
       })}
@@ -141,7 +151,7 @@ export default function RoundsPage() {
         One person starts each round (that's when the course and tees get picked).
         Scores sync live to every phone.
       </p>
-    </>
+    </div>
   );
 }
 
@@ -171,6 +181,10 @@ function MatchRow({
   const colorA = teamMap[match.sideA.teamId]?.color;
   const colorB = teamMap[match.sideB.teamId]?.color;
   const placementPts = field ? scrambleGroupPlacementPoints(match, roundMatches, ctx) : null;
+  const groupNum = field ? scrambleGroupNum(match.id, roundMatches) : null;
+  const matchNum = String(
+    roundMatches.findIndex((m) => m.id === match.id) + 1,
+  ).padStart(2, "0");
   const leadColor =
     st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
 
@@ -179,7 +193,10 @@ function MatchRow({
       <div className="side a" style={{ flex: 1 }}>
         <div className="row" style={{ gap: 6 }}>
           <span className="dot" style={{ background: colorA }} />
-          <span className="names">{sideNames(match.sideA, players)}</span>
+          <span className="names">
+            {groupNum ? `${formatScrambleGroup(groupNum)} · ` : ""}
+            {sideNames(match.sideA, players)}
+          </span>
         </div>
       </div>
       <div className="status">
@@ -207,7 +224,9 @@ function MatchRow({
       <div className="side a">
         <div className="row" style={{ gap: 6 }}>
           <span className="dot" style={{ background: colorA }} />
-          <span className="names">{sideNames(match.sideA, players)}</span>
+          <span className="names">
+            Match {matchNum} · {sideNames(match.sideA, players)}
+          </span>
         </div>
       </div>
       <div className="status">

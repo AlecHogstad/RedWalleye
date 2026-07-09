@@ -52,9 +52,14 @@ export function ActivityTicker({ roundId, excludeMatchId }: ActivityTickerProps)
   );
 
   const items = useMemo(() => {
+    const round = state.rounds.find((r) => r.id === roundId);
+    const activeRound = state.rounds.find((r) => r.status === "active");
+    if (!round || round.status !== "active" || activeRound?.id !== roundId) {
+      return [];
+    }
     const feed = buildFeed(state, contexts);
     return feedForMatchTicker(feed, roundId, excludeMatchId);
-  }, [state, contexts, roundId, excludeMatchId]);
+  }, [state, contexts, state.rounds, roundId, excludeMatchId]);
 
   const roundMatches = useMemo(
     () => state.matches.filter((m) => m.roundId === roundId),
@@ -74,6 +79,12 @@ export function ActivityTicker({ roundId, excludeMatchId }: ActivityTickerProps)
     [players, teamMap, roundMatches],
   );
 
+  const round = state.rounds.find((r) => r.id === roundId);
+  const activeRound = state.rounds.find((r) => r.status === "active");
+  if (!round || round.status !== "active" || activeRound?.id !== roundId) {
+    return null;
+  }
+
   const empty = items.length === 0;
 
   const renderItems = (suffix = "") =>
@@ -88,7 +99,7 @@ export function ActivityTicker({ roundId, excludeMatchId }: ActivityTickerProps)
     ));
 
   return (
-    <div className="ticker-wrap">
+    <div className="ticker-wrap ticker-wrap--live">
       <div className="ticker" aria-label="Live activity from other groups">
         <div className="ticker-track">
           {empty ? (

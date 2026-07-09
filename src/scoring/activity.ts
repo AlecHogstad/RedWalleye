@@ -399,14 +399,18 @@ export function buildFeed(
   return items.sort((a, b) => b.order - a.order);
 }
 
-/** Feed lines for the match-page ticker — same round, other groups only. */
+/** Feed lines for the match-page ticker — that round, optionally excluding one match. */
 export function feedForMatchTicker(
   feed: FeedItem[],
   roundId: string,
-  excludeMatchId: string,
+  excludeMatchId?: string,
   limit = 12,
 ): FeedItem[] {
   return feed
-    .filter((e) => e.roundId === roundId && e.matchId !== excludeMatchId)
+    .filter(
+      (e) =>
+        e.roundId === roundId &&
+        (!excludeMatchId || e.matchId !== excludeMatchId),
+    )
     .slice(0, limit);
 }
