@@ -59,8 +59,21 @@ export function resolveMediaUrl(path: string): string | null {
   return localObjectUrls.get(path) ?? publicMediaUrl(path);
 }
 
-/** Resize and compress a camera photo for course LTE uploads. */
-export async function compressPhoto(file: File): Promise<Blob> {
+/** The line baked onto a mulligan proof photo. Pure — unit tested. */
+export function mulliganStampText(playerName?: string, hole?: number): string {
+  const parts = [
+    "BOOZE MULLIGAN",
+    hole != null ? `HOLE ${hole}` : "",
+    playerName ? playerName.toUpperCase() : "",
+    "HAYWARD INVITATIONAL",
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
+/** Resize and compress a camera photo for course LTE uploads. When `stamp`
+ *  is given, a cream evidence strip is baked into the JPEG itself — so the
+ *  photo stays a trip artifact wherever it gets shared. */
+export async function compressPhoto(file: File | Blob, stamp?: string): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
   const w = Math.round(bitmap.width * scale);
@@ -73,6 +86,7 @@ export async function compressPhoto(file: File): Promise<Blob> {
   if (!ctx) throw new Error("Canvas not available");
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close();
+  if (stamp) drawStamp(ctx, w, h, stamp);
 
   let quality = JPEG_QUALITY;
   let blob = await canvasToJpeg(canvas, quality);
@@ -81,6 +95,37 @@ export async function compressPhoto(file: File): Promise<Blob> {
     blob = await canvasToJpeg(canvas, quality);
   }
   return blob;
+}
+
+/** Cream strip along the bottom, slab type, checkered accent — the app's
+ *  vintage look, drawn in the same pass that resizes the photo. */
+function drawStamp(ctx: CanvasRenderingContext2D, w: number, h: number, text: string): void {
+  const band = Math.max(30, Math.round(h * 0.075));
+  const pad = Math.round(band * 0.35);
+  ctx.fillStyle = "rgba(244, 237, 219, 0.94)"; // cream paper
+  ctx.fillRect(0, h - band, w, band);
+
+  // Checkered flag accent, leading the line.
+  const sq = Math.round(band * 0.2);
+  const cx = pad;
+  const cy = h - band + Math.round((band - sq * 2) / 2);
+  ctx.fillStyle = "#de4f2c"; // burnt orange
+  ctx.fillRect(cx, cy, sq, sq);
+  ctx.fillRect(cx + sq, cy + sq, sq, sq);
+  ctx.fillStyle = "#26301f"; // ink
+  ctx.fillRect(cx + sq, cy, sq, sq);
+  ctx.fillRect(cx, cy + sq, sq, sq);
+
+  // Auto-shrink until the line fits the width.
+  const left = cx + sq * 2 + pad;
+  let size = Math.round(band * 0.42);
+  ctx.textBaseline = "middle";
+  do {
+    ctx.font = `${size}px "Alfa Slab One", "Rockwell", serif`;
+    size -= 1;
+  } while (size > 8 && ctx.measureText(text).width > w - left - pad);
+  ctx.fillStyle = "#26301f";
+  ctx.fillText(text, left, h - band / 2);
 }
 
 function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {

@@ -37,6 +37,7 @@ import {
   clearLocalMedia,
   deleteMedia,
   mediaPathForEvent,
+  mulliganStampText,
   queueMediaUpload,
   storeLocalMedia,
   compressPhoto,
@@ -653,7 +654,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async (eventId: string, file: File) => {
       const event = state.activity.find((e) => e.id === eventId);
       if (!event || event.type !== "mulligan") return;
-      const blob = await compressPhoto(file);
+      const player = state.players.find((p) => p.id === event.playerId);
+      const blob = await compressPhoto(file, mulliganStampText(player?.name, event.hole));
       const path = mediaPathForEvent(eventId);
       const pendingEvent: ActivityEvent = {
         ...event,

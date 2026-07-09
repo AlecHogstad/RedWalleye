@@ -280,6 +280,120 @@ a {
   box-shadow: var(--shadow);
 }
 
+/* Evidence Camera — in-app mulligan proof capture ------------------------- */
+.evcam {
+  position: fixed;
+  inset: 0;
+  z-index: 210; /* above the proof sheet */
+  background: var(--green);
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px
+    calc(env(safe-area-inset-bottom) + 20px);
+}
+.evcam-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+.evcam-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream);
+}
+.evcam-close {
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid rgba(244, 237, 219, 0.5);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cream);
+  font-size: 18px;
+  touch-action: manipulation;
+}
+.evcam-frame {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--cream-card);
+  padding: 10px 10px 0; /* polaroid: thin sides, chin below the view */
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.evcam-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #14210f;
+  overflow: hidden;
+}
+.evcam-view video,
+.evcam-view .evcam-shot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.evcam-view video.mirrored {
+  transform: scaleX(-1);
+}
+.evcam-caption {
+  flex: none;
+  padding: 12px 8px; /* the polaroid chin */
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink);
+}
+.evcam-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding-top: 18px;
+}
+.evcam-controls .btn,
+.evcam-controls .btn.ghost {
+  flex: 1;
+  max-width: 220px;
+}
+.evcam-controls .btn.ghost {
+  color: var(--cream);
+  border-color: rgba(244, 237, 219, 0.55);
+}
+.evcam-shutter {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 5px solid var(--cream);
+  background: var(--orange);
+  box-shadow: var(--shadow);
+  touch-action: manipulation;
+}
+.evcam-shutter:active {
+  transform: scale(0.94);
+}
+.evcam-flip {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(244, 237, 219, 0.5);
+  background: transparent;
+  color: var(--cream);
+  font-size: 20px;
+  touch-action: manipulation;
+}
+.evcam-flip-spacer {
+  width: 48px;
+  height: 48px;
+}
+
 /* In-page segmented control (Activity: Scorecard / Feed) ------------------- */
 .segmented {
   display: flex;
