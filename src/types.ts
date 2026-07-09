@@ -74,29 +74,29 @@ export const FORMAT_RULE_SECTIONS: Record<Format, RuleSection[]> = {
   fourball: [
     {
       label: "How you play",
-      text: "Everyone plays their own ball into the hole. On each hole your team's better score goes up against theirs — lower one wins the hole.",
+      text: "Everyone plays their own ball into the hole. On each hole your team's better score goes up against theirs, and the lower score wins the hole.",
     },
     {
       label: "Scoring",
-      text: "Just enter every golfer's real strokes; the app handles handicaps — the lowest handicap in the match plays scratch, and everyone else gets their difference as strokes on the hardest holes.",
+      text: "Just enter every golfer's real strokes and the app handles the handicaps. The lowest handicap in the match plays scratch, and everyone else gets their difference as strokes on the hardest holes.",
     },
     {
       label: "Points",
-      text: "Three bets — front 9, back 9, and all 18 — worth 1 point each. Win more holes in a stretch to take it; a tie splits it. 3 points per match.",
+      text: "Three bets: the front 9, the back 9, and all 18, each worth 1 point. Win more holes in a stretch to take it, and a tie splits it. Three points per match.",
     },
   ],
   scramble: [
     {
       label: "How you play",
-      text: "The whole group tees off, you pick the best shot, and everyone plays their next from there — repeat until it's holed. One team score per hole, no handicaps.",
+      text: "The whole group tees off, you pick the best shot, and everyone plays their next from there. Keep going until it's holed. One team score per hole, no handicaps.",
     },
     {
       label: "Scoring",
-      text: "Enter your group's single score on each hole. All four groups — two per team — race on the same course.",
+      text: "Enter your group's single score on each hole. All four groups, two per team, race on the same course.",
     },
     {
       label: "Points",
-      text: "Lowest 18-hole total places 1st on down: 6 / 4 / 2 / 0 (ties split). Your team adds up both its groups — 12 points on the line for the round.",
+      text: "Lowest 18-hole total places 1st on down: 6 / 4 / 2 / 0, and ties split. Your team adds up both its groups, with 12 points on the line for the round.",
     },
   ],
 };
