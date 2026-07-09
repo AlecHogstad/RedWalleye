@@ -26,14 +26,16 @@ function entitiesForSide(
   match: Match,
   side: Side,
   players: ReturnType<typeof usePlayerMap>,
+  teamMap: Record<string, { name: string } | undefined>,
 ): ScoreEntity[] {
   if (match.format === "scramble") {
-    const names = side.playerIds.map((id) => players[id]?.name ?? "?").join(" + ");
+    if (side.playerIds.length === 0) return [];
+    const members = side.playerIds.map((id) => players[id]?.name ?? "?").join(" + ");
     return [
       {
         key: teamScoreKey(side.teamId),
-        label: names,
-        hint: "team scramble score",
+        label: teamMap[side.teamId]?.name ?? "Team",
+        hint: members,
         teamId: side.teamId,
       },
     ];
@@ -145,8 +147,8 @@ export default function MatchPage() {
   const readOnly = round.status === "final";
   const teamMap = Object.fromEntries(state.teams.map((t) => [t.id, t]));
   const holeInfo = ctx.course.holes.find((h) => h.number === hole)!;
-  const entitiesA = entitiesForSide(match, match.sideA, players);
-  const entitiesB = entitiesForSide(match, match.sideB, players);
+  const entitiesA = entitiesForSide(match, match.sideA, players, teamMap);
+  const entitiesB = entitiesForSide(match, match.sideB, players, teamMap);
   const teamA = teamMap[match.sideA.teamId];
   const teamB = teamMap[match.sideB.teamId];
 
@@ -193,6 +195,31 @@ export default function MatchPage() {
       return;
     }
     setScore(match.id, key, hole, Math.min(15, Math.max(1, current + delta)));
+  };
+
+  const renderScrambleRow = (e: ScoreEntity) => {
+    const val = match.scores[e.key]?.[hole];
+    return (
+      <div className="score-row score-row-scramble" key={e.key}>
+        <div className="scramble-score">
+          <div className="stepper stepper-lg">
+            <button onClick={() => bump(e.key, -1)} disabled={readOnly} aria-label="minus">
+              −
+            </button>
+            <span className={`val ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
+            <button onClick={() => bump(e.key, +1)} disabled={readOnly} aria-label="plus">
+              +
+            </button>
+          </div>
+        </div>
+        <div className="scramble-team">
+          <div className="who">
+            <div className="n">{e.label}</div>
+            <div className="h">{e.hint}</div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderRow = (e: ScoreEntity) => {
@@ -350,12 +377,12 @@ export default function MatchPage() {
         </p>
       </div>
 
-      <div className="card" style={{ margin: "0 16px" }}>
-        {entitiesA.map(renderRow)}
+      <div className="card match-score-card">
+        {entitiesA.map(isScramble ? renderScrambleRow : renderRow)}
         {entitiesB.length > 0 && (
           <>
             <div style={{ height: 6, background: "var(--cream)" }} />
-            {entitiesB.map(renderRow)}
+            {entitiesB.map(isScramble ? renderScrambleRow : renderRow)}
           </>
         )}
       </div>
