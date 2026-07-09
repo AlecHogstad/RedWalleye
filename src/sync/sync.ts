@@ -351,6 +351,22 @@ function writeMany(rows: { id: string; value: unknown | null }[]): void {
   void flush();
 }
 
+/** Abort a hung Supabase request instead of leaving the flush/fetch loop stuck
+ *  forever with nothing logged — iOS Safari and flaky course signal can hang a
+ *  request that never resolves or rejects on its own. */
+async function withTimeout<T>(
+  run: (signal: AbortSignal) => PromiseLike<T>,
+  ms = 12000,
+): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await run(ctrl.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 let flushing = false;
 async function flush(): Promise<void> {
   const supabase = getClient();
@@ -362,22 +378,31 @@ async function flush(): Promise<void> {
     while (ops.length > 0) {
       if (g !== generation) return; // a reset happened — don't send stale writes
       const op = ops[0];
-      const result =
-        op.value == null
-          ? await supabase.from(TABLE).delete().eq("id", op.id)
-          : await supabase.from(TABLE).upsert({ id: op.id, value: op.value });
-      // A reset landed while this write was in flight: leave the freshly-cleared
-      // queue alone so a just-sent row can't be re-recorded as pending.
-      if (g !== generation) return;
-      if (result.error) {
-        // Surface the real reason instead of silently retrying forever.
-        syncDebug.lastError = `write: ${result.error.message ?? result.error}`;
-        console.error(
-          `[rw-sync] WRITE FAILED for "${op.id}":`,
-          result.error.message ?? result.error,
-          result.error,
-        );
-        break; // offline or rejected — retry on next tick
+      try {
+        const result =
+          op.value == null
+            ? await withTimeout((s) => supabase.from(TABLE).delete().eq("id", op.id).abortSignal(s))
+            : await withTimeout((s) =>
+                supabase.from(TABLE).upsert({ id: op.id, value: op.value }).abortSignal(s),
+              );
+        // A reset landed while this write was in flight: leave the freshly-
+        // cleared queue alone so a just-sent row can't be re-recorded.
+        if (g !== generation) return;
+        if (result.error) {
+          syncDebug.lastError = `write: ${result.error.message ?? result.error}`;
+          console.error(
+            `[rw-sync] WRITE FAILED for "${op.id}":`,
+            result.error.message ?? result.error,
+            result.error,
+          );
+          break; // rejected — retry on next tick
+        }
+      } catch (e) {
+        // Thrown/aborted (network hang, timeout) — surface it and retry later,
+        // instead of silently wedging the queue.
+        syncDebug.lastError = `write: ${(e as Error)?.message ?? String(e)}`;
+        console.error(`[rw-sync] WRITE THREW for "${op.id}":`, e);
+        break;
       }
       console.info(`[rw-sync] wrote "${op.id}"`);
       ops = loadPending().filter((o) => o.id !== op.id || o.value !== op.value);
@@ -401,10 +426,17 @@ async function fetchAll(): Promise<void> {
   fetching = true;
   const g = generation;
   try {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select("id,value")
-      .like("id", `${V}|%`);
+    let data: { id: string; value: unknown }[] | null;
+    let error: { message?: string } | null;
+    try {
+      ({ data, error } = await withTimeout((s) =>
+        supabase.from(TABLE).select("id,value").like("id", `${V}|%`).abortSignal(s),
+      ));
+    } catch (e) {
+      syncDebug.lastError = `fetch: ${(e as Error)?.message ?? String(e)}`;
+      console.error("[rw-sync] fetch THREW:", e);
+      return;
+    }
     if (error) {
       syncDebug.lastError = `fetch: ${error.message ?? error}`;
       console.error("[rw-sync] fetch FAILED:", error.message ?? error, error);
