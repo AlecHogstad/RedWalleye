@@ -90,7 +90,7 @@ function sumMulligans(
 }
 
 function sumNetScores(
-  byHole: Map<number, { netA?: number; netB?: number }>,
+  byHole: Map<number, { netA?: number | null; netB?: number | null }>,
   holes: Hole[],
   segment: SumSegment,
   side: "A" | "B",
