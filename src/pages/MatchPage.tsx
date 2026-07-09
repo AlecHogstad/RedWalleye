@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { type Match, type Side, FORMAT_LABELS, FORMAT_RULES } from "../types";
+import { type Match, type Side, FORMAT_LABELS, FORMAT_RULE_SECTIONS } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
@@ -693,11 +693,20 @@ export default function MatchPage() {
             aria-labelledby="match-scoring-sheet-title"
           >
             <div className="rules-sheet-body">
-              <RulesArt format={round.format} className="rules-art" />
-              <h3 id="match-scoring-sheet-title" className="bottom-sheet-title">
-                {round.name}: {FORMAT_LABELS[round.format]}
-              </h3>
-              <p className="bottom-sheet-copy">{FORMAT_RULES[round.format]}</p>
+              <div className="rules-sheet-content">
+                <RulesArt format={round.format} className="rules-art" />
+                <h3 id="match-scoring-sheet-title" className="bottom-sheet-title">
+                  {round.name}: {FORMAT_LABELS[round.format]}
+                </h3>
+                <div className="rules-sections">
+                  {FORMAT_RULE_SECTIONS[round.format].map((s) => (
+                    <div className="rules-section" key={s.label}>
+                      <span className="rules-section-label">{s.label}</span>
+                      <p className="rules-section-text">{s.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <button
               type="button"

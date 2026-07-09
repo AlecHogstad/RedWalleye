@@ -1671,8 +1671,8 @@ textarea:disabled {
    vertical middle for easy reading, with the dismiss button pinned to the
    bottom. Scoped so the mulligan proof sheet keeps its compact auto height. */
 .bottom-sheet.rules-sheet {
-  height: 65vh;
-  max-height: 65vh;
+  height: 70vh;
+  max-height: 70vh;
   display: flex;
   flex-direction: column;
   padding-top: 12px;
@@ -1680,24 +1680,49 @@ textarea:disabled {
 .rules-sheet-body {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
   overflow-y: auto;
 }
+/* Centers the content when it fits, but grows and scrolls (from the top, no
+   clipping) when the copy is tall on a small screen. */
+.rules-sheet-content {
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 .rules-sheet .rules-art {
-  margin: 0 auto 20px;
+  max-width: 240px;
+  margin: 0 auto 12px;
 }
 .rules-sheet .bottom-sheet-title {
   text-align: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
-.rules-sheet .bottom-sheet-copy {
-  text-align: center;
+.rules-sections {
+  width: 100%;
   max-width: 340px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.rules-section-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+.rules-section-text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink);
 }
 .rules-sheet .bottom-sheet-skip {
   margin-top: 16px;
