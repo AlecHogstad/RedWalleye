@@ -381,7 +381,11 @@ export default function MatchPage() {
   );
 
   const ticker = (
-    <ActivityTicker roundId={match.roundId} excludeMatchId={match.id} />
+    <ActivityTicker
+      roundId={match.roundId}
+      excludeMatchId={match.id}
+      dock="bottom"
+    />
   );
 
   const nassauCard = !isScramble && (
@@ -427,7 +431,11 @@ export default function MatchPage() {
   );
 
   return (
-    <>
+    <div
+      className={`match-page${
+        round.status === "active" ? " match-page--ticker" : ""
+      }`}
+    >
       {/* Green hero: format, rules, course, hole grid, live score */}
       <section className="score-hero">
         <h2 className="hero-title">
@@ -449,7 +457,6 @@ export default function MatchPage() {
           </button>
         </p>
         {nassauCard}
-        {ticker}
       </section>
 
       {/* Cream body: current hole, score rows, prev/score/next */}
@@ -679,6 +686,8 @@ export default function MatchPage() {
         </p>
       </div>
 
+      {ticker}
+
       {rulesOpen && (
         <>
           <button
@@ -771,7 +780,7 @@ export default function MatchPage() {
           onClose={() => setCameraFor(null)}
         />
       )}
-    </>
+    </div>
   );
 }
 

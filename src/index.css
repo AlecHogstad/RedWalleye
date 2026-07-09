@@ -1118,7 +1118,7 @@ button.badge {
 .score-hero {
   background: var(--hero);
   color: var(--hero-ink);
-  padding: 10px 16px 0;
+  padding: 10px 16px 12px;
 }
 .score-hero .badge {
   color: var(--hero-ink);
@@ -1271,15 +1271,31 @@ button.badge {
   margin-top: 2px;
 }
 
-/* Live activity ticker (placeholder for now) — sits in the green hero */
+/* Live activity ticker — match page docks it to the bottom of the screen */
 .ticker-wrap {
   padding: 14px 0 0;
 }
-.score-hero .ticker {
-  margin-inline: -16px;
+.ticker-wrap--dock {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 560px;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 30;
+}
+.ticker-wrap--dock .ticker {
+  margin-inline: 0;
   border-radius: 0;
   border-left: none;
   border-right: none;
+  border-bottom: none;
+  box-shadow: 0 -2px 10px rgba(38, 48, 31, 0.07);
+}
+.match-page--ticker {
+  padding-bottom: calc(60px + env(safe-area-inset-bottom));
 }
 .hole-nav-scramble .navbtn {
   flex: 1;
