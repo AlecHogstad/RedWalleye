@@ -1065,6 +1065,9 @@ button.badge {
   padding-left: 44px;
   animation: ticker 26s linear infinite;
 }
+.ticker-wrap--live .ticker-track {
+  animation-duration: 48s;
+}
 .ticker-item {
   flex: none;
 }
