@@ -14,6 +14,7 @@ import {
 } from "../scoring/engine";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
+import { MulliganCamera } from "../components/MulliganCamera";
 
 interface ScoreEntity {
   key: string; // playerId or team:<id>
@@ -71,9 +72,36 @@ export default function MatchPage() {
     playerName: string;
   } | null>(null);
 
+  // In-app Evidence Camera when the browser has one; the hidden native input
+  // stays as the fallback (permission denied, unsupported browser).
+  const [cameraFor, setCameraFor] = useState<{ eventId: string; playerName: string } | null>(
+    null,
+  );
+
   const openPhotoPicker = (eventId: string) => {
     setPhotoEventId(eventId);
     photoInputRef.current?.click();
+  };
+
+  const openProofCapture = (eventId: string, playerName: string) => {
+    if (typeof navigator.mediaDevices?.getUserMedia === "function") {
+      setCameraFor({ eventId, playerName });
+    } else {
+      openPhotoPicker(eventId);
+    }
+  };
+
+  const attachProof = async (eventId: string, file: File) => {
+    setPhotoBusy(true);
+    try {
+      await attachMulliganPhoto(eventId, file);
+      setCameraFor(null);
+      setProofSheet(null);
+    } catch (err) {
+      console.error("[mulligan-photo] attach failed:", err);
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
   const onPhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,15 +110,7 @@ export default function MatchPage() {
     const eventId = photoEventId;
     setPhotoEventId(null);
     if (!file || !eventId) return;
-    setPhotoBusy(true);
-    try {
-      await attachMulliganPhoto(eventId, file);
-      setProofSheet(null);
-    } catch (err) {
-      console.error("[mulligan-photo] attach failed:", err);
-    } finally {
-      setPhotoBusy(false);
-    }
+    await attachProof(eventId, file);
   };
 
   const logMulligan = (matchId: string, playerId: string) => {
@@ -659,7 +679,7 @@ export default function MatchPage() {
               type="button"
               className="btn start"
               disabled={photoBusy}
-              onClick={() => openPhotoPicker(proofSheet.eventId)}
+              onClick={() => openProofCapture(proofSheet.eventId, proofSheet.playerName)}
             >
               {photoBusy ? "Uploading…" : "Take photo"}
             </button>
@@ -673,6 +693,20 @@ export default function MatchPage() {
             </button>
           </div>
         </>
+      )}
+
+      {cameraFor && (
+        <MulliganCamera
+          playerName={cameraFor.playerName}
+          busy={photoBusy}
+          onCapture={(file) => void attachProof(cameraFor.eventId, file)}
+          onFallback={() => {
+            const id = cameraFor.eventId;
+            setCameraFor(null);
+            openPhotoPicker(id);
+          }}
+          onClose={() => setCameraFor(null)}
+        />
       )}
     </>
   );
