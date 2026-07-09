@@ -1300,17 +1300,22 @@ button.badge {
   padding: 0;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 30;
+  background: var(--cream-card);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -2px 10px rgba(38, 48, 31, 0.07);
 }
 .ticker-wrap--dock .ticker {
   margin-inline: 0;
   border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
-  box-shadow: 0 -2px 10px rgba(38, 48, 31, 0.07);
+  border: none;
+  box-shadow: none;
+  padding: 16px 0;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
 }
 .match-page--ticker {
-  padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 .hole-nav-scramble .navbtn {
   flex: 1;
