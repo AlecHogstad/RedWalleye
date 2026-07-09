@@ -251,14 +251,32 @@ const kv: Kv = new Map();
 let notifyData: ((data: RemoteData) => void) | null = null;
 let notifyConnected: ((connected: boolean) => void) | null = null;
 let flushTimer: ReturnType<typeof setInterval> | null = null;
+// Bumps on every reset. In-flight async work (a flush mid-upsert, a reset's
+// own deletes) checks it and bails when it changes, so a write that was
+// already sent can't quietly re-create a row the user just wiped.
+let generation = 0;
+// While a reset is settling, ignore every incoming server row — the local
+// mirror is authoritative (empty) and we don't want a racing echo to refill it.
+let suppressIncoming = false;
 
 function writeLocal(id: string, value: unknown | null): void {
   if (value == null) kv.delete(id);
   else kv.set(id, value);
 }
 
+/** Is there an unflushed local write for this id? */
+function pendingHasId(id: string): boolean {
+  return loadPending().some((op) => op.id === id);
+}
+
 /** Apply a server row — draft uses merge rules; local writes bypass this. */
 function mergeIncomingRow(id: string, value: unknown | null): void {
+  // A reset is in progress — the server rows are on their way out; don't apply.
+  if (suppressIncoming) return;
+  // A local write for this row hasn't flushed yet: the optimistic value wins
+  // until it's confirmed, so a stale echo can't clobber it (e.g. finish a round
+  // and a lagging "active" echo flips it back — the bounce).
+  if (pendingHasId(id)) return;
   if (value == null) {
     kv.delete(id);
     return;
@@ -324,14 +342,19 @@ async function flush(): Promise<void> {
   const supabase = getClient();
   if (!supabase || flushing) return;
   flushing = true;
+  const g = generation; // if a reset bumps this mid-flush, abandon these writes
   try {
     let ops = loadPending();
     while (ops.length > 0) {
+      if (g !== generation) return; // a reset happened — don't send stale writes
       const op = ops[0];
       const result =
         op.value == null
           ? await supabase.from(TABLE).delete().eq("id", op.id)
           : await supabase.from(TABLE).upsert({ id: op.id, value: op.value });
+      // A reset landed while this write was in flight: leave the freshly-cleared
+      // queue alone so a just-sent row can't be re-recorded as pending.
+      if (g !== generation) return;
       if (result.error) {
         // Surface the real reason instead of silently retrying forever.
         console.error(
@@ -398,8 +421,11 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
           `[rw-sync] live ${payload.eventType} "${newRow?.id ?? oldRow?.id}"`,
           newRow?.value ?? null,
         );
+        // While a reset settles, ignore live chatter (including echoes of a
+        // write that raced the wipe) — the local mirror is authoritative.
+        if (suppressIncoming) return;
         if (payload.eventType === "DELETE") {
-          if (oldRow?.id) kv.delete(oldRow.id);
+          if (oldRow?.id && !pendingHasId(oldRow.id)) kv.delete(oldRow.id);
         } else if (newRow?.id) {
           mergeIncomingRow(newRow.id, newRow.value);
         }
@@ -544,10 +570,44 @@ export const remoteWrite = {
 
   /** Wipes the shared event data for EVERYONE. */
   resetAll(): void {
-    kv.clear();
-    savePending([]);
-    emit();
-    void getClient()?.from(TABLE).delete().like("id", `${V}|%`);
-    void deleteAllTripMedia();
+    void hardReset();
   },
 };
+
+/**
+ * Authoritative wipe. Bumping `generation` invalidates any in-flight flush so
+ * a write that's mid-air can't re-create a row we're deleting; `suppressIncoming`
+ * makes us ignore the echoes of that write. We delete twice with a gap so a
+ * row that landed on the server *during* the first delete still gets cleared —
+ * this is why a reset used to drop the scores (already flushed) but leave the
+ * just-started/finished round (its write still racing) behind.
+ */
+async function hardReset(): Promise<void> {
+  generation += 1;
+  const g = generation;
+  suppressIncoming = true;
+  kv.clear();
+  savePending([]);
+  emit();
+
+  const client = getClient();
+  if (client) {
+    try {
+      await client.from(TABLE).delete().like("id", `${V}|%`);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      if (g === generation) {
+        await client.from(TABLE).delete().like("id", `${V}|%`);
+      }
+    } catch (err) {
+      console.error("[rw-sync] reset delete FAILED:", err);
+    }
+  }
+
+  // Only settle if no newer reset superseded this one.
+  if (g === generation) {
+    kv.clear();
+    suppressIncoming = false;
+    emit();
+  }
+  void deleteAllTripMedia();
+}
