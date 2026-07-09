@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
-import { computeMatchState, computeStandings, isScrambleFieldMatch, scrambleGroupPlacementPoints, formatScrambleGroup, scrambleGroupNum, type ScoringContext } from "../scoring/engine";
+import { computeMatchState, computeStandings, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
 import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
@@ -55,6 +55,10 @@ export default function RoundsPage() {
   );
 
   const anyActive = state.rounds.some((r) => r.status === "active");
+  const [rulesRoundId, setRulesRoundId] = useState<string | null>(null);
+  const rulesRound = rulesRoundId
+    ? state.rounds.find((r) => r.id === rulesRoundId)
+    : null;
 
   const confirmFinish = async (round: Round) => {
     const matches = state.matches.filter((m) => m.roundId === round.id);
@@ -113,7 +117,7 @@ export default function RoundsPage() {
               <div className="round-card-head">
                 <h2>
                   {round.name}: {FORMAT_LABELS[round.format]}
-                  {round.status === "active" && <span className="oval live">Live</span>}
+                  {round.status === "active" && <span className="oval live">In-Progress</span>}
                   {/* Final rounds carry the verdict stamp instead of the oval */}
                   {round.status === "final" && !stamp && (
                     <span className="oval">
@@ -123,18 +127,25 @@ export default function RoundsPage() {
                   {locked && <span className="oval muted-oval">Locked</span>}
                 </h2>
 
-                <p className="round-where">{FORMAT_RULES[round.format]}</p>
-
-                {round.status !== "pending" ? (
-                  <p className="round-where">
-                    {ctx.course.name}
-                    {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
-                  </p>
-                ) : (
-                  pendingVenue(round.id, state.courses) && (
-                    <p className="round-where">{pendingVenue(round.id, state.courses)}</p>
-                  )
-                )}
+                <p className="round-where round-meta-row">
+                  <span>
+                    {round.status !== "pending" ? (
+                      <>
+                        {ctx.course.name}
+                        {ctx.tee ? ` · ${ctx.tee.name} tees (${ctx.tee.rating}/${ctx.tee.slope})` : ""}
+                      </>
+                    ) : (
+                      pendingVenue(round.id, state.courses) || null
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="linklike round-scoring-link"
+                    onClick={() => setRulesRoundId(round.id)}
+                  >
+                    View Scoring Rules
+                  </button>
+                </p>
               </div>
 
               <div className="round-matches">
@@ -191,6 +202,34 @@ export default function RoundsPage() {
         );
       })}
 
+      {rulesRound && (
+        <>
+          <button
+            type="button"
+            className="sheet-backdrop"
+            aria-label="Dismiss"
+            onClick={() => setRulesRoundId(null)}
+          />
+          <div
+            className="bottom-sheet"
+            role="dialog"
+            aria-labelledby="scoring-sheet-title"
+          >
+            <h3 id="scoring-sheet-title" className="bottom-sheet-title">
+              {rulesRound.name}: {FORMAT_LABELS[rulesRound.format]}
+            </h3>
+            <p className="bottom-sheet-copy">{FORMAT_RULES[rulesRound.format]}</p>
+            <button
+              type="button"
+              className="btn ghost bottom-sheet-skip"
+              onClick={() => setRulesRoundId(null)}
+            >
+              Close
+            </button>
+          </div>
+        </>
+      )}
+
       <p className="hint center">
         One person starts each round (that's when the course and tees get picked).
         Scores sync live to every phone.
@@ -225,10 +264,6 @@ function MatchRow({
   const colorA = teamMap[match.sideA.teamId]?.color;
   const colorB = teamMap[match.sideB.teamId]?.color;
   const placementPts = field ? scrambleGroupPlacementPoints(match, roundMatches, ctx) : null;
-  const groupNum = field ? scrambleGroupNum(match.id, roundMatches) : null;
-  const matchNum = String(
-    roundMatches.findIndex((m) => m.id === match.id) + 1,
-  ).padStart(2, "0");
   const leadColor =
     st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
 
@@ -237,10 +272,7 @@ function MatchRow({
       <div className="side a" style={{ flex: 1 }}>
         <div className="row" style={{ gap: 6 }}>
           <span className="dot" style={{ background: colorA }} />
-          <span className="names">
-            {groupNum ? `${formatScrambleGroup(groupNum)} · ` : ""}
-            {sideNames(match.sideA, players)}
-          </span>
+          <span className="names">{sideNames(match.sideA, players)}</span>
         </div>
       </div>
       <div className="status">
@@ -268,9 +300,7 @@ function MatchRow({
       <div className="side a">
         <div className="row" style={{ gap: 6 }}>
           <span className="dot" style={{ background: colorA }} />
-          <span className="names">
-            Match {matchNum} · {sideNames(match.sideA, players)}
-          </span>
+          <span className="names">{sideNames(match.sideA, players)}</span>
         </div>
       </div>
       <div className="status">

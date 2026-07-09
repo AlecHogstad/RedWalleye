@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { type Match, type Side } from "../types";
+import { type Match, type Side, FORMAT_LABELS, FORMAT_RULES } from "../types";
 import {
   allocateStrokes,
   computeMatchState,
@@ -80,6 +80,7 @@ export default function MatchPage() {
   const [cameraFor, setCameraFor] = useState<{ eventId: string; playerName: string } | null>(
     null,
   );
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const openPhotoPicker = (eventId: string) => {
     setPhotoEventId(eventId);
@@ -432,30 +433,48 @@ export default function MatchPage() {
           Round {roundNum}, {heroSlot}
         </h2>
         <p className="hero-players">{matchPlayers}</p>
-        <p className="hero-course">
-          {ctx.course.name}
-          {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
-          {readOnly ? " · final (view only)" : ""}
+        <p className="hero-course round-meta-row">
+          <span>
+            {ctx.course.name}
+            {ctx.tee ? ` - ${ctx.tee.name} Tees` : ""}
+            {readOnly ? " · final (view only)" : ""}
+          </span>
+          <button
+            type="button"
+            className="linklike round-scoring-link hero-scoring-link"
+            onClick={() => setRulesOpen(true)}
+          >
+            View Scoring Rules
+          </button>
         </p>
         {nassauCard}
         {ticker}
       </section>
 
       {/* Cream body: current hole, score rows, prev/score/next */}
-      <div className="hole-head">
-        <h2 className="hole-num">
-          Hole {String(hole).padStart(2, "0")}
-          {readOnly && (
-            <span className="oval">
-              <CheckFlag size={9} /> Final
-            </span>
-          )}
-        </h2>
-        <p className="hole-meta">
-          Par {holeInfo.par}
-          {holeInfo.yards ? ` - ${holeInfo.yards} yards` : ""} - HDCP{" "}
-          {holeInfo.strokeIndex}
-        </p>
+      <div className={`hole-head${isFieldScramble ? " hole-head-scramble" : ""}`}>
+        <div className="hole-head-copy">
+          <h2 className="hole-num">
+            Hole {String(hole).padStart(2, "0")}
+            {readOnly && (
+              <span className="oval">
+                <CheckFlag size={9} /> Final
+              </span>
+            )}
+          </h2>
+          <p className="hole-meta">
+            Par {holeInfo.par}
+            {holeInfo.yards ? ` - ${holeInfo.yards} yards` : ""} - HDCP{" "}
+            {holeInfo.strokeIndex}
+          </p>
+        </div>
+        {isFieldScramble && (
+          <div className="hole-head-score">
+            <div className="result" style={{ color: navScore.color }}>
+              {navScore.flag && <CheckFlag size={13} />} {navScore.result}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card match-score-card">
@@ -469,7 +488,7 @@ export default function MatchPage() {
       </div>
 
       {/* Prev / live score / Next */}
-      <div className="hole-nav">
+      <div className={`hole-nav${isFieldScramble ? " hole-nav-scramble" : ""}`}>
         <button
           className="navbtn"
           disabled={hole <= 1}
@@ -477,12 +496,14 @@ export default function MatchPage() {
         >
           Prev
         </button>
-        <div className="nav-score">
-          <div className="result" style={{ color: navScore.color }}>
-            {navScore.flag && <CheckFlag size={13} />} {navScore.result}
+        {!isFieldScramble && (
+          <div className="nav-score">
+            <div className="result" style={{ color: navScore.color }}>
+              {navScore.flag && <CheckFlag size={13} />} {navScore.result}
+            </div>
+            {navScore.sub && <div className="sub">{navScore.sub}</div>}
           </div>
-          {navScore.sub && <div className="sub">{navScore.sub}</div>}
-        </div>
+        )}
         <button
           className="navbtn next"
           disabled={hole >= lastHole}
@@ -656,6 +677,34 @@ export default function MatchPage() {
             : "Side games are just for your group — they never affect the tournament standings."}
         </p>
       </div>
+
+      {rulesOpen && (
+        <>
+          <button
+            type="button"
+            className="sheet-backdrop"
+            aria-label="Dismiss"
+            onClick={() => setRulesOpen(false)}
+          />
+          <div
+            className="bottom-sheet"
+            role="dialog"
+            aria-labelledby="match-scoring-sheet-title"
+          >
+            <h3 id="match-scoring-sheet-title" className="bottom-sheet-title">
+              {round.name}: {FORMAT_LABELS[round.format]}
+            </h3>
+            <p className="bottom-sheet-copy">{FORMAT_RULES[round.format]}</p>
+            <button
+              type="button"
+              className="btn ghost bottom-sheet-skip"
+              onClick={() => setRulesOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+        </>
+      )}
 
       {proofSheet && (
         <>
