@@ -213,8 +213,22 @@ describe("computeMatchState — scramble field (stroke play)", () => {
     }
     const st = computeMatchState(m, scratch, ctx);
     expect(st.complete).toBe(true);
-    expect(st.overall.resultText).toBe("Gross 72");
+    expect(st.overall.resultText).toBe("E");
     expect(st.points).toEqual({ a: 0, b: 0 });
+  });
+
+  it("shows strokes to par while the round is in progress", () => {
+    const m: Match = {
+      id: "r2m1",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "tA", playerIds: ["a1", "a2", "a3", "a4"] },
+      sideB: { teamId: "tB", playerIds: [] },
+      scores: { [teamScoreKey("tA")]: { 1: 5, 2: 4 } },
+    };
+    const st = computeMatchState(m, scratch, ctx);
+    expect(st.thru).toBe(2);
+    expect(st.overall.resultText).toBe("+1 thru 2");
   });
 });
 
