@@ -399,7 +399,7 @@ export function buildFeed(
   return items.sort((a, b) => b.order - a.order);
 }
 
-/** Feed lines for the match-page ticker — same round, other groups only. */
+/** Feed lines for the match-page ticker — active round, other groups only. */
 export function feedForMatchTicker(
   feed: FeedItem[],
   roundId: string,
