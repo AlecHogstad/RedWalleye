@@ -89,12 +89,12 @@ export default function HomePage() {
             const team = teamMap[s.teamId];
             return (
               <div key={s.teamId} className="standing">
-                <span className="rank">
-                  {i === 0 && s.points > 0 ? <CheckFlag size={14} /> : i + 1}
-                </span>
                 <span className="dot" style={{ background: team?.color }} />
                 <span style={{ flex: 1 }}>
-                  <div className="team-name">{team?.name ?? s.teamId}</div>
+                  <div className="team-name">
+                    {i === 0 && s.points > 0 && <CheckFlag size={14} />}{" "}
+                    {team?.name ?? s.teamId}
+                  </div>
                   <div className="team-meta">
                     {s.matchesComplete} final · {s.matchesPlayed} in play
                   </div>
