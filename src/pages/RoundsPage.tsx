@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
+import { FORMAT_LABELS, FORMAT_RULE_SECTIONS, type Match, type Round, type Side } from "../types";
 import { computeMatchState, computeStandings, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
 import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
@@ -221,13 +221,20 @@ export default function RoundsPage() {
             aria-labelledby="scoring-sheet-title"
           >
             <div className="rules-sheet-body">
-              <RulesArt format={rulesRound.format} className="rules-art" />
-              <h3 id="scoring-sheet-title" className="bottom-sheet-title">
-                {rulesRound.name}: {FORMAT_LABELS[rulesRound.format]}
-              </h3>
-              <p className="bottom-sheet-copy">
-                {FORMAT_RULES[rulesRound.format]}
-              </p>
+              <div className="rules-sheet-content">
+                <RulesArt format={rulesRound.format} className="rules-art" />
+                <h3 id="scoring-sheet-title" className="bottom-sheet-title">
+                  {rulesRound.name}: {FORMAT_LABELS[rulesRound.format]}
+                </h3>
+                <div className="rules-sections">
+                  {FORMAT_RULE_SECTIONS[rulesRound.format].map((s) => (
+                    <div className="rules-section" key={s.label}>
+                      <span className="rules-section-label">{s.label}</span>
+                      <p className="rules-section-text">{s.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <button
               type="button"

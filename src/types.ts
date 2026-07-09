@@ -61,20 +61,44 @@ export const FORMAT_SHORT: Record<Format, string> = {
   scramble: "Scramble",
 };
 
-/** How each game works — shown on the start page and the scorecard. Every
- *  match is a Nassau: the front 9, back 9, and overall 18 are three separate
- *  bets, each won by whoever wins more holes in that stretch (halve = split). */
-export const FORMAT_RULES: Record<Format, string> = {
-  fourball:
-    "2-man best-ball match play, A vs B. Everyone plays their own ball and " +
-    "your side's best net score on each hole counts. Strokes come off the " +
-    "lowest course handicap in the match. It's a Nassau — front 9, back 9, and " +
-    "the match are worth 1 point each (3 per match).",
-  scramble:
-    "4-man scramble stroke play. Each team fields two foursomes; all four " +
-    "groups play the course and the lowest gross total wins placement points " +
-    "(1st = 6, 2nd = 4, 3rd = 2, 4th = 0). Team points are the sum of both " +
-    "groups — 12 points on the line for the round.",
+/** One labelled block of a format's rules. */
+export interface RuleSection {
+  label: string;
+  text: string;
+}
+
+/** How each game works, in plain language — three short sections so a casual
+ *  (or a few-beers) player gets how to PLAY it, how the app SCORES it, and
+ *  what's at stake. Shown in the format rules bottom sheet. */
+export const FORMAT_RULE_SECTIONS: Record<Format, RuleSection[]> = {
+  fourball: [
+    {
+      label: "How you play",
+      text: "Everyone plays their own ball into the hole. On each hole your team's better score goes up against theirs, and the lower score wins the hole.",
+    },
+    {
+      label: "Scoring",
+      text: "Just enter every golfer's real strokes and the app handles the handicaps. The lowest handicap in the match plays scratch, and everyone else gets their difference as strokes on the hardest holes.",
+    },
+    {
+      label: "Points",
+      text: "Three bets: the front 9, the back 9, and all 18, each worth 1 point. Win more holes in a stretch to take it, and a tie splits it. Three points per match.",
+    },
+  ],
+  scramble: [
+    {
+      label: "How you play",
+      text: "The whole group tees off, you pick the best shot, and everyone plays their next from there. Keep going until it's holed. One team score per hole, no handicaps.",
+    },
+    {
+      label: "Scoring",
+      text: "Enter your group's single score on each hole. All four groups, two per team, race on the same course.",
+    },
+    {
+      label: "Points",
+      text: "Lowest 18-hole total places 1st on down: 6 / 4 / 2 / 0, and ties split. Your team adds up both its groups, with 12 points on the line for the round.",
+    },
+  ],
 };
 
 /** One side of a match — a set of player ids playing together. */
