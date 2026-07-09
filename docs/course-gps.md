@@ -58,31 +58,49 @@ a visual of hazards/doglegs a number can't convey.
 
 ## The hard part: where do the green coordinates come from?
 
-Distances are easy; **knowing where each green is** is the real problem. Options:
+Distances are easy; **knowing where each green is** is the real problem — and
+walking off 36 greens by hand isn't realistic, so we need real course data.
 
-1. **External golf-course data / APIs.** Providers exist (e.g. course-mapping
-   datasets) but are mostly paid/licensed, and we'd have no server to call them
-   from. Rejected for now.
-2. **Digitize from satellite imagery.** Open a course in a map tool, click each
-   green (and tee), and paste the lat/lng into seed data. Accurate and free, but
-   manual per course and per hole (18 × 2 courses = tedious, and greens are big
-   so "center" is a judgment call).
-3. **Self-calibrating pins — _recommended._** The first person to reach each
-   green taps **"Mark the pin"**; the app captures their current GPS coordinate
-   and syncs it. Every phone after that reads live yards to it. This:
-   - needs **no external data and no API** — perfect for the constraints,
-   - fits the app's **local-first, crowd-sourced** ethos (like the way scores
-     and mulligans already flow),
-   - is accurate to where the pin actually is _today_ (pins move!),
-   - and doubles as tee/hazard capture with the same gesture.
+**Key reframe: this is a one-time data fetch, not a runtime API.** Courses don't
+move. We only need coordinates for **two fixed courses**, once — pull them,
+verify them, and **bake them into `src/data/seed.ts`** shipped statically. That
+keeps the app offline-first, exposes no API key in the public bundle, and makes
+cost/rate-limits almost irrelevant (a single free-tier month, or one export,
+covers it). The one hard constraint is **licensing: the repo is public, so
+whatever coordinates we commit must be redistributable.**
 
-   The trade-off: the first group on a hole gets no distance until someone
-   marks it. Mitigations: pre-seed greens once by walking the course before the
-   trip (or digitize option 2 as a starting point), and captured pins persist
-   across rounds so it's a one-time cost.
+Source options (ranked for our constraints):
 
-The prototype demonstrates option 3 end-to-end (mark a spot, get live yards to
-it) with zero course data.
+| Source | Green GPS? | Cost | Public-repo redistribution |
+| --- | --- | --- | --- |
+| golfcourseapi.com (free) | No — scorecard only (par/yds/HDCP, which we already have) | Free | n/a |
+| **OpenStreetMap / Overpass** | Yes — `golf=green`/`golf=tee` polygons → centroids | Free | **Yes — ODbL, with attribution** |
+| golfapi.io | Yes — green + POI coords, REST or CSV export | Paid (quote only) | Must confirm — likely restricted |
+| OpenGolfAPI (courses.opengolfapi.org) | Likely | ? | "Open" — check its terms |
+| iGolf / Golf Intelligence / Golfbert | Yes — front/center/back + hazards | Commercial | Overkill |
+
+**Recommended: OpenStreetMap first.** It's the only source that's both free and
+redistributable into a public repo. Extract each hole's `golf=green` (and
+`golf=tee`) with Overpass `out center` to get a centroid, bake into seed. If our
+two small-town courses aren't well mapped, fall back to a **one-time** paid pull
+from golfapi.io / OpenGolfAPI — but only after confirming we may store the
+coordinates in a public repo (or keep that one data file private).
+
+**Self-calibrating pins** (walk to a green, tap "Mark the pin," sync it) stay as
+a nice *gap-filler* — good for a moved pin position on the day, or a hole OSM
+missed — but not the primary way to get data. The prototype on this branch
+demonstrates that capture-and-measure loop end-to-end with zero course data.
+
+### Must verify before picking a source
+
+1. **Coverage of our actual courses** — Big Fish GC and Hayward GC (Hayward, WI).
+   Small courses aren't always mapped in OSM. Two-minute check on
+   [overpass turbo](https://overpass-turbo.eu) with a `golf=green` query in the
+   Hayward bounding box.
+2. **Redistribution license** for any paid source, given the public repo.
+
+(Both checks need outbound network access that the build sandbox blocks, so
+they're the immediate human/next-session step.)
 
 ## Data model (when it graduates from prototype)
 
@@ -144,10 +162,14 @@ Worth stating plainly in the UI when we ask for location permission.
 
 ## Suggested phasing
 
-1. **Phase 1** — rangefinder to the green + self-calibrating pins, synced via
-   `rw_kv`. On-device, offline, no API. (This branch is the nucleus.)
-2. **Phase 2** — tees and hazard/layup carries via the same mark gesture;
-   front/center/back green.
+0. **Phase 0 — data.** Confirm coverage + license for our two courses, pull
+   green (and tee) coordinates once from OSM (or a paid source if needed), and
+   bake them into `seed.ts`. A one-time `scripts/` extractor can do the OSM pull
+   and emit seed-ready `HoleGeo`. Nothing ships until this exists.
+1. **Phase 1** — rangefinder to the green off the seeded coordinates, plus
+   self-calibrating pins as a gap-filler (synced via `rw_kv`). On-device,
+   offline, no runtime API. (This branch is the measure-and-display nucleus.)
+2. **Phase 2** — tees and hazard/layup carries; front/center/back green.
 3. **Phase 3 (optional)** — a precached per-course map view, only if the group
    wants a visual a number can't give.
 
@@ -155,10 +177,19 @@ Worth stating plainly in the UI when we ask for location permission.
 
 - Is a **clean yardage number** enough, or do you specifically want to _see_ a
   map of the hole? (Changes the whole cost/complexity picture.)
-- Happy to **crowd-source pins** (first-to-the-green marks it), or should we
-  pre-map both courses from satellite before the trip so distances exist on
-  hole 1?
+- OK to depend on **OpenStreetMap** data (free, redistributable) if our two
+  courses are mapped well enough — or should we pay for a one-time pull from a
+  provider like golfapi.io and keep that data file private if its license
+  forbids public redistribution?
 - Where should it live — its own tab, or a strip on the match scorecard?
+
+## Sources
+
+- [golfcourseapi.com](https://golfcourseapi.com/) — free, ~30k courses, scorecard-oriented.
+- [golfapi.io](https://www.golfapi.io/) — 42k courses, green + POI coordinates, REST/CSV, paid (contact for quote).
+- [OpenGolfAPI](https://courses.opengolfapi.org/legal/terms) — "open" course database (check terms).
+- [OpenStreetMap `golf=hole`](https://wiki.openstreetmap.org/wiki/Tag:golf%3Dhole) / [`Key:golf`](https://wiki.openstreetmap.org/wiki/Key:golf) — free, ODbL, `golf=green`/`golf=tee` features via [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API).
+- Commercial GPS providers: [iGolf](https://igolf.com/solutions/golf-course-data/), [Golf Intelligence](https://golfintelligence.com/api-pricing/), [Golfbert](https://www.golfbert.com/), [SportsFirst](https://www.sportsfirst.net/sportsapi/golf-course-api).
 
 ## What's on this branch
 
