@@ -688,15 +688,17 @@ export default function MatchPage() {
             onClick={() => setRulesOpen(false)}
           />
           <div
-            className="bottom-sheet"
+            className="bottom-sheet rules-sheet"
             role="dialog"
             aria-labelledby="match-scoring-sheet-title"
           >
-            <RulesArt format={round.format} className="rules-art" />
-            <h3 id="match-scoring-sheet-title" className="bottom-sheet-title">
-              {round.name}: {FORMAT_LABELS[round.format]}
-            </h3>
-            <p className="bottom-sheet-copy">{FORMAT_RULES[round.format]}</p>
+            <div className="rules-sheet-body">
+              <RulesArt format={round.format} className="rules-art" />
+              <h3 id="match-scoring-sheet-title" className="bottom-sheet-title">
+                {round.name}: {FORMAT_LABELS[round.format]}
+              </h3>
+              <p className="bottom-sheet-copy">{FORMAT_RULES[round.format]}</p>
+            </div>
             <button
               type="button"
               className="btn ghost bottom-sheet-skip"
