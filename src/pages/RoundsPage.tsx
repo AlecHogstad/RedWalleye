@@ -234,7 +234,7 @@ export default function RoundsPage() {
               className="btn ghost bottom-sheet-skip"
               onClick={() => setRulesRoundId(null)}
             >
-              Close
+              Got It
             </button>
           </div>
         </>

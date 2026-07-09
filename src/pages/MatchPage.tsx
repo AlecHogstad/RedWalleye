@@ -704,7 +704,7 @@ export default function MatchPage() {
               className="btn ghost bottom-sheet-skip"
               onClick={() => setRulesOpen(false)}
             >
-              Close
+              Got It
             </button>
           </div>
         </>
