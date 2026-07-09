@@ -9,11 +9,15 @@ export default defineConfig(({ command }) => ({
   base: command === "build" ? "/RedWalleye/" : "/",
   plugins: [
     react(),
-    // Installable, offline-first PWA. A service worker precaches the whole app
-    // shell — JS, CSS, the self-hosted fonts, and icons — so it opens with zero
-    // bars at the tee box. Live scores still sync through the app's own write
-    // queue when signal returns; the SW never touches Supabase requests.
+    // Installable web app (home-screen icon + manifest), but NO precaching
+    // service worker. `selfDestroying` ships a worker that UNREGISTERS any
+    // previously-installed SW and clears its caches on every phone — so nobody
+    // gets pinned to a stale bundle (the precache SW was serving old builds
+    // against the live DB during testing). Cold-start-offline can come back
+    // later with a forced-update guard once the app is stable; the write queue
+    // already keeps scores flowing through dead zones regardless.
     VitePWA({
+      selfDestroying: true,
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
@@ -35,11 +39,6 @@ export default defineConfig(({ command }) => ({
             purpose: "maskable",
           },
         ],
-      },
-      workbox: {
-        // Precache the app shell + fonts + icons for a true cold offline start.
-        globPatterns: ["**/*.{js,css,html,woff2,png,svg,ico,webmanifest}"],
-        cleanupOutdatedCaches: true,
       },
     }),
   ],
