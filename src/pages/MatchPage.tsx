@@ -18,6 +18,7 @@ import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 import { ActivityTicker } from "../components/ActivityTicker";
 import { MulliganCamera } from "../components/MulliganCamera";
+import { RulesArt } from "../components/RulesArt";
 
 interface ScoreEntity {
   key: string; // playerId or team:<id>
@@ -691,6 +692,7 @@ export default function MatchPage() {
             role="dialog"
             aria-labelledby="match-scoring-sheet-title"
           >
+            <RulesArt format={round.format} className="rules-art" />
             <h3 id="match-scoring-sheet-title" className="bottom-sheet-title">
               {round.name}: {FORMAT_LABELS[round.format]}
             </h3>

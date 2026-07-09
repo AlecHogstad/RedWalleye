@@ -7,6 +7,7 @@ import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
 import { CheckFlag } from "../components/CheckFlag";
 import { FinalStamp } from "../components/FinalStamp";
+import { RulesArt } from "../components/RulesArt";
 
 function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string {
   return side.playerIds
@@ -219,6 +220,7 @@ export default function RoundsPage() {
             role="dialog"
             aria-labelledby="scoring-sheet-title"
           >
+            <RulesArt format={rulesRound.format} className="rules-art" />
             <h3 id="scoring-sheet-title" className="bottom-sheet-title">
               {rulesRound.name}: {FORMAT_LABELS[rulesRound.format]}
             </h3>
