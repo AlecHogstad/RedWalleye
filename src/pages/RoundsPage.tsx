@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULES, type Match, type Round, type Side } from "../types";
-import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, formatScrambleGroup, scrambleGroupNum, type ScoringContext } from "../scoring/engine";
+import { computeMatchState, computeStandings, isScrambleFieldMatch, scrambleGroupPlacementPoints, formatScrambleGroup, scrambleGroupNum, type ScoringContext } from "../scoring/engine";
 import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
 import { CheckFlag } from "../components/CheckFlag";
+import { FinalStamp } from "../components/FinalStamp";
 
 function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string {
   return side.playerIds
@@ -16,6 +17,19 @@ function sideNames(side: Side, players: ReturnType<typeof usePlayerMap>): string
 /** Format a points total, showing a half as .5 (e.g. 1.5) and whole otherwise. */
 function fmtPts(p: number): string {
   return p % 1 === 0 ? String(p) : p.toFixed(1);
+}
+
+/** Points with a proper ½ for the stamp ("8½"). */
+function fmtHalf(n: number): string {
+  const whole = Math.floor(n);
+  const half = n - whole >= 0.5;
+  if (whole === 0 && half) return "½";
+  return `${whole}${half ? "½" : ""}`;
+}
+
+/** "Big Fish Golf Club" → "BIG FISH G.C." for the stamp's bottom ring. */
+function stampCourse(name: string): string {
+  return name.replace(/\s*golf club\s*$/i, " G.C.").toUpperCase();
 }
 
 /** The expected venue name for a round that hasn't been started yet,
@@ -58,20 +72,50 @@ export default function RoundsPage() {
 
   return (
     <div className="rounds-page">
-      {state.rounds.map((round) => {
+      {state.rounds.map((round, roundIndex) => {
         const matches = state.matches.filter((m) => m.roundId === round.id);
         const ctx = contexts[round.id];
         const locked = round.status === "pending" && anyActive;
         const startable = round.status === "pending" && !anyActive;
 
+        // The verdict stamp for a finished round — winner's color, or ink on
+        // a split. Per-round totals come from computeStandings scoped to just
+        // this round's matches.
+        let stamp: { teamName: string; color: string; scoreText: string } | null = null;
+        if (round.status === "final") {
+          const table = computeStandings(matches, state.players, { [round.id]: ctx });
+          const a = table.find((t) => t.teamId === "tA")?.points ?? 0;
+          const b = table.find((t) => t.teamId === "tB")?.points ?? 0;
+          const winner = a > b ? teamMap.tA : b > a ? teamMap.tB : null;
+          const hi = Math.max(a, b);
+          const lo = Math.min(a, b);
+          stamp = {
+            teamName: winner?.name ?? "SPLIT",
+            color: winner?.color ?? "#26301f",
+            scoreText: `${fmtHalf(hi)}–${fmtHalf(lo)}`,
+          };
+        }
+
         return (
           <section className="section" key={round.id}>
             <div className={`round-card card ${round.status === "pending" ? "dimmed" : ""}`}>
+              {stamp && (
+                <FinalStamp
+                  className="round-stamp"
+                  roundLabel={round.name}
+                  courseLabel={stampCourse(ctx.course.name)}
+                  teamName={stamp.teamName}
+                  color={stamp.color}
+                  scoreText={stamp.scoreText}
+                  seed={3 + roundIndex * 4}
+                />
+              )}
               <div className="round-card-head">
                 <h2>
                   {round.name}: {FORMAT_LABELS[round.format]}
                   {round.status === "active" && <span className="oval live">Live</span>}
-                  {round.status === "final" && (
+                  {/* Final rounds carry the verdict stamp instead of the oval */}
+                  {round.status === "final" && !stamp && (
                     <span className="oval">
                       <CheckFlag size={9} /> Final
                     </span>
