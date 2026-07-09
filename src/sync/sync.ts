@@ -250,6 +250,29 @@ let generation = 0;
 // mirror is authoritative (empty) and we don't want a racing echo to refill it.
 let suppressIncoming = false;
 
+// On-screen diagnostics (Settings > Reset) — a phone-readable console, since
+// iOS Safari can't be inspected in the field.
+const syncDebug = {
+  live: 0, // realtime events received
+  lastFetchAt: 0, // epoch ms of last successful reconcile
+  lastRows: 0, // rows in that reconcile
+  lastError: "", // last fetch/write failure
+};
+export function getSyncDebug(): {
+  live: number;
+  lastFetchAt: number;
+  lastRows: number;
+  lastError: string;
+  pending: number;
+  mirror: number;
+} {
+  return {
+    ...syncDebug,
+    pending: loadPending().length,
+    mirror: kv.size,
+  };
+}
+
 function writeLocal(id: string, value: unknown | null): void {
   if (value == null) kv.delete(id);
   else kv.set(id, value);
@@ -348,6 +371,7 @@ async function flush(): Promise<void> {
       if (g !== generation) return;
       if (result.error) {
         // Surface the real reason instead of silently retrying forever.
+        syncDebug.lastError = `write: ${result.error.message ?? result.error}`;
         console.error(
           `[rw-sync] WRITE FAILED for "${op.id}":`,
           result.error.message ?? result.error,
@@ -382,6 +406,7 @@ async function fetchAll(): Promise<void> {
       .select("id,value")
       .like("id", `${V}|%`);
     if (error) {
+      syncDebug.lastError = `fetch: ${error.message ?? error}`;
       console.error("[rw-sync] fetch FAILED:", error.message ?? error, error);
       return;
     }
@@ -402,6 +427,9 @@ async function fetchAll(): Promise<void> {
     }
     // Re-assert optimistic writes on top of the fetched truth.
     for (const op of loadPending()) writeLocal(op.id, op.value);
+    syncDebug.lastFetchAt = Date.now();
+    syncDebug.lastRows = data.length;
+    syncDebug.lastError = "";
     console.info(`[rw-sync] reconciled ${data.length} row(s)`);
     emit();
   } finally {
@@ -448,6 +476,7 @@ export function subscribeRemote(cb: (data: RemoteData | null) => void): () => vo
       "postgres_changes",
       { event: "*", schema: "public", table: TABLE },
       (payload) => {
+        syncDebug.live += 1;
         const newRow = payload.new as { id?: string; value?: unknown };
         const oldRow = payload.old as { id?: string };
         console.info(

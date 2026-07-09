@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { usePrompt } from "../components/ConfirmDialog";
 import { useStore } from "../store/store";
+import { getSyncDebug } from "../sync/sync";
 
 const CONFIRM_WORD = "Reset";
 
@@ -10,6 +11,16 @@ export default function SettingsResetPage() {
   const prompt = usePrompt();
   const navigate = useNavigate();
   const [resynced, setResynced] = useState(false);
+  const [dbg, setDbg] = useState(getSyncDebug());
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setDbg(getSyncDebug());
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const scope =
     syncStatus === "local"
@@ -81,6 +92,30 @@ export default function SettingsResetPage() {
             ? "Local mode — this only affects this phone."
             : "Synced mode — this clears the shared tournament for every phone."}
         </p>
+        {syncStatus !== "local" && (
+          <div
+            className="card"
+            style={{ marginTop: 14, padding: "12px 16px", fontSize: 13, lineHeight: 1.9 }}
+          >
+            <strong style={{ display: "block", marginBottom: 4 }}>Sync status</strong>
+            <div style={{ fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5 }}>
+              realtime&nbsp;&nbsp;{syncStatus === "online" ? "live" : "offline"}
+              <br />
+              live events&nbsp;&nbsp;{dbg.live}
+              <br />
+              last sync&nbsp;&nbsp;
+              {dbg.lastFetchAt
+                ? `${Math.max(0, Math.round((now - dbg.lastFetchAt) / 1000))}s ago · ${dbg.lastRows} rows`
+                : "never"}
+              <br />
+              pending writes&nbsp;&nbsp;{dbg.pending}
+              <br />
+              mirror rows&nbsp;&nbsp;{dbg.mirror}
+              <br />
+              last error&nbsp;&nbsp;{dbg.lastError || "none"}
+            </div>
+          </div>
+        )}
         <p className="hint center" style={{ paddingTop: 14, opacity: 0.7 }}>
           build {__BUILD_ID__}
         </p>
