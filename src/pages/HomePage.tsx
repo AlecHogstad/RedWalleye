@@ -9,18 +9,21 @@ import type { Player, Team } from "../types";
 function cumulativeToPar(
   byRound: Record<string, RoundTotals | null>,
   rounds: { id: string }[],
-): { toPar: number; thru: number } | null {
+): { toPar: number; grossToPar: number; thru: number } | null {
   let toPar = 0;
+  let grossToPar = 0;
   let thru = 0;
   let any = false;
   for (const r of rounds) {
     const t = byRound[r.id];
     if (!t) continue;
     toPar += t.toPar;
+    // Gross-to-par: net-to-par plus the handicap strokes given back (gross − net).
+    grossToPar += t.toPar + (t.gross - t.net);
     thru += t.thru;
     any = true;
   }
-  return any ? { toPar, thru } : null;
+  return any ? { toPar, grossToPar, thru } : null;
 }
 
 /** Leaderboard: team standings on top, all 16 players with per-round
@@ -117,9 +120,10 @@ export default function HomePage() {
         {cum ? (
           <>
             <b>{formatStrokesToPar(cum.toPar)}</b>
-            {cum.thru < statRounds.length * 18 && (
-              <span className="pr-gross">·{cum.thru}</span>
-            )}
+            <span className="pr-gross">
+              {formatStrokesToPar(cum.grossToPar)}
+              {cum.thru < statRounds.length * 18 ? ` ·${cum.thru}` : ""}
+            </span>
           </>
         ) : (
           <span className="pr-empty">—</span>
@@ -214,8 +218,8 @@ export default function HomePage() {
         </div>
         <p className="hint">
           Big number = net, small = gross (·n = thru n holes). ± = cumulative
-          net to par across individual-ball rounds. The scramble round isn't
-          shown — one team ball, no individual scores.
+          net to par, small = gross to par, across individual-ball rounds. The
+          scramble round isn't shown — one team ball, no individual scores.
           {showTeamRosters && (
             <>
               {" "}
