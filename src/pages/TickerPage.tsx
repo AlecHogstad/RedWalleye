@@ -4,6 +4,7 @@ import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
 import { feedHeadline, feedSubline, fmtFeedPoints, type FeedCopyContext } from "../scoring/feedCopy";
 import {
+  allocateStrokes,
   computeMatchState,
   computeScrambleGroupTotal,
   computeScramblePlacement,
@@ -11,6 +12,7 @@ import {
   formatStrokesToPar,
   isScrambleFieldMatch,
   scrambleGroupNum,
+  strokesOnHole,
   teamScoreKey,
 } from "../scoring/engine";
 import { FeedIcon } from "../components/Icons";
@@ -89,18 +91,18 @@ function sumMulligans(
   return sum > 0 ? String(sum) : "–";
 }
 
-function sumNetScores(
-  byHole: Map<number, { netA?: number | null; netB?: number | null }>,
+/** Sum one player's net scores across a segment (four-ball scorecard). */
+function sumPlayerNet(
+  netByHole: Record<number, number | null>,
   holes: Hole[],
   segment: SumSegment,
-  side: "A" | "B",
 ): number | null {
   let sum = 0;
   let any = false;
   for (const h of holesInSegment(holes, segment)) {
-    const net = side === "A" ? byHole.get(h.number)?.netA : byHole.get(h.number)?.netB;
-    if (net != null) {
-      sum += net;
+    const v = netByHole[h.number];
+    if (v != null) {
+      sum += v;
       any = true;
     }
   }
@@ -405,6 +407,36 @@ export default function TickerPage() {
               const leadColor =
                 st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
               const byHole = new Map(st.perHole.map((p) => [p.hole, p]));
+
+              // Per-player net scores (best net still counts for the side, but
+              // every golfer's ball shows on its own row). Strokes come off the
+              // same match-relative allocation the team rows use.
+              const roundCtx = contexts[m.roundId];
+              const alloc = allocateStrokes(m, state.players, roundCtx);
+              const playerNet = (pid: string): Record<number, number | null> => {
+                const strokes = alloc.byPlayer[pid] ?? 0;
+                const out: Record<number, number | null> = {};
+                for (const h of board.holes) {
+                  const g = m.scores[pid]?.[h.number];
+                  out[h.number] =
+                    g == null ? null : g - strokesOnHole(strokes, h.strokeIndex);
+                }
+                return out;
+              };
+              const playerRows = [
+                ...m.sideA.playerIds.map((pid) => ({
+                  side: "A" as const,
+                  pid,
+                  color: colorA,
+                  net: playerNet(pid),
+                })),
+                ...m.sideB.playerIds.map((pid) => ({
+                  side: "B" as const,
+                  pid,
+                  color: colorB,
+                  net: playerNet(pid),
+                })),
+              ];
               return (
                 <section className="section ticker-match-section" key={m.id}>
                   <div className="card ticker-score-card">
@@ -454,76 +486,53 @@ export default function TickerPage() {
                               ),
                             )}
                           </tr>
-                          <tr className="team-row">
-                            <th className="lbl" style={{ color: colorA }}>
-                              {teamMap[m.sideA.teamId]?.name}
-                            </th>
-                            {cols.map((col) => {
-                              if (col.kind === "hole") {
-                                const p = byHole.get(col.hole.number);
+                          {playerRows.map((row) => (
+                            <tr className="team-row" key={`${row.side}:${row.pid}`}>
+                              <th className="lbl" style={{ color: row.color }}>
+                                {playerMap[row.pid]?.name ?? "?"}
+                              </th>
+                              {cols.map((col) => {
+                                if (col.kind === "hole") {
+                                  const net = row.net[col.hole.number];
+                                  const p = byHole.get(col.hole.number);
+                                  // Highlight the ball that won the hole for its side.
+                                  const counting =
+                                    net != null &&
+                                    ((row.side === "A" &&
+                                      p?.winner === "A" &&
+                                      net === p?.netA) ||
+                                      (row.side === "B" &&
+                                        p?.winner === "B" &&
+                                        net === p?.netB));
+                                  return (
+                                    <td
+                                      key={col.hole.number}
+                                      className={net != null ? "score-entered" : undefined}
+                                      style={
+                                        counting
+                                          ? { background: `${row.color}22` }
+                                          : undefined
+                                      }
+                                    >
+                                      {net ?? "–"}
+                                    </td>
+                                  );
+                                }
+                                const total = sumPlayerNet(row.net, board.holes, col.segment);
                                 return (
                                   <td
-                                    key={col.hole.number}
-                                    className={p?.netA != null ? "score-entered" : undefined}
-                                    style={
-                                      p?.winner === "A"
-                                        ? { background: `${colorA}22` }
-                                        : undefined
-                                    }
+                                    key={`sum-${col.segment}`}
+                                    className={sumColClass(
+                                      col.segment,
+                                      total != null ? "score-entered" : undefined,
+                                    )}
                                   >
-                                    {p?.netA ?? "–"}
+                                    {total ?? "–"}
                                   </td>
                                 );
-                              }
-                              const total = sumNetScores(byHole, board.holes, col.segment, "A");
-                              return (
-                                <td
-                                  key={`sum-${col.segment}`}
-                                  className={sumColClass(
-                                    col.segment,
-                                    total != null ? "score-entered" : undefined,
-                                  )}
-                                >
-                                  {total ?? "–"}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                          <tr className="team-row">
-                            <th className="lbl" style={{ color: colorB }}>
-                              {teamMap[m.sideB.teamId]?.name}
-                            </th>
-                            {cols.map((col) => {
-                              if (col.kind === "hole") {
-                                const p = byHole.get(col.hole.number);
-                                return (
-                                  <td
-                                    key={col.hole.number}
-                                    className={p?.netB != null ? "score-entered" : undefined}
-                                    style={
-                                      p?.winner === "B"
-                                        ? { background: `${colorB}22` }
-                                        : undefined
-                                    }
-                                  >
-                                    {p?.netB ?? "–"}
-                                  </td>
-                                );
-                              }
-                              const total = sumNetScores(byHole, board.holes, col.segment, "B");
-                              return (
-                                <td
-                                  key={`sum-${col.segment}`}
-                                  className={sumColClass(
-                                    col.segment,
-                                    total != null ? "score-entered" : undefined,
-                                  )}
-                                >
-                                  {total ?? "–"}
-                                </td>
-                              );
-                            })}
-                          </tr>
+                              })}
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
