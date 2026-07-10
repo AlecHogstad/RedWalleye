@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { computePlayerTotals, computeStandings, formatStrokesToPar, type RoundTotals } from "../scoring/engine";
 import { draftHasRosters, teamRosterIds, type DraftTeam } from "../store/draft";
 import { rosterOf } from "../store/roster";
@@ -185,14 +186,14 @@ export default function HomePage() {
             const playerTotals = totals[p.id] ?? {};
             return (
                 <div className="ptable-row" key={p.id} style={tableGrid}>
-                  <span className="pt-name">
+                  <Link className="pt-name" to={`/player/${p.id}`}>
                     {team ? (
                       <span className="dot" style={{ background: team.color }} />
                     ) : (
                       <span className="dot" style={{ background: "transparent" }} />
                     )}
                     {p.name}
-                  </span>
+                  </Link>
                   {playerCols.map((col) => {
                     if (col.kind === "cum") return renderCumCell(playerTotals);
                     const t = playerTotals[col.roundId];

@@ -12,6 +12,7 @@ import SettingsPlayersPage from "./pages/SettingsPlayersPage";
 import SettingsCoursesPage from "./pages/SettingsCoursesPage";
 import SettingsResetPage from "./pages/SettingsResetPage";
 import TickerPage from "./pages/TickerPage";
+import PlayerPage from "./pages/PlayerPage";
 import GpsDemoPage from "./pages/GpsDemoPage";
 import { PoleFlag } from "./components/CheckFlag";
 import { TrophyIcon, FlagIcon, GearIcon, TickerIcon } from "./components/Icons";
@@ -45,6 +46,7 @@ function interiorBack(pathname: string):
   if (pathname.startsWith("/matchups/")) return { type: "link", to: "/rounds", label: "← Rounds" };
   if (pathname === "/draft") return { type: "link", to: "/settings", label: "← Settings" };
   if (pathname === "/gps") return { type: "link", to: "/settings", label: "← Settings" };
+  if (pathname.startsWith("/player/")) return { type: "link", to: "/", label: "← Leaderboard" };
   if (pathname.startsWith("/ticker")) return { type: "back", label: "← Back" };
   return null;
 }
@@ -71,6 +73,7 @@ export default function App() {
     !pathname.startsWith("/matchups") &&
     !pathname.startsWith("/draft") &&
     !pathname.startsWith("/gps") &&
+    !pathname.startsWith("/player") &&
     !pathname.startsWith("/ticker");
   const onTicker = pathname.startsWith("/ticker");
   const back = !showTabs ? interiorBack(pathname) : null;
@@ -149,6 +152,7 @@ export default function App() {
           <Route path="/settings/courses" element={<SettingsCoursesPage />} />
           <Route path="/settings/reset" element={<SettingsResetPage />} />
           <Route path="/ticker" element={<TickerPage />} />
+          <Route path="/player/:playerId" element={<PlayerPage />} />
           <Route path="/gps" element={<GpsDemoPage />} />
         </Routes>
       </main>
