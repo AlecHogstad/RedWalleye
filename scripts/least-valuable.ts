@@ -27,11 +27,11 @@
 import { seedState } from "../src/data/seed";
 import { supabaseConfig } from "../src/sync/supabaseConfig";
 import {
-  computeMatchState,
+  computeBestBallContributions,
   contextForRound,
   type ScoringContext,
 } from "../src/scoring/engine";
-import type { Match, Player, Side, TournamentState } from "../src/types";
+import type { Match, Side, TournamentState } from "../src/types";
 
 // --- Live fetch (plain REST — anon key is a public identifier) ---------------
 
@@ -102,93 +102,28 @@ function applyRows(base: TournamentState, rows: KvRow[]): TournamentState {
   return state;
 }
 
-// --- Per-player point attribution for one four-ball side ---------------------
-
-/** Which side player belongs to, and the two partners. */
-function attributeSide(
-  match: Match,
-  side: Side,
-  segPoints: number,
-  holes: number[],
-  credit: Map<string, number>,
-): void {
-  if (segPoints <= 0) return; // lost bet — this side earned nothing to split
-  const shares = new Map<string, number>();
-  let totalCounting = 0;
-  for (const hole of holes) {
-    const scored = side.playerIds
-      .map((id) => ({ id, g: match.scores[id]?.[hole] }))
-      .filter((x): x is { id: string; g: number } => x.g != null);
-    if (scored.length === 0) continue;
-    const low = Math.min(...scored.map((x) => x.g));
-    const winners = scored.filter((x) => x.g === low);
-    for (const w of winners) {
-      shares.set(w.id, (shares.get(w.id) ?? 0) + 1 / winners.length);
-      totalCounting += 1 / winners.length;
-    }
-  }
-  if (totalCounting === 0) return;
-  for (const [id, s] of shares) {
-    credit.set(id, (credit.get(id) ?? 0) + (segPoints * s) / totalCounting);
-  }
-}
-
-const FRONT = Array.from({ length: 9 }, (_, i) => i + 1);
-const BACK = Array.from({ length: 9 }, (_, i) => i + 10);
-const OVERALL = Array.from({ length: 18 }, (_, i) => i + 1);
-
 function run(state: TournamentState): void {
-  // Gross best ball: flatten handicaps so the engine gives everyone 0 strokes.
-  const grossPlayers: Player[] = state.players.map((p) => ({ ...p, handicap: 0 }));
   const ctxByRound: Record<string, ScoringContext> = {};
   for (const r of state.rounds) ctxByRound[r.id] = contextForRound(state, r.id);
 
-  const credit = new Map<string, number>(); // playerId -> gross best-ball points earned
-  const holesPlayed = new Map<string, number>(); // playerId -> four-ball holes with a score
-  let anyData = false;
-
-  for (const match of state.matches) {
-    if (match.format !== "fourball") continue;
-    const ctx = ctxByRound[match.roundId];
-    const st = computeMatchState(match, grossPlayers, ctx);
-    if (st.thru === 0) continue;
-    anyData = true;
-
-    attributeSide(match, match.sideA, st.front.points.a, FRONT, credit);
-    attributeSide(match, match.sideB, st.front.points.b, FRONT, credit);
-    attributeSide(match, match.sideA, st.back.points.a, BACK, credit);
-    attributeSide(match, match.sideB, st.back.points.b, BACK, credit);
-    attributeSide(match, match.sideA, st.overall.points.a, OVERALL, credit);
-    attributeSide(match, match.sideB, st.overall.points.b, OVERALL, credit);
-
-    for (const id of [...match.sideA.playerIds, ...match.sideB.playerIds]) {
-      for (const h of OVERALL) if (match.scores[id]?.[h] != null) {
-        holesPlayed.set(id, (holesPlayed.get(id) ?? 0) + 1);
-      }
-    }
-  }
-
-  if (!anyData) {
+  const rows = computeBestBallContributions(state.matches, state.players, ctxByRound);
+  if (rows.length === 0) {
     console.log("No four-ball scores found yet — nothing to rank.");
     return;
   }
 
   const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? id;
-  const team = (id: string) => state.players.find((p) => p.id === id)?.teamId ?? "?";
-  const rows = [...holesPlayed.keys()]
-    .map((id) => ({ id, name: name(id), team: team(id), pts: credit.get(id) ?? 0, thru: holesPlayed.get(id) ?? 0 }))
-    .sort((a, b) => a.pts - b.pts);
-
   console.log("\nBest Ball (four-ball) — gross point contribution, least valuable first\n");
-  console.log("  #  player          team   points   holes");
-  console.log("  -- --------------- ----   ------   -----");
+  console.log("  #  player          team   points   carried");
+  console.log("  -- --------------- ----   ------   -------");
   rows.forEach((r, i) => {
     console.log(
-      `  ${String(i + 1).padStart(2)} ${r.name.padEnd(15)} ${r.team.padEnd(4)}   ${r.pts.toFixed(2).padStart(6)}   ${String(r.thru).padStart(5)}`,
+      `  ${String(i + 1).padStart(2)} ${name(r.playerId).padEnd(15)} ${r.teamId.padEnd(4)}   ` +
+        `${r.points.toFixed(2).padStart(6)}   ${`${r.countingHoles}/${r.holes}`.padStart(7)}`,
     );
   });
   const min = rows[0];
-  console.log(`\n→ Least valuable by point contribution: ${min.name} (${min.pts.toFixed(2)} pts).`);
+  console.log(`\n→ Least valuable by point contribution: ${name(min.playerId)} (${min.points.toFixed(2)} pts).`);
 }
 
 // --- Demo dataset (offline math check) ---------------------------------------
