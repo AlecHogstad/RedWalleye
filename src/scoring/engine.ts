@@ -568,6 +568,124 @@ export function computeStableford(
   return rows.sort((a, b) => b.points - a.points);
 }
 
+// --- Best-ball point contribution (per player, gross) -----------------------
+
+export interface BestBallContribution {
+  playerId: string;
+  teamId: string;
+  /** Gross Nassau points this player's ball earned the side, summed over the
+   *  front / back / overall bets of every four-ball match they played. */
+  points: number;
+  /** Four-ball holes the player has a score for. */
+  holes: number;
+  /** Holes where the player's ball was the side's counting (low) ball; a tie
+   *  with the partner counts as a half. */
+  countingHoles: number;
+}
+
+const NASSAU_STRETCHES: { key: "front" | "back" | "overall"; inStretch: (n: number) => boolean }[] = [
+  { key: "front", inStretch: (n) => n <= 9 },
+  { key: "back", inStretch: (n) => n >= 10 },
+  { key: "overall", inStretch: () => true },
+];
+
+/** The side's counting (low-gross) balls on a hole, each weighted (a tie
+ *  splits the hole). Empty when nobody on the side has a score there. */
+function countingBallsOnHole(
+  match: Match,
+  side: Side,
+  holeNumber: number,
+): { id: string; weight: number }[] {
+  const scored = side.playerIds
+    .map((id) => ({ id, gross: match.scores[id]?.[holeNumber] }))
+    .filter((x): x is { id: string; gross: number } => x.gross != null);
+  if (scored.length === 0) return [];
+  const low = Math.min(...scored.map((x) => x.gross));
+  const winners = scored.filter((x) => x.gross === low);
+  return winners.map((w) => ({ id: w.id, weight: 1 / winners.length }));
+}
+
+/**
+ * Rank every golfer by the GROSS (no-handicap) Nassau points their ball earned
+ * their team across the four-ball rounds — a "who carried, who was dead weight"
+ * stat. Scramble matches have no per-player ball and are skipped.
+ *
+ * Best ball is scored on gross here (handicaps flattened to zero, so the
+ * engine's match allocation gives everyone zero strokes) because the metric is
+ * raw shot contribution, not net. Each match's three bets (front 9, back 9,
+ * overall 18) pay their side; those points are split between the two partners
+ * by their share of the counting ball — the lower gross on each hole of that
+ * bet's stretch, a tie splitting the hole 50/50. Summed over both partners the
+ * credit equals the side's four-ball points exactly.
+ *
+ * Returned least-valuable first (fewest points). Pure — unit-tested.
+ */
+export function computeBestBallContributions(
+  matches: Match[],
+  players: Player[],
+  ctxByRound: Record<string, ScoringContext>,
+): BestBallContribution[] {
+  const gross = players.map((p) => ({ ...p, handicap: 0 }));
+  const teamOf = new Map(players.map((p) => [p.id, p.teamId] as const));
+  const points = new Map<string, number>();
+  const holes = new Map<string, number>();
+  const counting = new Map<string, number>();
+  const add = (map: Map<string, number>, id: string, n: number) =>
+    map.set(id, (map.get(id) ?? 0) + n);
+
+  for (const match of matches) {
+    if (match.format !== "fourball") continue;
+    const ctx = ctxByRound[match.roundId];
+    if (!ctx) continue;
+    const st = computeMatchState(match, gross, ctx);
+    if (st.thru === 0) continue;
+
+    const sides: { side: Side; pick: (s: SegmentResult) => number }[] = [
+      { side: match.sideA, pick: (s) => s.points.a },
+      { side: match.sideB, pick: (s) => s.points.b },
+    ];
+
+    for (const { side, pick } of sides) {
+      // Holes played + counting-ball tally (once per hole, whole round).
+      for (const hole of ctx.course.holes) {
+        for (const id of side.playerIds) {
+          if (match.scores[id]?.[hole.number] != null) add(holes, id, 1);
+        }
+        for (const c of countingBallsOnHole(match, side, hole.number)) {
+          add(counting, c.id, c.weight);
+        }
+      }
+
+      // Split each bet's points by counting-ball share within its stretch.
+      for (const { key, inStretch } of NASSAU_STRETCHES) {
+        const segPoints = pick(st[key]);
+        if (segPoints <= 0) continue;
+        const share = new Map<string, number>();
+        let total = 0;
+        for (const hole of ctx.course.holes) {
+          if (!inStretch(hole.number)) continue;
+          for (const c of countingBallsOnHole(match, side, hole.number)) {
+            share.set(c.id, (share.get(c.id) ?? 0) + c.weight);
+            total += c.weight;
+          }
+        }
+        if (total === 0) continue;
+        for (const [id, s] of share) add(points, id, (segPoints * s) / total);
+      }
+    }
+  }
+
+  return [...holes.keys()]
+    .map((playerId) => ({
+      playerId,
+      teamId: teamOf.get(playerId) ?? "",
+      points: points.get(playerId) ?? 0,
+      holes: holes.get(playerId) ?? 0,
+      countingHoles: counting.get(playerId) ?? 0,
+    }))
+    .sort((a, b) => a.points - b.points || a.playerId.localeCompare(b.playerId));
+}
+
 export interface TeamStanding {
   teamId: string;
   points: number;

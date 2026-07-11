@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CourseDef, Match, Player } from "../types";
 import {
   allocateStrokes,
+  computeBestBallContributions,
   computeMatchState,
   computePlayerTotals,
   computeScramblePlacement,
@@ -484,5 +485,96 @@ describe("seed shape", () => {
     }
     const byRound = (r: string) => s.matches.filter((m) => m.roundId === r).length;
     expect([byRound("r1"), byRound("r2"), byRound("r3")]).toEqual([4, 4, 4]);
+  });
+});
+
+describe("computeBestBallContributions — gross point contribution", () => {
+  // Four-ball match on the neutral course. Two partners a side; we set gross
+  // scores hole-by-hole so the counting ball is unambiguous.
+  const four: Player[] = [
+    { id: "a1", name: "A1", handicap: 0, teamId: "tA" },
+    { id: "a2", name: "A2", handicap: 0, teamId: "tA" },
+    { id: "b1", name: "B1", handicap: 0, teamId: "tB" },
+    { id: "b2", name: "B2", handicap: 0, teamId: "tB" },
+  ];
+
+  function match4(scoreOf: (id: string, hole: number) => number): Match {
+    const scores: Match["scores"] = { a1: {}, a2: {}, b1: {}, b2: {} };
+    for (let h = 1; h <= 18; h++) {
+      for (const id of ["a1", "a2", "b1", "b2"]) scores[id][h] = scoreOf(id, h);
+    }
+    return {
+      id: "r1m1",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "tA", playerIds: ["a1", "a2"] },
+      sideB: { teamId: "tB", playerIds: ["b1", "b2"] },
+      scores,
+    };
+  }
+
+  it("gives one partner all three bets' points when they carry every hole", () => {
+    // a1 shoots the low ball on every hole; A sweeps 3 bets; B loses all.
+    const m = match4((id) => (id === "a1" ? 3 : id === "a2" ? 6 : 5));
+    const rows = computeBestBallContributions([m], four, { r1: ctx });
+    const by = Object.fromEntries(rows.map((r) => [r.playerId, r]));
+    expect(by.a1.points).toBeCloseTo(3);
+    expect(by.a2.points).toBeCloseTo(0);
+    expect(by.b1.points).toBeCloseTo(0);
+    expect(by.b2.points).toBeCloseTo(0);
+    // a1 was the counting ball on all 18 holes.
+    expect(by.a1.countingHoles).toBe(18);
+    // Least valuable first — a1 (the carrier) is NOT first.
+    expect(rows[rows.length - 1].playerId).toBe("a1");
+  });
+
+  it("splits a side's points 50/50 when partners tie every counting hole", () => {
+    // a1 and a2 tie each other (both low), A still sweeps; each gets half.
+    const m = match4((id) => (id.startsWith("a") ? 3 : 5));
+    const rows = computeBestBallContributions([m], four, { r1: ctx });
+    const by = Object.fromEntries(rows.map((r) => [r.playerId, r]));
+    expect(by.a1.points).toBeCloseTo(1.5);
+    expect(by.a2.points).toBeCloseTo(1.5);
+    expect(by.a1.countingHoles).toBeCloseTo(9); // half of 18 each
+  });
+
+  it("per-partner credit sums to the side's four-ball points", () => {
+    // Mixed: a1 carries the front, a2 the back; A still sweeps all 18.
+    const m = match4((id, h) => {
+      if (id === "a1") return h <= 9 ? 3 : 6;
+      if (id === "a2") return h <= 9 ? 6 : 3;
+      return 5; // B loses every hole
+    });
+    const rows = computeBestBallContributions([m], four, { r1: ctx });
+    const by = Object.fromEntries(rows.map((r) => [r.playerId, r]));
+    expect(by.a1.points + by.a2.points).toBeCloseTo(3); // A's three bets
+    // Front carrier + back carrier: each wins one 9 (1pt) and half the
+    // overall (0.5) -> 1.5 each.
+    expect(by.a1.points).toBeCloseTo(1.5);
+    expect(by.a2.points).toBeCloseTo(1.5);
+  });
+
+  it("ignores scramble matches and unstarted four-balls", () => {
+    const scramble: Match = {
+      id: "r2m1",
+      roundId: "r2",
+      format: "scramble",
+      sideA: { teamId: "tA", playerIds: ["a1", "a2"] },
+      sideB: { teamId: "tB", playerIds: [] },
+      scores: { [teamScoreKey("tA")]: { 1: 4 } },
+    };
+    const empty: Match = {
+      id: "r3m1",
+      roundId: "r3",
+      format: "fourball",
+      sideA: { teamId: "tA", playerIds: ["a1", "a2"] },
+      sideB: { teamId: "tB", playerIds: ["b1", "b2"] },
+      scores: { a1: {}, a2: {}, b1: {}, b2: {} },
+    };
+    const rows = computeBestBallContributions([scramble, empty], four, {
+      r2: ctx,
+      r3: ctx,
+    });
+    expect(rows).toEqual([]);
   });
 });
