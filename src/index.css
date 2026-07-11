@@ -75,7 +75,10 @@ a {
 .app {
   max-width: 560px;
   margin: 0 auto;
-  padding: 0 0 92px;
+  /* Reserve the fixed tab bar's height PLUS the home-indicator inset — the bar
+     itself grows by that inset, so a flat value tucks the last rows of a long
+     page (e.g. Settings › Data) under it on notched iPhones. */
+  padding: 0 0 calc(92px + env(safe-area-inset-bottom));
   min-height: 100vh;
 }
 .app.no-tabs {
