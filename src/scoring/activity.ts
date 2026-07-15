@@ -16,7 +16,6 @@
 import type { Match, Player, TournamentState } from "../types";
 import {
   computeMatchState,
-  computeStandings,
   courseHandicap,
   isScrambleFieldMatch,
   strokesOnHole,
@@ -24,6 +23,8 @@ import {
   type HoleResult,
   type ScoringContext,
 } from "./engine";
+import { computeStandings } from "./standings";
+import { isTeamBall } from "./formats";
 
 export type FeedKind =
   | "ace" // hole-in-one (gross 1 on a par 3)
@@ -130,7 +131,7 @@ function holeEvents(
     });
   };
 
-  if (match.format === "scramble") {
+  if (isTeamBall(match.format)) {
     // Raw team ball, no handicap — highlights are gross-to-par.
     for (const side of [match.sideA, match.sideB]) {
       if (side.playerIds.length === 0) continue; // one team per entry, sideB empty

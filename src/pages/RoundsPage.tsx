@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FORMAT_LABELS, FORMAT_RULE_SECTIONS, type Match, type Round, type Side } from "../types";
-import { computeMatchState, computeStandings, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
+import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
+import { computeStandings } from "../scoring/standings";
 import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";

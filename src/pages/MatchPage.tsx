@@ -14,6 +14,7 @@ import {
   teamScoreKey,
   type ScoringContext,
 } from "../scoring/engine";
+import { isTeamBall } from "../scoring/formats";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 import { ActivityTicker } from "../components/ActivityTicker";
@@ -33,7 +34,7 @@ function entitiesForSide(
   players: ReturnType<typeof usePlayerMap>,
   teamMap: Record<string, { name: string } | undefined>,
 ): ScoreEntity[] {
-  if (match.format === "scramble") {
+  if (isTeamBall(match.format)) {
     if (side.playerIds.length === 0) return [];
     const members = side.playerIds.map((id) => players[id]?.name ?? "?").join(" + ");
     return [
@@ -178,7 +179,7 @@ export default function MatchPage() {
   const teamB = teamMap[match.sideB.teamId];
 
   // Side games — per-group opt-ins + the current snake holder.
-  const isScramble = match.format === "scramble";
+  const isScramble = isTeamBall(match.format);
   const isFieldScramble = isScrambleFieldMatch(match);
   const sideGames = state.sideGames[match.id] ?? {};
   const groupPlayerIds = isFieldScramble
@@ -207,7 +208,7 @@ export default function MatchPage() {
 
   const strokesFor = (key: string) => {
     const total =
-      match.format === "scramble"
+      isTeamBall(match.format)
         ? alloc.byTeam[key] ?? 0
         : alloc.byPlayer[key] ?? 0;
     return strokesOnHole(total, holeInfo.strokeIndex);
@@ -282,7 +283,7 @@ export default function MatchPage() {
           </div>
         </div>
         <span className="net-tag">
-          {val != null && match.format !== "scramble" ? `net ${val - s}` : ""}
+          {val != null && !isTeamBall(match.format) ? `net ${val - s}` : ""}
         </span>
         {readOnly ? (
           <span className={`val-final ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
