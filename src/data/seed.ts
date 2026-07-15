@@ -121,7 +121,42 @@ const hayward: CourseDef = {
   ],
 };
 
-export const courses: CourseDef[] = [bigFish, hayward];
+// Southern Hills Golf Course (Farmington, MN) — par 71. Pars, yardages (Black
+// tees) and men's HCP ranks from the printed scorecard; tee ratings/slopes for
+// the men's tees (Black, Blue, Blue/White combo). White/Gold/Red omitted until
+// their men's ratings are confirmed.
+const southernHills: CourseDef = {
+  id: "southernhills",
+  name: "Southern Hills Golf Course",
+  holes: holes([
+    // [par, yards, HCP]
+    [5, 501, 3],
+    [3, 195, 5],
+    [4, 328, 13],
+    [3, 176, 9],
+    [4, 372, 7],
+    [4, 435, 1],
+    [4, 379, 15],
+    [3, 206, 11],
+    [5, 484, 17],
+    [4, 417, 14],
+    [3, 162, 18],
+    [5, 540, 6],
+    [4, 346, 4],
+    [4, 397, 12],
+    [3, 151, 16],
+    [4, 403, 8],
+    [4, 357, 2],
+    [5, 508, 10],
+  ]),
+  tees: [
+    { name: "Black", yardage: 6357, rating: 70.8, slope: 130 },
+    { name: "Blue", yardage: 6078, rating: 69.2, slope: 128 },
+    { name: "Blue/White", yardage: 5886, rating: 68.6, slope: 127 },
+  ],
+};
+
+export const courses: CourseDef[] = [bigFish, hayward, southernHills];
 
 export const rounds: Round[] = [
   { id: "r1", name: "Round 1", format: "fourball", status: "pending" },
