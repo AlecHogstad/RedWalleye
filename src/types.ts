@@ -195,6 +195,41 @@ export interface DraftState {
   rev?: number;
 }
 
+// --- House Rules (user-owned scoring config) --------------------------------
+
+/** A single configurable knob value for a format (or, later, a side game). */
+export type RuleValue = number | number[] | boolean;
+
+/** A flat map of a format's configurable knobs. */
+export type Rules = Record<string, RuleValue>;
+
+/** Describes one editable House Rule so the settings screen can render it
+ *  generically — no bespoke UI per format. */
+export interface RuleField {
+  key: string;
+  label: string;
+  help?: string;
+  kind: "number" | "list";
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Number of entries a `list` field holds (e.g. 4 placement slots). */
+  length?: number;
+  /** Short suffix shown by the control ("pts", "%"). */
+  unit?: string;
+}
+
+/**
+ * User-owned scoring configuration — the group's "House Rules". Only overrides
+ * are stored; anything absent falls back to each format's built-in defaults, so
+ * `undefined` means "play it exactly as the app ships". Locked once the
+ * tournament's first round starts.
+ */
+export interface HouseRules {
+  /** Per-format overrides, keyed by format id. */
+  formats: Record<string, Rules>;
+}
+
 export interface TournamentState {
   version: number;
   courses: CourseDef[];
@@ -208,4 +243,6 @@ export interface TournamentState {
   activity: ActivityEvent[];
   /** The team draft, once one has been set up. */
   draft?: DraftState;
+  /** User-owned scoring overrides. Absent = every format's defaults. */
+  houseRules?: HouseRules;
 }

@@ -11,8 +11,10 @@ import type {
   ActivityEvent,
   DraftState,
   Hole,
+  HouseRules,
   MatchSideGames,
   Player,
+  Rules,
   TournamentState,
 } from "../types";
 import { contextForRound, teamScoreKey, type ScoringContext } from "../scoring/engine";
@@ -107,6 +109,12 @@ interface StoreValue {
   undoLastPick: () => void;
   resetDraft: () => void;
   updateSideGames: (matchId: string, patch: Partial<MatchSideGames>) => void;
+  /** True while every round is still pending — House Rules lock at first tee-off. */
+  houseRulesEditable: boolean;
+  /** Merge a patch into one format's House Rules (pre-tournament only). */
+  setFormatRules: (formatId: string, patch: Rules) => void;
+  /** Clear every House Rule override back to the shipped defaults. */
+  resetHouseRules: () => void;
   addMulligan: (matchId: string, playerId: string, hole?: number) => string;
   removeMulligan: (matchId: string, playerId: string) => void;
   attachMulliganPhoto: (eventId: string, file: File) => Promise<void>;
@@ -608,6 +616,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const houseRulesEditable = state.rounds.every((r) => r.status === "pending");
+
+  const setFormatRules = useCallback(
+    (formatId: string, patch: Rules) => {
+      if (!houseRulesEditable) return;
+      const current: HouseRules = state.houseRules ?? { formats: {} };
+      const next: HouseRules = {
+        ...current,
+        formats: {
+          ...current.formats,
+          [formatId]: { ...(current.formats?.[formatId] ?? {}), ...patch },
+        },
+      };
+      if (syncEnabled) {
+        remoteWrite.houseRules(next);
+        return;
+      }
+      setLocalState((prev) => ({ ...prev, houseRules: next }));
+    },
+    [houseRulesEditable, state],
+  );
+
+  const resetHouseRules = useCallback(() => {
+    if (!houseRulesEditable) return;
+    const empty: HouseRules = { formats: {} };
+    if (syncEnabled) {
+      remoteWrite.houseRules(empty);
+      return;
+    }
+    setLocalState((prev) => ({ ...prev, houseRules: empty }));
+  }, [houseRulesEditable]);
+
   const addMulligan = useCallback((matchId: string, playerId: string, hole?: number): string => {
     const event: ActivityEvent = {
       id: genId("a"),
@@ -707,6 +747,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       undoLastPick,
       resetDraft,
       updateSideGames,
+      houseRulesEditable,
+      setFormatRules,
+      resetHouseRules,
       addMulligan,
       removeMulligan,
       attachMulliganPhoto,
@@ -733,6 +776,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       undoLastPick,
       resetDraft,
       updateSideGames,
+      houseRulesEditable,
+      setFormatRules,
+      resetHouseRules,
       addMulligan,
       removeMulligan,
       attachMulliganPhoto,

@@ -2,19 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { type Match, type Side, FORMAT_LABELS, FORMAT_RULE_SECTIONS } from "../types";
 import {
-  allocateStrokes,
-  computeMatchState,
   computeStableford,
   formatScrambleGroup,
   isScrambleFieldMatch,
   nassauSegmentValue,
   scrambleGroupNum,
-  scrambleGroupPlacementPoints,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
 } from "../scoring/engine";
-import { isTeamBall } from "../scoring/formats";
+import {
+  allocStrokesFor,
+  isTeamBall,
+  matchStateFor,
+  numRule,
+  placementPointsFor,
+  resolveFormatRules,
+} from "../scoring/formats";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 import { ActivityTicker } from "../components/ActivityTicker";
@@ -131,12 +135,12 @@ export default function MatchPage() {
   useWakeLock();
 
   const matchState = useMemo(
-    () => (match && ctx ? computeMatchState(match, state.players, ctx) : null),
-    [match, state.players, ctx],
+    () => (match && ctx ? matchStateFor(match, state.players, ctx, state.houseRules) : null),
+    [match, state.players, ctx, state.houseRules],
   );
   const alloc = useMemo(
-    () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
-    [match, state.players, ctx],
+    () => (match && ctx ? allocStrokesFor(match, state.players, ctx, state.houseRules) : null),
+    [match, state.players, ctx, state.houseRules],
   );
   const stablefordRows = useMemo(
     () => (match && ctx ? computeStableford(match, state.players, ctx) : []),
@@ -187,7 +191,7 @@ export default function MatchPage() {
     : Array.from(new Set([...match.sideA.playerIds, ...match.sideB.playerIds]));
   const roundMatches = state.matches.filter((m) => m.roundId === match.roundId);
   const placementPts = isFieldScramble
-    ? scrambleGroupPlacementPoints(match, roundMatches, ctx)
+    ? placementPointsFor(match, roundMatches, ctx, state.houseRules)
     : null;
   const roundNum = String(
     state.rounds.findIndex((r) => r.id === round.id) + 1,
@@ -339,7 +343,11 @@ export default function MatchPage() {
     };
   })();
 
-  const segValue = nassauSegmentValue(match.format);
+  const segValue = numRule(
+    resolveFormatRules(match.format, state.houseRules),
+    "segmentValue",
+    nassauSegmentValue(match.format),
+  );
 
   const lastHole = ctx.course.holes.length;
 

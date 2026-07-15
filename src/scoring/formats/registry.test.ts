@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { CourseDef, Match, Player } from "../../types";
 import { teamScoreKey, type ScoringContext } from "../engine";
-import { FORMAT_REGISTRY, getFormat, isTeamBall, seatsPerSide } from "./index";
+import {
+  FORMAT_REGISTRY,
+  getFormat,
+  isTeamBall,
+  resolveFormatRules,
+  seatsPerSide,
+} from "./index";
 
 const course: CourseDef = {
   id: "t",
@@ -10,6 +16,21 @@ const course: CourseDef = {
   tees: [{ name: "W", yardage: 6000, rating: 72, slope: 113 }],
 };
 const ctx: ScoringContext = { course, tee: course.tees[0] };
+
+// A scramble group with `strokes` on every hole (18 * strokes gross).
+function group(id: string, teamId: string, strokes: number, holes = 18): Match {
+  const key = teamScoreKey(teamId);
+  const scores: Match["scores"] = { [key]: {} };
+  for (let h = 1; h <= holes; h++) scores[key][h] = strokes;
+  return {
+    id,
+    roundId: "r2",
+    format: "scramble",
+    sideA: { teamId, playerIds: ["x", "y", "z", "w"] },
+    sideB: { teamId: teamId === "tA" ? "tB" : "tA", playerIds: [] },
+    scores,
+  };
+}
 
 describe("format registry", () => {
   it("registers every format under its own id, with sane metadata", () => {
@@ -48,26 +69,12 @@ describe("format registry", () => {
       sideB: { teamId: "tB", playerIds: ["b1", "b2"] },
       scores,
     };
-    const { states, teamPoints } = getFormat("fourball").scoreRound([m], players, ctx);
+    const fb = getFormat("fourball");
+    const { states, teamPoints } = fb.scoreRound([m], players, ctx, fb.defaultRules);
     expect(teamPoints.tA).toBeCloseTo(3);
     expect(teamPoints.tB ?? 0).toBeCloseTo(0);
     expect(states.r1m1.complete).toBe(true);
   });
-
-  // A scramble group with `strokes` on every hole (18 * strokes gross).
-  function group(id: string, teamId: string, strokes: number, holes = 18): Match {
-    const key = teamScoreKey(teamId);
-    const scores: Match["scores"] = { [key]: {} };
-    for (let h = 1; h <= holes; h++) scores[key][h] = strokes;
-    return {
-      id,
-      roundId: "r2",
-      format: "scramble",
-      sideA: { teamId, playerIds: ["x", "y", "z", "w"] },
-      sideB: { teamId: teamId === "tA" ? "tB" : "tA", playerIds: [] },
-      scores,
-    };
-  }
 
   it("scramble scoreRound places groups 6/4/2/0 (ties split) once all finish", () => {
     // Gross: tA 72 & 90, tB 72 & 108. Two tied at 72 share (6+4)/2 = 5; 90 = 2; 108 = 0.
@@ -77,7 +84,8 @@ describe("format registry", () => {
       group("r2m3", "tB", 4),
       group("r2m4", "tB", 6),
     ];
-    const { teamPoints } = getFormat("scramble").scoreRound(matches, [], ctx);
+    const sc = getFormat("scramble");
+    const { teamPoints } = sc.scoreRound(matches, [], ctx, sc.defaultRules);
     expect(teamPoints.tA).toBeCloseTo(7); // 5 + 2
     expect(teamPoints.tB).toBeCloseTo(5); // 5 + 0
   });
@@ -89,7 +97,87 @@ describe("format registry", () => {
       group("r2m3", "tB", 4),
       group("r2m4", "tB", 6, 17), // unfinished
     ];
-    const { teamPoints } = getFormat("scramble").scoreRound(matches, [], ctx);
+    const sc = getFormat("scramble");
+    const { teamPoints } = sc.scoreRound(matches, [], ctx, sc.defaultRules);
     expect(Object.keys(teamPoints)).toHaveLength(0);
+  });
+});
+
+describe("House Rules override scoring", () => {
+  it("resolveFormatRules layers overrides over the shipped defaults", () => {
+    expect(resolveFormatRules("fourball")).toEqual({
+      segmentValue: 1,
+      handicapAllowancePct: 100,
+    });
+    expect(
+      resolveFormatRules("fourball", { formats: { fourball: { segmentValue: 2 } } }),
+    ).toEqual({ segmentValue: 2, handicapAllowancePct: 100 });
+  });
+
+  it("four-ball segmentValue scales every bet's points", () => {
+    const players: Player[] = [
+      { id: "a1", name: "A1", handicap: 0, teamId: "tA" },
+      { id: "b1", name: "B1", handicap: 0, teamId: "tB" },
+    ];
+    const scores: Match["scores"] = { a1: {}, b1: {} };
+    for (let h = 1; h <= 18; h++) {
+      scores.a1[h] = 4; // A sweeps all three bets
+      scores.b1[h] = 5;
+    }
+    const m: Match = {
+      id: "r1m1",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "tA", playerIds: ["a1"] },
+      sideB: { teamId: "tB", playerIds: ["b1"] },
+      scores,
+    };
+    const { teamPoints } = getFormat("fourball").scoreRound([m], players, ctx, {
+      segmentValue: 2,
+      handicapAllowancePct: 100,
+    });
+    expect(teamPoints.tA).toBeCloseTo(6); // 3 bets × 2
+  });
+
+  it("four-ball handicap allowance scales the strokes given", () => {
+    const players: Player[] = [
+      { id: "low", name: "Low", handicap: 0, teamId: "tA" },
+      { id: "high", name: "High", handicap: 10, teamId: "tB" },
+    ];
+    const m: Match = {
+      id: "r1m1",
+      roundId: "r1",
+      format: "fourball",
+      sideA: { teamId: "tA", playerIds: ["low"] },
+      sideB: { teamId: "tB", playerIds: ["high"] },
+      scores: { low: {}, high: {} },
+    };
+    const full = getFormat("fourball").allocateStrokes(m, players, ctx, {
+      handicapAllowancePct: 100,
+    });
+    const half = getFormat("fourball").allocateStrokes(m, players, ctx, {
+      handicapAllowancePct: 50,
+    });
+    expect(full.byPlayer.high).toBe(10);
+    expect(half.byPlayer.high).toBe(5); // round(10 × 50%)
+  });
+
+  it("scramble placementPoints override the podium payout", () => {
+    // Distinct grosses (72, 76, 80, 90) so the four places are unambiguous.
+    const matches = [
+      group("r2m1", "tA", 4), // 72 → 1st
+      group("r2m2", "tB", 5), // 90 → 4th (bump below)
+      group("r2m3", "tA", 4), // tweak to 80 → 3rd
+      group("r2m4", "tB", 4), // tweak to 76 → 2nd
+    ];
+    const key = (m: Match) => Object.keys(m.scores)[0];
+    matches[2].scores[key(matches[2])][1] = 12; // +8 → 80
+    matches[3].scores[key(matches[3])][1] = 8; // +4 → 76
+    const { teamPoints } = getFormat("scramble").scoreRound(matches, [], ctx, {
+      placementPoints: [12, 6, 2, 0],
+    });
+    // Places: m1(72)=12 → tA, m4(76)=6 → tB, m3(80)=2 → tA, m2(90)=0 → tB.
+    expect(teamPoints.tA).toBeCloseTo(14); // 12 + 2
+    expect(teamPoints.tB).toBeCloseTo(6); // 6 + 0
   });
 });

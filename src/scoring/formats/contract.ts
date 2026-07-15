@@ -18,8 +18,20 @@
 // sections; today those are fixed to reproduce current behaviour exactly.
 // ---------------------------------------------------------------------------
 
-import type { Match, Player, RuleSection } from "../../types";
+import type { Match, Player, RuleField, RuleSection, Rules } from "../../types";
 import type { MatchState, ScoringContext, StrokeAllocation } from "../engine";
+
+/** Read a number knob from resolved rules (defaults already merged in). */
+export function numRule(rules: Rules, key: string, fallback: number): number {
+  const v = rules[key];
+  return typeof v === "number" ? v : fallback;
+}
+
+/** Read a number-list knob from resolved rules. */
+export function listRule(rules: Rules, key: string, fallback: number[]): number[] {
+  const v = rules[key];
+  return Array.isArray(v) ? v : fallback;
+}
 
 /** The result of scoring one round's worth of matches for a format. */
 export interface RoundScore {
@@ -49,10 +61,19 @@ export interface FormatPlugin {
    *  enters one score under `team:<teamId>`. */
   entry: "per-player" | "team-ball";
 
-  // --- Scoring behaviour ----------------------------------------------------
-  /** Match strokes per scoring entity (delegates to the engine today). */
-  allocateStrokes(match: Match, players: Player[], ctx: ScoringContext): StrokeAllocation;
+  // --- House Rules ----------------------------------------------------------
+  /** The format's shipped scoring knobs. Merged under any user overrides so a
+   *  fresh install reproduces the app's default behaviour exactly. */
+  defaultRules: Rules;
+  /** Describes each editable knob so the House Rules screen renders generically. */
+  rulesSchema: RuleField[];
+
+  // --- Scoring behaviour (all take resolved rules) --------------------------
+  /** Match strokes per scoring entity. */
+  allocateStrokes(match: Match, players: Player[], ctx: ScoringContext, rules: Rules): StrokeAllocation;
+  /** Display state for one match under the given rules. */
+  matchState(match: Match, players: Player[], ctx: ScoringContext, rules: Rules): MatchState;
   /** Score one round's matches (all share this format) into per-match states
    *  plus team points. */
-  scoreRound(matches: Match[], players: Player[], ctx: ScoringContext): RoundScore;
+  scoreRound(matches: Match[], players: Player[], ctx: ScoringContext, rules: Rules): RoundScore;
 }

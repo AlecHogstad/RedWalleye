@@ -9,7 +9,7 @@ import type {
 } from "../types";
 
 // Bump this when the seed shape changes so the store can migrate/reset.
-export const STATE_VERSION = 14;
+export const STATE_VERSION = 15;
 
 // Two captain-drafted teams of 8, playing head-to-head every round.
 export const teams: Team[] = [

@@ -9,9 +9,9 @@
 // the computeStandings tests), but now works for any registered format.
 // ---------------------------------------------------------------------------
 
-import type { Match, Player } from "../types";
+import type { HouseRules, Match, Player } from "../types";
 import type { ScoringContext } from "./engine";
-import { getFormat } from "./formats";
+import { getFormat, resolveFormatRules } from "./formats";
 
 export interface TeamStanding {
   teamId: string;
@@ -24,6 +24,7 @@ export function computeStandings(
   matches: Match[],
   players: Player[],
   ctxByRound: Record<string, ScoringContext>,
+  houseRules?: HouseRules,
 ): TeamStanding[] {
   const table = new Map<string, TeamStanding>();
   const ensure = (teamId: string) => {
@@ -45,10 +46,12 @@ export function computeStandings(
     const ctx = ctxByRound[roundId];
     if (!ctx) continue;
 
-    const { states, teamPoints } = getFormat(roundMatches[0].format).scoreRound(
+    const format = roundMatches[0].format;
+    const { states, teamPoints } = getFormat(format).scoreRound(
       roundMatches,
       players,
       ctx,
+      resolveFormatRules(format, houseRules),
     );
 
     // Played / complete: credit each team that fields a side in a match.

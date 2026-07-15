@@ -11,6 +11,7 @@ import SettingsTeamsPage from "./pages/SettingsTeamsPage";
 import SettingsPlayersPage from "./pages/SettingsPlayersPage";
 import SettingsCoursesPage from "./pages/SettingsCoursesPage";
 import SettingsDataPage from "./pages/SettingsDataPage";
+import SettingsHouseRulesPage from "./pages/SettingsHouseRulesPage";
 import SettingsResetPage from "./pages/SettingsResetPage";
 import TickerPage from "./pages/TickerPage";
 import PlayerPage from "./pages/PlayerPage";
@@ -152,6 +153,7 @@ export default function App() {
           <Route path="/settings/players" element={<SettingsPlayersPage />} />
           <Route path="/settings/courses" element={<SettingsCoursesPage />} />
           <Route path="/settings/data" element={<SettingsDataPage />} />
+          <Route path="/settings/house-rules" element={<SettingsHouseRulesPage />} />
           <Route path="/settings/reset" element={<SettingsResetPage />} />
           <Route path="/ticker" element={<TickerPage />} />
           <Route path="/player/:playerId" element={<PlayerPage />} />

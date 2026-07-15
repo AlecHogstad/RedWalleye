@@ -152,6 +152,9 @@ export function allocateStrokes(
   match: Match,
   players: Player[],
   ctx: ScoringContext,
+  /** Percent of the course-handicap difference actually given as strokes
+   *  (House Rule; 100 = full difference, the app default). */
+  allowancePct = 100,
 ): StrokeAllocation {
   const byPlayer: Record<string, number> = {};
   const byTeam: Record<string, number> = {};
@@ -171,7 +174,8 @@ export function allocateStrokes(
     ? Math.min(...inMatch.map((p) => courseHandicap(p.handicap, ctx)))
     : 0;
   inMatch.forEach((p) => {
-    byPlayer[p.id] = Math.max(0, courseHandicap(p.handicap, ctx) - low);
+    const diff = courseHandicap(p.handicap, ctx) - low;
+    byPlayer[p.id] = Math.max(0, Math.round((diff * allowancePct) / 100));
   });
   return { byPlayer, byTeam };
 }
@@ -330,6 +334,8 @@ export function computeScrambleGroupTotal(
 export function computeScramblePlacement(
   roundMatches: Match[],
   ctx: ScoringContext,
+  /** Points for 1st / 2nd / 3rd / 4th by gross (House Rule; defaults 6/4/2/0). */
+  placePoints: readonly number[] = SCRAMBLE_PLACE_POINTS,
 ): Map<string, number> {
   const groups = roundMatches
     .filter(isScrambleFieldMatch)
@@ -348,7 +354,7 @@ export function computeScramblePlacement(
     while (j < sorted.length && sorted[j].gross === gross) j += 1;
     const tied = j - i;
     let pot = 0;
-    for (let k = 0; k < tied; k++) pot += SCRAMBLE_PLACE_POINTS[rank + k] ?? 0;
+    for (let k = 0; k < tied; k++) pot += placePoints[rank + k] ?? 0;
     const each = tied > 0 ? pot / tied : 0;
     for (let k = i; k < j; k++) out.set(sorted[k].matchId, each);
     rank += tied;
@@ -362,9 +368,10 @@ export function scrambleGroupPlacementPoints(
   match: Match,
   roundMatches: Match[],
   ctx: ScoringContext,
+  placePoints: readonly number[] = SCRAMBLE_PLACE_POINTS,
 ): number | null {
   if (!isScrambleFieldMatch(match)) return null;
-  const placement = computeScramblePlacement(roundMatches, ctx);
+  const placement = computeScramblePlacement(roundMatches, ctx, placePoints);
   if (!roundMatches.filter(isScrambleFieldMatch).every(
     (m) => computeScrambleGroupTotal(m, ctx).complete,
   )) {
@@ -391,10 +398,18 @@ function emptySegment(thru: number, total: number, text: string): SegmentResult 
  * Compute the full head-to-head Nassau state for a match: per-hole winners
  * plus the three bets (front, back, overall) and the total points.
  */
+/** House-Rule knobs for a head-to-head match: points per Nassau bet and the
+ *  handicap-allowance percent. Both default to the app's shipped values. */
+export interface MatchScoreOpts {
+  segValue?: number;
+  allowancePct?: number;
+}
+
 export function computeMatchState(
   match: Match,
   players: Player[],
   ctx: ScoringContext,
+  opts?: MatchScoreOpts,
 ): MatchState {
   if (isScrambleFieldMatch(match)) {
     const g = computeScrambleGroupTotal(match, ctx);
@@ -421,8 +436,8 @@ export function computeMatchState(
     };
   }
 
-  const alloc = allocateStrokes(match, players, ctx);
-  const segValue = nassauSegmentValue(match.format);
+  const alloc = allocateStrokes(match, players, ctx, opts?.allowancePct ?? 100);
+  const segValue = opts?.segValue ?? nassauSegmentValue(match.format);
 
   const perHole: HoleResult[] = ctx.course.holes.map((hole) => {
     const netA = sideNetForHole(match, match.sideA, hole.number, hole.strokeIndex, alloc);

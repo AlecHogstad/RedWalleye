@@ -173,6 +173,15 @@ describe("applyRemote", () => {
     expect(state.draft?.picks).toEqual(["nick"]);
   });
 
+  it("applies the House Rules singleton", () => {
+    const remote: RemoteData = {
+      houseRules: { formats: { fourball: { segmentValue: 2 }, scramble: { placementPoints: [8, 4, 0, 0] } } },
+    };
+    const state = applyRemote(seedState(), remote);
+    expect(state.houseRules?.formats.fourball.segmentValue).toBe(2);
+    expect(state.houseRules?.formats.scramble.placementPoints).toEqual([8, 4, 0, 0]);
+  });
+
   it("ignores unknown ids and null leaves without crashing", () => {
     const remote = {
       scores: { ghost: { nobody: { h1: 4 } }, r1m1: { hunter: { h3: null } } },
@@ -206,6 +215,7 @@ describe("kvToRemote", () => {
       [`${V}|sidegames|r1m1`, { stableford: true, snakeHolder: "nick" }],
       [`${V}|activity|a1`, { id: "a1", type: "mulligan", matchId: "r2m1", playerId: "nick", ts: 5 }],
       [`${V}|draft|state`, { status: "done", captainA: "hunter", captainB: "mike", firstPick: "tA", picks: [] }],
+      [`${V}|houserules|state`, { formats: { fourball: { segmentValue: 2 } } }],
     ]);
     const remote = kvToRemote(kv);
     expect(remote.scores?.r1m1?.hunter?.h3).toBe(5);
@@ -221,6 +231,7 @@ describe("kvToRemote", () => {
     expect(remote.activity?.a1?.type).toBe("mulligan");
     expect(remote.draft?.status).toBe("done");
     expect(remote.draft?.captainA).toBe("hunter");
+    expect(remote.houseRules?.formats.fourball.segmentValue).toBe(2);
   });
 
   it("ignores rows from other seed versions and null values", () => {

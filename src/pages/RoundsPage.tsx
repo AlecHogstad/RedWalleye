@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FORMAT_LABELS, FORMAT_RULE_SECTIONS, type Match, type Round, type Side } from "../types";
-import { computeMatchState, isScrambleFieldMatch, scrambleGroupPlacementPoints, type ScoringContext } from "../scoring/engine";
+import { FORMAT_LABELS, FORMAT_RULE_SECTIONS, type HouseRules, type Match, type Player, type Round, type Side } from "../types";
+import { isScrambleFieldMatch, type ScoringContext } from "../scoring/engine";
 import { computeStandings } from "../scoring/standings";
+import { matchStateFor, placementPointsFor } from "../scoring/formats";
 import { useConfirm } from "../components/ConfirmDialog";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { ROUND_DEFAULTS } from "../data/seed";
@@ -65,7 +66,7 @@ export default function RoundsPage() {
   const confirmFinish = async (round: Round) => {
     const matches = state.matches.filter((m) => m.roundId === round.id);
     const incomplete = matches.filter(
-      (m) => !computeMatchState(m, state.players, contexts[round.id]).complete,
+      (m) => !matchStateFor(m, state.players, contexts[round.id], state.houseRules).complete,
     ).length;
     const ok = await confirm({
       title: `Finish ${round.name}?`,
@@ -89,7 +90,7 @@ export default function RoundsPage() {
         // this round's matches.
         let stamp: { teamName: string; color: string; scoreText: string } | null = null;
         if (round.status === "final") {
-          const table = computeStandings(matches, state.players, { [round.id]: ctx });
+          const table = computeStandings(matches, state.players, { [round.id]: ctx }, state.houseRules);
           const a = table.find((t) => t.teamId === "tA")?.points ?? 0;
           const b = table.find((t) => t.teamId === "tB")?.points ?? 0;
           const winner = a > b ? teamMap.tA : b > a ? teamMap.tB : null;
@@ -164,6 +165,7 @@ export default function RoundsPage() {
                     playerList={state.players}
                     teamMap={teamMap}
                     ctx={ctx}
+                    houseRules={state.houseRules}
                     clickable={round.status !== "pending"}
                   />
                 ))}
@@ -263,25 +265,27 @@ function MatchRow({
   playerList,
   teamMap,
   ctx,
+  houseRules,
   clickable,
 }: {
   match: Match;
   roundMatches: Match[];
   players: ReturnType<typeof usePlayerMap>;
-  playerList: Parameters<typeof computeMatchState>[1];
+  playerList: Player[];
   teamMap: Record<string, { name: string; color: string }>;
   ctx: ScoringContext;
+  houseRules: HouseRules | undefined;
   clickable: boolean;
 }) {
   const st = useMemo(
-    () => computeMatchState(match, playerList, ctx),
-    [match, playerList, ctx],
+    () => matchStateFor(match, playerList, ctx, houseRules),
+    [match, playerList, ctx, houseRules],
   );
 
   const field = isScrambleFieldMatch(match);
   const colorA = teamMap[match.sideA.teamId]?.color;
   const colorB = teamMap[match.sideB.teamId]?.color;
-  const placementPts = field ? scrambleGroupPlacementPoints(match, roundMatches, ctx) : null;
+  const placementPts = field ? placementPointsFor(match, roundMatches, ctx, houseRules) : null;
   const leadColor =
     st.leader === "A" ? colorA : st.leader === "B" ? colorB : undefined;
 

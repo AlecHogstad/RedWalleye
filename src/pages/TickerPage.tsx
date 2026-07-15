@@ -4,8 +4,6 @@ import { useRoundContexts, useStore } from "../store/store";
 import { buildFeed, type FeedItem } from "../scoring/activity";
 import { feedHeadline, feedSubline, fmtFeedPoints, type FeedCopyContext } from "../scoring/feedCopy";
 import {
-  allocateStrokes,
-  computeMatchState,
   computeScrambleGroupTotal,
   computeScramblePlacement,
   formatScrambleGroup,
@@ -15,6 +13,12 @@ import {
   strokesOnHole,
   teamScoreKey,
 } from "../scoring/engine";
+import {
+  allocStrokesFor,
+  listRule,
+  matchStateFor,
+  resolveFormatRules,
+} from "../scoring/formats";
 import { FeedIcon } from "../components/Icons";
 import { resolveMediaUrl } from "../sync/media";
 import type { ActivityEvent, Hole, Side } from "../types";
@@ -186,7 +190,7 @@ export default function TickerPage() {
     const scramble = roundMatches.some(isScrambleFieldMatch);
     const matches = roundMatches.map((m) => ({
       m,
-      st: computeMatchState(m, state.players, ctx),
+      st: matchStateFor(m, state.players, ctx, state.houseRules),
       group: scramble ? computeScrambleGroupTotal(m, ctx) : null,
     }));
 
@@ -195,7 +199,11 @@ export default function TickerPage() {
     if (scramble) {
       // Placement points accrue to each foursome's team (resolves once all four
       // groups finish; 0–0 while the round is still in progress).
-      const placement = computeScramblePlacement(roundMatches, ctx);
+      const placement = computeScramblePlacement(
+        roundMatches,
+        ctx,
+        listRule(resolveFormatRules("scramble", state.houseRules), "placementPoints", [6, 4, 2, 0]),
+      );
       for (const m of roundMatches) {
         const pts = placement.get(m.id) ?? 0;
         if (m.sideA.teamId === "tA") a += pts;
@@ -412,7 +420,7 @@ export default function TickerPage() {
               // every golfer's ball shows on its own row). Strokes come off the
               // same match-relative allocation the team rows use.
               const roundCtx = contexts[m.roundId];
-              const alloc = allocateStrokes(m, state.players, roundCtx);
+              const alloc = allocStrokesFor(m, state.players, roundCtx, state.houseRules);
               const playerNet = (pid: string): Record<number, number | null> => {
                 const strokes = alloc.byPlayer[pid] ?? 0;
                 const out: Record<number, number | null> = {};
