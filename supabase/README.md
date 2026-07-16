@@ -46,6 +46,7 @@ anonymously (→ `authenticated`) and reach an event only through the O-92 RPCs.
 |---|---|
 | `…_event_tenant_core.sql` | `events`, `teams`, `event_players` + RLS (O-90) |
 | `…_rounds_scores_games.sql` | `courses`, `tees` (global library), `rounds` (nullable `event_id` = solo), `round_players`, `scores`, `games` + RLS (O-90) |
+| `…_join_claim_rpcs.sql` | `get_event_by_code` / `claim_slot` / `add_self` — no-account join by link (O-92) |
 
 ## RLS shape
 
