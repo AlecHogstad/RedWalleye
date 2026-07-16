@@ -1,0 +1,38 @@
+# Supabase project config.
+#
+# The canonical generator is `supabase init` — if your CLI version rejects a key
+# below, run `supabase init` in a scratch dir and merge these three settings in
+# (project_id, db.major_version, and the auth flags). This file is enough for
+# `supabase start` (local dev) and to link + push migrations.
+
+project_id = "redwalleye"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+# Players join with NO account — required for the O-92 claim flow
+# (signInAnonymously). On a linked remote project this flag is applied by
+# `supabase config push`, or toggle it in Dashboard → Auth → Providers →
+# Anonymous.
+enable_anonymous_sign_ins = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
