@@ -113,6 +113,8 @@ interface StoreValue {
   houseRulesEditable: boolean;
   /** Merge a patch into one format's House Rules (pre-tournament only). */
   setFormatRules: (formatId: string, patch: Rules) => void;
+  /** Merge a patch into one side game's House Rules (pre-tournament only). */
+  setSideGameRules: (sideGameId: string, patch: Rules) => void;
   /** Clear every House Rule override back to the shipped defaults. */
   resetHouseRules: () => void;
   addMulligan: (matchId: string, playerId: string, hole?: number) => string;
@@ -638,9 +640,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [houseRulesEditable, state],
   );
 
+  const setSideGameRules = useCallback(
+    (sideGameId: string, patch: Rules) => {
+      if (!houseRulesEditable) return;
+      const current: HouseRules = state.houseRules ?? { formats: {} };
+      const next: HouseRules = {
+        ...current,
+        sideGames: {
+          ...(current.sideGames ?? {}),
+          [sideGameId]: { ...(current.sideGames?.[sideGameId] ?? {}), ...patch },
+        },
+      };
+      if (syncEnabled) {
+        remoteWrite.houseRules(next);
+        return;
+      }
+      setLocalState((prev) => ({ ...prev, houseRules: next }));
+    },
+    [houseRulesEditable, state],
+  );
+
   const resetHouseRules = useCallback(() => {
     if (!houseRulesEditable) return;
-    const empty: HouseRules = { formats: {} };
+    const empty: HouseRules = { formats: {}, sideGames: {} };
     if (syncEnabled) {
       remoteWrite.houseRules(empty);
       return;
@@ -749,6 +771,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSideGames,
       houseRulesEditable,
       setFormatRules,
+      setSideGameRules,
       resetHouseRules,
       addMulligan,
       removeMulligan,
@@ -778,6 +801,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSideGames,
       houseRulesEditable,
       setFormatRules,
+      setSideGameRules,
       resetHouseRules,
       addMulligan,
       removeMulligan,

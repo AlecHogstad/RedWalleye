@@ -228,6 +228,8 @@ export interface RuleField {
 export interface HouseRules {
   /** Per-format overrides, keyed by format id. */
   formats: Record<string, Rules>;
+  /** Per-side-game overrides, keyed by side-game id. */
+  sideGames?: Record<string, Rules>;
 }
 
 export interface TournamentState {

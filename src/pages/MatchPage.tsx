@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { type Match, type Side, FORMAT_LABELS, FORMAT_RULE_SECTIONS } from "../types";
 import {
-  computeStableford,
   formatScrambleGroup,
   isScrambleFieldMatch,
   nassauSegmentValue,
@@ -19,6 +18,7 @@ import {
   placementPointsFor,
   resolveFormatRules,
 } from "../scoring/formats";
+import { resolveSideGameRules, stablefordRowsFor } from "../scoring/sidegames";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 import { ActivityTicker } from "../components/ActivityTicker";
@@ -143,8 +143,8 @@ export default function MatchPage() {
     [match, state.players, ctx, state.houseRules],
   );
   const stablefordRows = useMemo(
-    () => (match && ctx ? computeStableford(match, state.players, ctx) : []),
-    [match, state.players, ctx],
+    () => (match && ctx ? stablefordRowsFor(match, state.players, ctx, state.houseRules) : []),
+    [match, state.players, ctx, state.houseRules],
   );
 
   if (!match || !round || !ctx || !alloc || !matchState) {
@@ -186,6 +186,9 @@ export default function MatchPage() {
   const isScramble = isTeamBall(match.format);
   const isFieldScramble = isScrambleFieldMatch(match);
   const sideGames = state.sideGames[match.id] ?? {};
+  const snakePot =
+    (sideGames.snakeChanges ?? 0) *
+    numRule(resolveSideGameRules("snake", state.houseRules), "potPerChange", 1);
   const groupPlayerIds = isFieldScramble
     ? match.sideA.playerIds
     : Array.from(new Set([...match.sideA.playerIds, ...match.sideB.playerIds]));
@@ -668,7 +671,7 @@ export default function MatchPage() {
               <div className="sg-row">
                 <span className="sg-name">Three-putts (pot)</span>
                 <span className="sg-thru">tap to pass the snake</span>
-                <span className="sg-pts">{sideGames.snakeChanges ?? 0}</span>
+                <span className="sg-pts">{snakePot}</span>
               </div>
               <div className="field">
                 <label>Who has it?</label>

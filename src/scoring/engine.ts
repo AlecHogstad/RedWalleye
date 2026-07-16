@@ -531,18 +531,25 @@ export function computePlayerTotals(
 
 // --- Stableford (opt-in side game) ------------------------------------------
 
+/** Default Stableford table, by net-to-par tier:
+ *  [albatross+ (≤ −3), eagle (−2), birdie (−1), par (0), bogey (+1), double+ (≥ +2)]. */
+export const STABLEFORD_DEFAULT = [5, 4, 3, 2, 1, 0] as const;
+
 /**
- * Standard net Stableford points for a hole, from net-minus-par:
- * albatross+ (≤ -3) = 5, eagle (-2) = 4, birdie (-1) = 3, par (0) = 2,
- * bogey (+1) = 1, double bogey or worse = 0.
+ * Net Stableford points for a hole, from net-minus-par. The point table is a
+ * House Rule (6 tiers, hardest-under-par first); it defaults to the standard
+ * 5/4/3/2/1/0.
  */
-export function stablefordPoints(netToPar: number): number {
-  if (netToPar <= -3) return 5;
-  if (netToPar === -2) return 4;
-  if (netToPar === -1) return 3;
-  if (netToPar === 0) return 2;
-  if (netToPar === 1) return 1;
-  return 0;
+export function stablefordPoints(
+  netToPar: number,
+  table: readonly number[] = STABLEFORD_DEFAULT,
+): number {
+  if (netToPar <= -3) return table[0] ?? 0;
+  if (netToPar === -2) return table[1] ?? 0;
+  if (netToPar === -1) return table[2] ?? 0;
+  if (netToPar === 0) return table[3] ?? 0;
+  if (netToPar === 1) return table[4] ?? 0;
+  return table[5] ?? 0;
 }
 
 export interface StablefordRow {
@@ -560,6 +567,7 @@ export function computeStableford(
   match: Match,
   players: Player[],
   ctx: ScoringContext,
+  table: readonly number[] = STABLEFORD_DEFAULT,
 ): StablefordRow[] {
   if (match.format === "scramble") return [];
 
@@ -576,7 +584,7 @@ export function computeStableford(
       if (g == null) continue;
       thru += 1;
       const net = g - strokesOnHole(hcp, h.strokeIndex);
-      points += stablefordPoints(net - h.par);
+      points += stablefordPoints(net - h.par, table);
     }
     rows.push({ playerId: id, points, thru });
   }
