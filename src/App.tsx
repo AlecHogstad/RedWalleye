@@ -21,6 +21,8 @@ import { TrophyIcon, FlagIcon, GearIcon, TickerIcon } from "./components/Icons";
 import { ConfirmProvider } from "./components/ConfirmDialog";
 import { useStore } from "./store/store";
 import { watchForUpdate } from "./sync/versionCheck";
+import { AuthProvider } from "./product/AuthProvider";
+import LoginPage from "./product/LoginPage";
 
 /** Surfaces true once a newer build has been deployed so a stale device can
  *  refresh onto it — the whole group stays on one build. No-ops in dev. */
@@ -79,6 +81,16 @@ export default function App() {
     !pathname.startsWith("/ticker");
   const onTicker = pathname.startsWith("/ticker");
   const back = !showTabs ? interiorBack(pathname) : null;
+
+  // Product surface (organizer accounts) renders outside the v1 golf-club
+  // shell. Kept after all hooks above so hook order is stable across routes.
+  if (pathname.startsWith("/login")) {
+    return (
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>
+    );
+  }
 
   return (
     <ConfirmProvider>
