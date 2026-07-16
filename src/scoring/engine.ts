@@ -64,6 +64,8 @@ export function teamScoreKey(teamId: string): string {
 const NASSAU_SEGMENT_VALUE: Record<Format, number> = {
   fourball: 1, // Rounds 1 & 3: 4 matches × 3 = 12
   scramble: 2, // legacy head-to-head scramble only; field scramble uses placement
+  fourmanbest: 1, // head-to-head Nassau, same as four-ball
+  singles: 1, // head-to-head Nassau, same as four-ball
 };
 
 /** Placement points for the four scramble groups (1st–4th by gross). */

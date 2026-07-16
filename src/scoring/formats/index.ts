@@ -17,11 +17,15 @@ import {
 } from "../engine";
 import { listRule, type FormatPlugin } from "./contract";
 import { fourball } from "./fourball";
+import { fourmanbest } from "./fourmanbest";
 import { scramble } from "./scramble";
+import { singles } from "./singles";
 
 export const FORMAT_REGISTRY: Record<Format, FormatPlugin> = {
   fourball,
   scramble,
+  fourmanbest,
+  singles,
 };
 
 /** The plugin for a format id. */

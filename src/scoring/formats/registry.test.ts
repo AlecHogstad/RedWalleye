@@ -103,6 +103,71 @@ describe("format registry", () => {
   });
 });
 
+describe("new Nassau formats", () => {
+  it("expose the right seats and entry", () => {
+    expect(seatsPerSide("fourmanbest")).toBe(4);
+    expect(seatsPerSide("singles")).toBe(1);
+    expect(getFormat("singles").entry).toBe("per-player");
+    expect(getFormat("fourmanbest").scope).toBe("match");
+  });
+
+  it("singles scores a Nassau like best ball", () => {
+    const players: Player[] = [
+      { id: "a", name: "A", handicap: 0, teamId: "tA" },
+      { id: "b", name: "B", handicap: 0, teamId: "tB" },
+    ];
+    const scores: Match["scores"] = { a: {}, b: {} };
+    for (let h = 1; h <= 18; h++) {
+      scores.a[h] = 4;
+      scores.b[h] = 5;
+    }
+    const m: Match = {
+      id: "r3m1",
+      roundId: "r3",
+      format: "singles",
+      sideA: { teamId: "tA", playerIds: ["a"] },
+      sideB: { teamId: "tB", playerIds: ["b"] },
+      scores,
+    };
+    const sg = getFormat("singles");
+    expect(sg.scoreRound([m], players, ctx, sg.defaultRules).teamPoints.tA).toBeCloseTo(3);
+  });
+
+  it("4-man best ball counts the single best net of all four", () => {
+    const ids = ["a1", "a2", "a3", "a4", "b1", "b2", "b3", "b4"];
+    const players: Player[] = ids.map((id) => ({
+      id,
+      name: id,
+      handicap: 0,
+      teamId: id.startsWith("a") ? "tA" : "tB",
+    }));
+    const scores: Match["scores"] = {};
+    for (const id of ids) scores[id] = {};
+    for (let h = 1; h <= 18; h++) {
+      // Only a4 is any good for A (4); a1-a3 blow up (7). B all shoot 5.
+      scores.a1[h] = 7;
+      scores.a2[h] = 7;
+      scores.a3[h] = 7;
+      scores.a4[h] = 4;
+      scores.b1[h] = 5;
+      scores.b2[h] = 5;
+      scores.b3[h] = 5;
+      scores.b4[h] = 5;
+    }
+    const m: Match = {
+      id: "r1m1",
+      roundId: "r1",
+      format: "fourmanbest",
+      sideA: { teamId: "tA", playerIds: ["a1", "a2", "a3", "a4"] },
+      sideB: { teamId: "tB", playerIds: ["b1", "b2", "b3", "b4"] },
+      scores,
+    };
+    const sg = getFormat("fourmanbest");
+    // a4's 4 beats B's 5 every hole → A sweeps all three bets.
+    expect(sg.scoreRound([m], players, ctx, sg.defaultRules).teamPoints.tA).toBeCloseTo(3);
+  });
+});
+
 describe("House Rules override scoring", () => {
   it("resolveFormatRules layers overrides over the shipped defaults", () => {
     expect(resolveFormatRules("fourball")).toEqual({
