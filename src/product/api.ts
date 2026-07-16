@@ -35,9 +35,26 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
   const client = getProductClient();
   if (!client) throw new Error("Supabase project not configured.");
 
-  const { data: auth } = await client.auth.getUser();
-  const uid = auth.user?.id;
-  if (!uid) throw new Error("You must be signed in to create an event.");
+  // Use the SESSION (not just getUser) so we can see the exact token that will
+  // be sent on the write — auth.uid() at the DB is read from this token's `sub`.
+  const { data: sess } = await client.auth.getSession();
+  const session = sess.session;
+  const uid = session?.user?.id;
+  const claims = decodeJwt(session?.access_token);
+  // eslint-disable-next-line no-console
+  console.log("[createEvent] auth debug", {
+    hasSession: Boolean(session),
+    hasToken: Boolean(session?.access_token),
+    uid,
+    tokenRole: claims?.role,
+    tokenSub: claims?.sub,
+    subMatchesUid: claims?.sub === uid,
+  });
+  if (!session || !uid) {
+    throw new Error(
+      "You're not signed in to the database (no active session). Sign out and sign back in, then try again.",
+    );
+  }
 
   const name = input.name.trim();
   if (!name) throw new Error("Event name is required.");
@@ -61,9 +78,35 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
     // 23505 = unique_violation. Only the join_code is unique here, so retry
     // with a fresh code. Anything else is a real failure — surface it.
     if (error && error.code === "23505" && attempt < MAX_ATTEMPTS - 1) continue;
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Surface the auth facts alongside an RLS rejection so we can see whether
+      // the DB got an authenticated token at all (temporary diagnostic).
+      const isRls = error.code === "42501" || /row-level security/i.test(error.message);
+      if (isRls) {
+        throw new Error(
+          `${error.message} — debug: role=${claims?.role ?? "?"} sub=${
+            claims?.sub ? String(claims.sub).slice(0, 8) : "none"
+          } uid=${uid.slice(0, 8)} match=${claims?.sub === uid}`,
+        );
+      }
+      throw new Error(error.message);
+    }
   }
   throw new Error("Could not generate a unique join code. Please try again.");
+}
+
+/** Decode a JWT payload (no verification — display only). Returns null on any
+ *  malformed input. Temporary aid for the RLS/auth diagnostic above. */
+function decodeJwt(token?: string): { role?: string; sub?: string; exp?: number } | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const json = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
 }
 
 /** A single event by id. RLS returns it only to its organizer or a bound
