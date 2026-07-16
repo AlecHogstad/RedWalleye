@@ -32,6 +32,7 @@ import { getSupabaseClient } from "./client";
 import type {
   ActivityEvent,
   DraftState,
+  HouseRules,
   MatchSideGames,
   RoundStatus,
   Side,
@@ -86,6 +87,8 @@ export interface RemoteData {
   activity?: Record<string, ActivityEvent>;
   /** The draft singleton (whole object, overwritten on each write). */
   draft?: DraftState;
+  /** The House Rules singleton (whole object, overwritten on each write). */
+  houseRules?: HouseRules;
 }
 
 const holeKey = (n: number) => `h${n}`;
@@ -184,6 +187,8 @@ export function applyRemote(base: TournamentState, remote: RemoteData | null): T
 
   if (remote.draft) state.draft = remote.draft;
 
+  if (remote.houseRules) state.houseRules = remote.houseRules;
+
   for (const [courseId, byHole] of Object.entries(remote.holes ?? {})) {
     const course = state.courses.find((c) => c.id === courseId);
     if (!course || !byHole) continue;
@@ -231,6 +236,8 @@ export function kvToRemote(kv: Map<string, unknown>): RemoteData {
       (remote.activity ??= {})[a] = value as ActivityEvent;
     } else if (kind === "draft" && a === "state") {
       remote.draft = value as DraftState;
+    } else if (kind === "houserules" && a === "state") {
+      remote.houseRules = value as HouseRules;
     }
   }
   return remote;
@@ -699,6 +706,11 @@ export const remoteWrite = {
   /** The draft singleton — the whole object is written atomically. */
   draft(draft: DraftState): void {
     write(`${V}|draft|state`, draft);
+  },
+
+  /** The House Rules singleton — the whole object is written atomically. */
+  houseRules(houseRules: HouseRules): void {
+    write(`${V}|houserules|state`, houseRules);
   },
 
   /** Draft a player to a team — draft row + team assignment in one emit. */

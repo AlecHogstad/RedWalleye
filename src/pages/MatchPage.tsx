@@ -2,18 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { type Match, type Side, FORMAT_LABELS, FORMAT_RULE_SECTIONS } from "../types";
 import {
-  allocateStrokes,
-  computeMatchState,
-  computeStableford,
   formatScrambleGroup,
   isScrambleFieldMatch,
   nassauSegmentValue,
   scrambleGroupNum,
-  scrambleGroupPlacementPoints,
   strokesOnHole,
   teamScoreKey,
   type ScoringContext,
 } from "../scoring/engine";
+import {
+  allocStrokesFor,
+  isTeamBall,
+  matchStateFor,
+  numRule,
+  placementPointsFor,
+  resolveFormatRules,
+} from "../scoring/formats";
+import { resolveSideGameRules, stablefordRowsFor } from "../scoring/sidegames";
 import { usePlayerMap, useRoundContexts, useStore } from "../store/store";
 import { CheckFlag } from "../components/CheckFlag";
 import { ActivityTicker } from "../components/ActivityTicker";
@@ -33,7 +38,7 @@ function entitiesForSide(
   players: ReturnType<typeof usePlayerMap>,
   teamMap: Record<string, { name: string } | undefined>,
 ): ScoreEntity[] {
-  if (match.format === "scramble") {
+  if (isTeamBall(match.format)) {
     if (side.playerIds.length === 0) return [];
     const members = side.playerIds.map((id) => players[id]?.name ?? "?").join(" + ");
     return [
@@ -130,16 +135,16 @@ export default function MatchPage() {
   useWakeLock();
 
   const matchState = useMemo(
-    () => (match && ctx ? computeMatchState(match, state.players, ctx) : null),
-    [match, state.players, ctx],
+    () => (match && ctx ? matchStateFor(match, state.players, ctx, state.houseRules) : null),
+    [match, state.players, ctx, state.houseRules],
   );
   const alloc = useMemo(
-    () => (match && ctx ? allocateStrokes(match, state.players, ctx) : null),
-    [match, state.players, ctx],
+    () => (match && ctx ? allocStrokesFor(match, state.players, ctx, state.houseRules) : null),
+    [match, state.players, ctx, state.houseRules],
   );
   const stablefordRows = useMemo(
-    () => (match && ctx ? computeStableford(match, state.players, ctx) : []),
-    [match, state.players, ctx],
+    () => (match && ctx ? stablefordRowsFor(match, state.players, ctx, state.houseRules) : []),
+    [match, state.players, ctx, state.houseRules],
   );
 
   if (!match || !round || !ctx || !alloc || !matchState) {
@@ -178,15 +183,18 @@ export default function MatchPage() {
   const teamB = teamMap[match.sideB.teamId];
 
   // Side games — per-group opt-ins + the current snake holder.
-  const isScramble = match.format === "scramble";
+  const isScramble = isTeamBall(match.format);
   const isFieldScramble = isScrambleFieldMatch(match);
   const sideGames = state.sideGames[match.id] ?? {};
+  const snakePot =
+    (sideGames.snakeChanges ?? 0) *
+    numRule(resolveSideGameRules("snake", state.houseRules), "potPerChange", 1);
   const groupPlayerIds = isFieldScramble
     ? match.sideA.playerIds
     : Array.from(new Set([...match.sideA.playerIds, ...match.sideB.playerIds]));
   const roundMatches = state.matches.filter((m) => m.roundId === match.roundId);
   const placementPts = isFieldScramble
-    ? scrambleGroupPlacementPoints(match, roundMatches, ctx)
+    ? placementPointsFor(match, roundMatches, ctx, state.houseRules)
     : null;
   const roundNum = String(
     state.rounds.findIndex((r) => r.id === round.id) + 1,
@@ -207,7 +215,7 @@ export default function MatchPage() {
 
   const strokesFor = (key: string) => {
     const total =
-      match.format === "scramble"
+      isTeamBall(match.format)
         ? alloc.byTeam[key] ?? 0
         : alloc.byPlayer[key] ?? 0;
     return strokesOnHole(total, holeInfo.strokeIndex);
@@ -282,7 +290,7 @@ export default function MatchPage() {
           </div>
         </div>
         <span className="net-tag">
-          {val != null && match.format !== "scramble" ? `net ${val - s}` : ""}
+          {val != null && !isTeamBall(match.format) ? `net ${val - s}` : ""}
         </span>
         {readOnly ? (
           <span className={`val-final ${val == null ? "empty" : ""}`}>{val ?? "–"}</span>
@@ -338,7 +346,11 @@ export default function MatchPage() {
     };
   })();
 
-  const segValue = nassauSegmentValue(match.format);
+  const segValue = numRule(
+    resolveFormatRules(match.format, state.houseRules),
+    "segmentValue",
+    nassauSegmentValue(match.format),
+  );
 
   const lastHole = ctx.course.holes.length;
 
@@ -659,7 +671,7 @@ export default function MatchPage() {
               <div className="sg-row">
                 <span className="sg-name">Three-putts (pot)</span>
                 <span className="sg-thru">tap to pass the snake</span>
-                <span className="sg-pts">{sideGames.snakeChanges ?? 0}</span>
+                <span className="sg-pts">{snakePot}</span>
               </div>
               <div className="field">
                 <label>Who has it?</label>

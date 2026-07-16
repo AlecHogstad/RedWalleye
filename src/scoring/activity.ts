@@ -13,10 +13,8 @@
 // is located by the hole, which is what everyone actually remembers).
 // ---------------------------------------------------------------------------
 
-import type { Match, Player, TournamentState } from "../types";
+import type { HouseRules, Match, Player, TournamentState } from "../types";
 import {
-  computeMatchState,
-  computeStandings,
   courseHandicap,
   isScrambleFieldMatch,
   strokesOnHole,
@@ -24,6 +22,8 @@ import {
   type HoleResult,
   type ScoringContext,
 } from "./engine";
+import { computeStandings } from "./standings";
+import { isTeamBall, matchStateFor } from "./formats";
 
 export type FeedKind =
   | "ace" // hole-in-one (gross 1 on a par 3)
@@ -96,8 +96,13 @@ function classify(netToPar: number): FeedKind | null {
 }
 
 /** How many holes of a match have been played (for placing snake/mulligan). */
-function matchThru(match: Match, players: Player[], ctx: ScoringContext): number {
-  return computeMatchState(match, players, ctx).thru;
+function matchThru(
+  match: Match,
+  players: Player[],
+  ctx: ScoringContext,
+  houseRules?: HouseRules,
+): number {
+  return matchStateFor(match, players, ctx, houseRules).thru;
 }
 
 // --- Per-hole scoring highlights --------------------------------------------
@@ -130,7 +135,7 @@ function holeEvents(
     });
   };
 
-  if (match.format === "scramble") {
+  if (isTeamBall(match.format)) {
     // Raw team ball, no handicap — highlights are gross-to-par.
     for (const side of [match.sideA, match.sideB]) {
       if (side.playerIds.length === 0) continue; // one team per entry, sideB empty
@@ -177,10 +182,11 @@ function matchProgressEvents(
   players: Player[],
   ctx: ScoringContext,
   roundIndex: number,
+  houseRules?: HouseRules,
 ): FeedItem[] {
   if (isScrambleFieldMatch(match)) return [];
 
-  const st = computeMatchState(match, players, ctx);
+  const st = matchStateFor(match, players, ctx, houseRules);
   const items: FeedItem[] = [];
 
   let margin = 0; // + means side A is up
@@ -278,12 +284,13 @@ function snakeEvents(
   ctx: ScoringContext,
   sideGames: TournamentState["sideGames"],
   roundIndex: number,
+  houseRules?: HouseRules,
 ): FeedItem[] {
   const sg = sideGames[match.id];
   if (!sg?.snake || !sg.snakeHolder) return [];
   const holder = players.find((p) => p.id === sg.snakeHolder);
   if (!holder) return [];
-  const hole = Math.max(1, matchThru(match, players, ctx));
+  const hole = Math.max(1, matchThru(match, players, ctx, houseRules));
   return [
     {
       id: `snake:${match.id}:${sg.snakeHolder}`,
@@ -329,10 +336,10 @@ function overallLeadEvents(
         state.rounds.find((r) => r.id === m.roundId)?.status === "final",
     );
     const leader = strictLeader(
-      computeStandings(settledMatches, state.players, ctxByRound),
+      computeStandings(settledMatches, state.players, ctxByRound, state.houseRules),
     );
     if (leader && leader !== prevLeader) {
-      const standings = computeStandings(settledMatches, state.players, ctxByRound);
+      const standings = computeStandings(settledMatches, state.players, ctxByRound, state.houseRules);
       items.push({
         id: `overallLead:${round.id}`,
         kind: "overallLead",
@@ -368,8 +375,8 @@ export function buildFeed(
     if (!ctx) continue;
     const ri = roundIndexById[match.roundId];
     items.push(...holeEvents(match, state.players, ctx, ri));
-    items.push(...matchProgressEvents(match, state.players, ctx, ri));
-    items.push(...snakeEvents(match, state.players, ctx, state.sideGames, ri));
+    items.push(...matchProgressEvents(match, state.players, ctx, ri, state.houseRules));
+    items.push(...snakeEvents(match, state.players, ctx, state.sideGames, ri, state.houseRules));
   }
 
   items.push(...overallLeadEvents(state, ctxByRound, roundIndexById));

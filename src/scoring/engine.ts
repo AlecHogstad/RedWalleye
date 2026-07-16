@@ -64,6 +64,8 @@ export function teamScoreKey(teamId: string): string {
 const NASSAU_SEGMENT_VALUE: Record<Format, number> = {
   fourball: 1, // Rounds 1 & 3: 4 matches × 3 = 12
   scramble: 2, // legacy head-to-head scramble only; field scramble uses placement
+  fourmanbest: 1, // head-to-head Nassau, same as four-ball
+  singles: 1, // head-to-head Nassau, same as four-ball
 };
 
 /** Placement points for the four scramble groups (1st–4th by gross). */
@@ -152,6 +154,9 @@ export function allocateStrokes(
   match: Match,
   players: Player[],
   ctx: ScoringContext,
+  /** Percent of the course-handicap difference actually given as strokes
+   *  (House Rule; 100 = full difference, the app default). */
+  allowancePct = 100,
 ): StrokeAllocation {
   const byPlayer: Record<string, number> = {};
   const byTeam: Record<string, number> = {};
@@ -171,7 +176,8 @@ export function allocateStrokes(
     ? Math.min(...inMatch.map((p) => courseHandicap(p.handicap, ctx)))
     : 0;
   inMatch.forEach((p) => {
-    byPlayer[p.id] = Math.max(0, courseHandicap(p.handicap, ctx) - low);
+    const diff = courseHandicap(p.handicap, ctx) - low;
+    byPlayer[p.id] = Math.max(0, Math.round((diff * allowancePct) / 100));
   });
   return { byPlayer, byTeam };
 }
@@ -330,6 +336,8 @@ export function computeScrambleGroupTotal(
 export function computeScramblePlacement(
   roundMatches: Match[],
   ctx: ScoringContext,
+  /** Points for 1st / 2nd / 3rd / 4th by gross (House Rule; defaults 6/4/2/0). */
+  placePoints: readonly number[] = SCRAMBLE_PLACE_POINTS,
 ): Map<string, number> {
   const groups = roundMatches
     .filter(isScrambleFieldMatch)
@@ -348,7 +356,7 @@ export function computeScramblePlacement(
     while (j < sorted.length && sorted[j].gross === gross) j += 1;
     const tied = j - i;
     let pot = 0;
-    for (let k = 0; k < tied; k++) pot += SCRAMBLE_PLACE_POINTS[rank + k] ?? 0;
+    for (let k = 0; k < tied; k++) pot += placePoints[rank + k] ?? 0;
     const each = tied > 0 ? pot / tied : 0;
     for (let k = i; k < j; k++) out.set(sorted[k].matchId, each);
     rank += tied;
@@ -362,9 +370,10 @@ export function scrambleGroupPlacementPoints(
   match: Match,
   roundMatches: Match[],
   ctx: ScoringContext,
+  placePoints: readonly number[] = SCRAMBLE_PLACE_POINTS,
 ): number | null {
   if (!isScrambleFieldMatch(match)) return null;
-  const placement = computeScramblePlacement(roundMatches, ctx);
+  const placement = computeScramblePlacement(roundMatches, ctx, placePoints);
   if (!roundMatches.filter(isScrambleFieldMatch).every(
     (m) => computeScrambleGroupTotal(m, ctx).complete,
   )) {
@@ -391,10 +400,18 @@ function emptySegment(thru: number, total: number, text: string): SegmentResult 
  * Compute the full head-to-head Nassau state for a match: per-hole winners
  * plus the three bets (front, back, overall) and the total points.
  */
+/** House-Rule knobs for a head-to-head match: points per Nassau bet and the
+ *  handicap-allowance percent. Both default to the app's shipped values. */
+export interface MatchScoreOpts {
+  segValue?: number;
+  allowancePct?: number;
+}
+
 export function computeMatchState(
   match: Match,
   players: Player[],
   ctx: ScoringContext,
+  opts?: MatchScoreOpts,
 ): MatchState {
   if (isScrambleFieldMatch(match)) {
     const g = computeScrambleGroupTotal(match, ctx);
@@ -421,8 +438,8 @@ export function computeMatchState(
     };
   }
 
-  const alloc = allocateStrokes(match, players, ctx);
-  const segValue = nassauSegmentValue(match.format);
+  const alloc = allocateStrokes(match, players, ctx, opts?.allowancePct ?? 100);
+  const segValue = opts?.segValue ?? nassauSegmentValue(match.format);
 
   const perHole: HoleResult[] = ctx.course.holes.map((hole) => {
     const netA = sideNetForHole(match, match.sideA, hole.number, hole.strokeIndex, alloc);
@@ -516,18 +533,25 @@ export function computePlayerTotals(
 
 // --- Stableford (opt-in side game) ------------------------------------------
 
+/** Default Stableford table, by net-to-par tier:
+ *  [albatross+ (≤ −3), eagle (−2), birdie (−1), par (0), bogey (+1), double+ (≥ +2)]. */
+export const STABLEFORD_DEFAULT = [5, 4, 3, 2, 1, 0] as const;
+
 /**
- * Standard net Stableford points for a hole, from net-minus-par:
- * albatross+ (≤ -3) = 5, eagle (-2) = 4, birdie (-1) = 3, par (0) = 2,
- * bogey (+1) = 1, double bogey or worse = 0.
+ * Net Stableford points for a hole, from net-minus-par. The point table is a
+ * House Rule (6 tiers, hardest-under-par first); it defaults to the standard
+ * 5/4/3/2/1/0.
  */
-export function stablefordPoints(netToPar: number): number {
-  if (netToPar <= -3) return 5;
-  if (netToPar === -2) return 4;
-  if (netToPar === -1) return 3;
-  if (netToPar === 0) return 2;
-  if (netToPar === 1) return 1;
-  return 0;
+export function stablefordPoints(
+  netToPar: number,
+  table: readonly number[] = STABLEFORD_DEFAULT,
+): number {
+  if (netToPar <= -3) return table[0] ?? 0;
+  if (netToPar === -2) return table[1] ?? 0;
+  if (netToPar === -1) return table[2] ?? 0;
+  if (netToPar === 0) return table[3] ?? 0;
+  if (netToPar === 1) return table[4] ?? 0;
+  return table[5] ?? 0;
 }
 
 export interface StablefordRow {
@@ -545,6 +569,7 @@ export function computeStableford(
   match: Match,
   players: Player[],
   ctx: ScoringContext,
+  table: readonly number[] = STABLEFORD_DEFAULT,
 ): StablefordRow[] {
   if (match.format === "scramble") return [];
 
@@ -561,7 +586,7 @@ export function computeStableford(
       if (g == null) continue;
       thru += 1;
       const net = g - strokesOnHole(hcp, h.strokeIndex);
-      points += stablefordPoints(net - h.par);
+      points += stablefordPoints(net - h.par, table);
     }
     rows.push({ playerId: id, points, thru });
   }
@@ -686,74 +711,4 @@ export function computeBestBallContributions(
     .sort((a, b) => a.points - b.points || a.playerId.localeCompare(b.playerId));
 }
 
-export interface TeamStanding {
-  teamId: string;
-  points: number;
-  matchesPlayed: number;
-  matchesComplete: number;
-}
-
-/**
- * Roll every match up into team points for the tournament leaderboard. Each
- * match is a Nassau: its front / back / overall bets each lock in points as
- * they complete (a bet is won by the side up in that stretch, halved 50/50).
- * `computeMatchState.points` already reflects only the completed bets, so
- * summing it gives live, correct standings.
- */
-export function computeStandings(
-  matches: Match[],
-  players: Player[],
-  ctxByRound: Record<string, ScoringContext>,
-): TeamStanding[] {
-  const table = new Map<string, TeamStanding>();
-  const ensure = (teamId: string) => {
-    if (!table.has(teamId)) {
-      table.set(teamId, { teamId, points: 0, matchesPlayed: 0, matchesComplete: 0 });
-    }
-    return table.get(teamId)!;
-  };
-
-  const scrambleRoundIds = new Set(
-    matches.filter(isScrambleFieldMatch).map((m) => m.roundId),
-  );
-
-  for (const match of matches) {
-    if (isScrambleFieldMatch(match)) continue;
-    const ctx = ctxByRound[match.roundId];
-    if (!ctx) continue;
-
-    const state = computeMatchState(match, players, ctx);
-    const a = ensure(match.sideA.teamId);
-    const b = ensure(match.sideB.teamId);
-    if (state.thru > 0) {
-      a.matchesPlayed += 1;
-      b.matchesPlayed += 1;
-    }
-    if (state.complete) {
-      a.matchesComplete += 1;
-      b.matchesComplete += 1;
-    }
-    a.points += state.points.a;
-    b.points += state.points.b;
-  }
-
-  for (const roundId of scrambleRoundIds) {
-    const ctx = ctxByRound[roundId];
-    if (!ctx) continue;
-    const roundMatches = matches.filter((m) => m.roundId === roundId);
-    const placement = computeScramblePlacement(roundMatches, ctx);
-    const allDone = roundMatches
-      .filter(isScrambleFieldMatch)
-      .every((m) => computeScrambleGroupTotal(m, ctx).complete);
-
-    for (const m of roundMatches.filter(isScrambleFieldMatch)) {
-      const g = computeScrambleGroupTotal(m, ctx);
-      const team = ensure(m.sideA.teamId);
-      if (g.thru > 0) team.matchesPlayed += 1;
-      if (g.complete) team.matchesComplete += 1;
-      if (allDone) team.points += placement.get(m.id) ?? 0;
-    }
-  }
-
-  return [...table.values()].sort((x, y) => y.points - x.points);
-}
+// Tournament standings moved to `./standings` (format-agnostic, registry-routed).

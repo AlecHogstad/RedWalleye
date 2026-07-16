@@ -48,17 +48,21 @@ export interface CourseDef {
   tees: TeeSet[];
 }
 
-export type Format = "fourball" | "scramble";
+export type Format = "fourball" | "scramble" | "fourmanbest" | "singles";
 
 export const FORMAT_LABELS: Record<Format, string> = {
   fourball: "2-man Best Ball",
   scramble: "Scramble",
+  fourmanbest: "4-Man Best Ball",
+  singles: "Singles Match",
 };
 
 /** Short labels that fit inside the oval badges. */
 export const FORMAT_SHORT: Record<Format, string> = {
   fourball: "2-man BB",
   scramble: "Scramble",
+  fourmanbest: "4-Man BB",
+  singles: "Singles",
 };
 
 /** One labelled block of a format's rules. */
@@ -97,6 +101,34 @@ export const FORMAT_RULE_SECTIONS: Record<Format, RuleSection[]> = {
     {
       label: "Points",
       text: "Lowest 18-hole total places 1st on down: 6 / 4 / 2 / 0, and ties split. Your team adds up both its groups, with 12 points on the line for the round.",
+    },
+  ],
+  fourmanbest: [
+    {
+      label: "How you play",
+      text: "All four teammates play their own ball. On each hole your team's single best net score goes up against theirs, and the lower one wins the hole.",
+    },
+    {
+      label: "Scoring",
+      text: "Enter every golfer's real strokes and the app handles the handicaps — the lowest handicap in the match plays scratch, everyone else gets their difference on the hardest holes.",
+    },
+    {
+      label: "Points",
+      text: "Same three Nassau bets as best ball: the front 9, the back 9, and all 18, each worth a point. Win more holes in a stretch to take it, ties split.",
+    },
+  ],
+  singles: [
+    {
+      label: "How you play",
+      text: "One-on-one. Each golfer plays their own ball into the hole and the lower net score wins the hole outright.",
+    },
+    {
+      label: "Scoring",
+      text: "Enter both golfers' strokes; strokes come off the lower handicap of the two, given on the hardest holes.",
+    },
+    {
+      label: "Points",
+      text: "A Nassau: the front 9, the back 9, and all 18, each worth a point. Win more holes in a stretch to take it, a tie splits it.",
     },
   ],
 };
@@ -195,6 +227,43 @@ export interface DraftState {
   rev?: number;
 }
 
+// --- House Rules (user-owned scoring config) --------------------------------
+
+/** A single configurable knob value for a format (or, later, a side game). */
+export type RuleValue = number | number[] | boolean;
+
+/** A flat map of a format's configurable knobs. */
+export type Rules = Record<string, RuleValue>;
+
+/** Describes one editable House Rule so the settings screen can render it
+ *  generically — no bespoke UI per format. */
+export interface RuleField {
+  key: string;
+  label: string;
+  help?: string;
+  kind: "number" | "list";
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Number of entries a `list` field holds (e.g. 4 placement slots). */
+  length?: number;
+  /** Short suffix shown by the control ("pts", "%"). */
+  unit?: string;
+}
+
+/**
+ * User-owned scoring configuration — the group's "House Rules". Only overrides
+ * are stored; anything absent falls back to each format's built-in defaults, so
+ * `undefined` means "play it exactly as the app ships". Locked once the
+ * tournament's first round starts.
+ */
+export interface HouseRules {
+  /** Per-format overrides, keyed by format id. */
+  formats: Record<string, Rules>;
+  /** Per-side-game overrides, keyed by side-game id. */
+  sideGames?: Record<string, Rules>;
+}
+
 export interface TournamentState {
   version: number;
   courses: CourseDef[];
@@ -208,4 +277,6 @@ export interface TournamentState {
   activity: ActivityEvent[];
   /** The team draft, once one has been set up. */
   draft?: DraftState;
+  /** User-owned scoring overrides. Absent = every format's defaults. */
+  houseRules?: HouseRules;
 }

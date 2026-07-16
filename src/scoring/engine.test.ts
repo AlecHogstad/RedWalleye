@@ -7,7 +7,6 @@ import {
   computePlayerTotals,
   computeScramblePlacement,
   computeStableford,
-  computeStandings,
   contextForRound,
   courseHandicap,
   nassauSegmentValue,
@@ -17,6 +16,7 @@ import {
   teamScoreKey,
   type ScoringContext,
 } from "./engine";
+import { computeStandings } from "./standings";
 import { seedState } from "../data/seed";
 
 // A simple par-72 course where strokeIndex === hole number keeps the math

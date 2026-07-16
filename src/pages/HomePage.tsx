@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { computePlayerTotals, computeStandings, formatStrokesToPar, type RoundTotals } from "../scoring/engine";
+import { computePlayerTotals, formatStrokesToPar, type RoundTotals } from "../scoring/engine";
+import { computeStandings } from "../scoring/standings";
 import { draftHasRosters, teamRosterIds, type DraftTeam } from "../store/draft";
 import { rosterOf } from "../store/roster";
 import { useRoundContexts, useStore } from "../store/store";

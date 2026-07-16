@@ -4,14 +4,15 @@ import { FORMAT_LABELS, type Match } from "../types";
 import { useStore } from "../store/store";
 import { teamRosterIds, type DraftTeam } from "../store/draft";
 import { isScrambleFieldMatch } from "../scoring/engine";
+import { seatsPerSide } from "../scoring/formats";
 
 function hcp(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-/** How many golfers sit on each side of a match. */
+/** How many golfers sit on each side of a match (from the format plugin). */
 function seatCount(format: Match["format"]): number {
-  return format === "scramble" ? 4 : 2;
+  return seatsPerSide(format);
 }
 
 export default function MatchupsPage() {
