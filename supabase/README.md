@@ -16,7 +16,8 @@ supabase db reset         # rebuild a local db from scratch (dev)
 
 | Migration | Adds |
 |---|---|
-| `…_event_tenant_core.sql` | `events`, `teams`, `event_players` + RLS (O-90, first slice) |
+| `…_event_tenant_core.sql` | `events`, `teams`, `event_players` + RLS (O-90) |
+| `…_rounds_scores_games.sql` | `courses`, `tees` (global library), `rounds` (nullable `event_id` = solo), `round_players`, `scores`, `games` + RLS (O-90) |
 
 ## RLS shape
 
