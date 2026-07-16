@@ -204,3 +204,11 @@ create policy games_select on public.games
   for select using (is_event_organizer(event_id) or is_event_member(event_id));
 create policy games_write on public.games
   for all using (is_event_organizer(event_id)) with check (is_event_organizer(event_id));
+
+-- ---------------------------------------------------------------------------
+-- Table privileges (RLS governs rows; grants admit the role to the table).
+-- ---------------------------------------------------------------------------
+grant select, insert, update, delete
+  on public.courses, public.tees, public.rounds,
+     public.round_players, public.scores, public.games
+  to authenticated;

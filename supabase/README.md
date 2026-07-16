@@ -5,14 +5,42 @@ truth for the schema** (project convention) — every migration that touches a
 table ships its RLS policies in the same file. Default-deny: a table without a
 policy fails closed.
 
-## Migrations
+## Applying migrations
 
-`migrations/` holds ordered, timestamped SQL. Apply with the Supabase CLI:
+`migrations/` holds ordered, timestamped SQL. They are additive to the existing
+v1 kv app (v1 keeps working until cutover).
+
+**To a remote project** (the product DB — the existing Supabase project or a
+fresh one):
 
 ```bash
-supabase db push          # apply pending migrations to the linked project
-supabase db reset         # rebuild a local db from scratch (dev)
+supabase link --project-ref <your-project-ref>   # once
+supabase db push                                  # apply pending migrations
 ```
+
+**Local dev:**
+
+```bash
+supabase start            # boots Postgres + Auth from config.toml
+supabase db reset         # rebuild the local db, replaying every migration
+```
+
+Or paste each file's contents into the Dashboard **SQL editor** in filename
+order (`…000100` → `…000200` → `…000300`).
+
+### One-time project setup
+- **Enable Anonymous sign-ins** — `config.toml` sets `enable_anonymous_sign_ins`
+  for local dev and `supabase config push`; on a linked project you can also
+  toggle it in Dashboard → Auth → Providers → Anonymous. Required for the O-92
+  join flow.
+- `auth.users` / `auth.uid()` and the `anon` / `authenticated` roles already
+  exist on Supabase — the migrations reference them directly.
+
+### Privileges
+Each table migration grants `authenticated` the table privileges explicitly, so
+access never depends on a project's default-privilege config; RLS then governs
+which rows are visible. `anon` gets no table access — players sign in
+anonymously (→ `authenticated`) and reach an event only through the O-92 RPCs.
 
 | Migration | Adds |
 |---|---|

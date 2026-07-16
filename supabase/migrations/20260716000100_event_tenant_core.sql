@@ -166,3 +166,15 @@ create policy event_players_update on public.event_players
 -- UPDATE to status, covered above).
 create policy event_players_delete on public.event_players
   for delete using (is_event_organizer(event_id));
+
+-- ---------------------------------------------------------------------------
+-- Table privileges. RLS still governs which ROWS each role sees; these grants
+-- just admit the role to the table at all. Explicit, so access never depends on
+-- project default privileges. `anon` gets no table access — players sign in
+-- anonymously (→ the `authenticated` role) and reach an event only via the
+-- O-92 RPCs.
+-- ---------------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete
+  on public.events, public.teams, public.event_players
+  to authenticated;
