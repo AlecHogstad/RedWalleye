@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 
 // Minimal organizer auth screen — the first product-surface page. Neutral,
@@ -56,7 +57,7 @@ const button: CSSProperties = {
 };
 
 export default function LoginPage() {
-  const { configured, loading, user, signUp, signIn, signOut } = useAuth();
+  const { configured, loading, user, signUp, signIn } = useAuth();
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,17 +85,8 @@ export default function LoginPage() {
       </Shell>
     );
   }
-  if (user) {
-    return (
-      <Shell>
-        <h1 style={{ fontSize: 20, margin: "0 0 6px" }}>Signed in</h1>
-        <p style={{ color: "#9aa0a6", fontSize: 14 }}>{user.email}</p>
-        <button style={button} onClick={() => void signOut()}>
-          Sign out
-        </button>
-      </Shell>
-    );
-  }
+  // Signed in already → into the product. The home screen owns sign-out.
+  if (user) return <Navigate to="/app" replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
