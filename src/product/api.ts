@@ -41,6 +41,7 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
   const session = sess.session;
   const uid = session?.user?.id;
   const claims = decodeJwt(session?.access_token);
+  const header = decodeJwtHeader(session?.access_token);
   const nowSec = Math.floor(Date.now() / 1000);
   const expired = claims?.exp ? claims.exp < nowSec : undefined;
   const configuredUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
@@ -49,7 +50,10 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
     hasSession: Boolean(session),
     hasToken: Boolean(session?.access_token),
     uid,
+    tokenAlg: header?.alg, // HS256 = shared secret · ES256/RS256 = signing keys
+    tokenKid: header?.kid,
     tokenRole: claims?.role,
+    tokenAud: claims?.aud,
     tokenSub: claims?.sub,
     subMatchesUid: claims?.sub === uid,
     tokenIss: claims?.iss,
@@ -122,13 +126,23 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
  *  malformed input. Temporary aid for the RLS/auth diagnostic above. */
 function decodeJwt(
   token?: string,
-): { role?: string; sub?: string; exp?: number; iss?: string } | null {
+): { role?: string; sub?: string; exp?: number; iss?: string; aud?: string } | null {
+  return decodeJwtPart(token, 1);
+}
+
+/** Decode the JWT header (part 0): `alg` tells us which key signed the token —
+ *  HS256 = legacy shared secret · ES256/RS256 = the new signing keys. */
+function decodeJwtHeader(token?: string): { alg?: string; kid?: string; typ?: string } | null {
+  return decodeJwtPart(token, 0);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic-only decoder
+function decodeJwtPart(token: string | undefined, index: 0 | 1): any {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
-    const json = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(json);
+    return JSON.parse(atob(parts[index].replace(/-/g, "+").replace(/_/g, "/")));
   } catch {
     return null;
   }
