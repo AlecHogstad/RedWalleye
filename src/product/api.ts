@@ -41,6 +41,9 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
   const session = sess.session;
   const uid = session?.user?.id;
   const claims = decodeJwt(session?.access_token);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expired = claims?.exp ? claims.exp < nowSec : undefined;
+  const configuredUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
   // eslint-disable-next-line no-console
   console.log("[createEvent] auth debug", {
     hasSession: Boolean(session),
@@ -49,6 +52,10 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
     tokenRole: claims?.role,
     tokenSub: claims?.sub,
     subMatchesUid: claims?.sub === uid,
+    tokenIss: claims?.iss,
+    tokenExp: claims?.exp,
+    expired,
+    configuredUrl,
   });
   if (!session || !uid) {
     throw new Error(
@@ -86,7 +93,7 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
         throw new Error(
           `${error.message} — debug: role=${claims?.role ?? "?"} sub=${
             claims?.sub ? String(claims.sub).slice(0, 8) : "none"
-          } uid=${uid.slice(0, 8)} match=${claims?.sub === uid}`,
+          } uid=${uid.slice(0, 8)} match=${claims?.sub === uid} expired=${expired}`,
         );
       }
       throw new Error(error.message);
@@ -97,7 +104,9 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
 
 /** Decode a JWT payload (no verification — display only). Returns null on any
  *  malformed input. Temporary aid for the RLS/auth diagnostic above. */
-function decodeJwt(token?: string): { role?: string; sub?: string; exp?: number } | null {
+function decodeJwt(
+  token?: string,
+): { role?: string; sub?: string; exp?: number; iss?: string } | null {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
