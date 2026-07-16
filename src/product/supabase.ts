@@ -9,6 +9,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
+/** Raw project URL + anon key, for the rare place that must build a request by
+ *  hand (e.g. attaching the session token explicitly). Empty when unconfigured. */
+export const productUrl = url ?? "";
+export const productAnonKey = anonKey ?? "";
+
 /** True once the product project's env vars are present. */
 export const productConfigured = Boolean(url && anonKey);
 

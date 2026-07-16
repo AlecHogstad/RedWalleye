@@ -4,7 +4,7 @@
 // organizer owns sets organizer_id = the signed-in uid so the events_insert
 // policy (organizer_id = auth.uid()) passes.
 
-import { getProductClient } from "./supabase";
+import { getProductClient, productUrl, productAnonKey } from "./supabase";
 import type { EventRow } from "./types";
 
 /** Human-friendly join codes: no 0/O/1/I ambiguity, uppercase, 6 chars. */
@@ -66,38 +66,54 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
   const name = input.name.trim();
   if (!name) throw new Error("Event name is required.");
 
+  const token = session.access_token;
+
+  // Insert via a hand-built request so the session token is ATTACHED EXPLICITLY
+  // and can't be stripped by a sibling Supabase client. Decisive test: if this
+  // succeeds where the supabase-js client insert 403s, the client's header was
+  // being clobbered. (Temporary raw path while we stabilize product auth.)
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const { data, error } = await client
-      .from("events")
-      .insert({
+    const resp = await fetch(`${productUrl}/rest/v1/events`, {
+      method: "POST",
+      headers: {
+        apikey: productAnonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
         organizer_id: uid,
         name,
         starts_on: input.startsOn ?? null,
         ends_on: input.endsOn ?? null,
         join_code: randomJoinCode(),
-      })
-      .select()
-      .single();
+      }),
+    });
 
-    if (!error && data) return data as EventRow;
+    const bodyText = await resp.text();
+    // eslint-disable-next-line no-console
+    console.log("[createEvent] explicit insert", resp.status, bodyText);
 
-    // 23505 = unique_violation. Only the join_code is unique here, so retry
-    // with a fresh code. Anything else is a real failure — surface it.
-    if (error && error.code === "23505" && attempt < MAX_ATTEMPTS - 1) continue;
-    if (error) {
-      // Surface the auth facts alongside an RLS rejection so we can see whether
-      // the DB got an authenticated token at all (temporary diagnostic).
-      const isRls = error.code === "42501" || /row-level security/i.test(error.message);
-      if (isRls) {
-        throw new Error(
-          `${error.message} — debug: role=${claims?.role ?? "?"} sub=${
-            claims?.sub ? String(claims.sub).slice(0, 8) : "none"
-          } uid=${uid.slice(0, 8)} match=${claims?.sub === uid} expired=${expired}`,
-        );
-      }
-      throw new Error(error.message);
+    if (resp.ok) {
+      const rows = bodyText ? JSON.parse(bodyText) : [];
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      if (row) return row as EventRow;
+      throw new Error("Event created but no row returned.");
     }
+
+    // 23505 = unique_violation on join_code → retry with a fresh code.
+    if (resp.status === 409 && /23505/.test(bodyText) && attempt < MAX_ATTEMPTS - 1) continue;
+
+    // Anything else is terminal. Surface the auth facts for diagnosis.
+    throw new Error(
+      `Insert failed (HTTP ${resp.status}). ${bodyText} — debug: role=${
+        claims?.role ?? "?"
+      } sub=${claims?.sub ? String(claims.sub).slice(0, 8) : "none"} uid=${uid.slice(
+        0,
+        8,
+      )} match=${claims?.sub === uid} expired=${expired}`,
+    );
   }
   throw new Error("Could not generate a unique join code. Please try again.");
 }
