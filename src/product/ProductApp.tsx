@@ -6,6 +6,7 @@ import NewEventWizard from "./NewEventWizard";
 import EventDashboard from "./EventDashboard";
 import JoinPage from "./JoinPage";
 import TournamentPage from "./TournamentPage";
+import ScorecardPage from "./ScorecardPage";
 import { Page, colors } from "./ui";
 
 // The product surface (organizer accounts) — its own router, rendered outside
@@ -45,6 +46,7 @@ export default function ProductApp() {
         {/* Tournament view for joined players (anonymous sessions) AND the
             organizer — also public routing; RLS decides who sees the data. */}
         <Route path="/e/:eventId" element={<TournamentPage />} />
+        <Route path="/e/:eventId/r/:roundId" element={<ScorecardPage />} />
         <Route
           path="/app"
           element={

@@ -8,6 +8,8 @@ import {
   createRound,
   setRoundSetup,
   deleteRound,
+  startRound,
+  finishRound,
   type RoundWithGame,
 } from "./api";
 import type { Course } from "./types";
@@ -112,9 +114,14 @@ function RoundForm({
 export default function RoundsSection({
   eventId,
   editable,
+  onLifecycle,
 }: {
   eventId: string;
   editable: boolean;
+  /** Called after a round starts/finishes — the event's status may have
+   *  changed (first start flips the event to active), so the dashboard
+   *  re-fetches it. */
+  onLifecycle?: () => void;
 }) {
   const [rounds, setRounds] = useState<RoundWithGame[] | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -184,6 +191,28 @@ export default function RoundsSection({
     }
   };
 
+  const lifecycle = async (roundId: string, action: "start" | "finish", label: string) => {
+    if (busy) return;
+    const message =
+      action === "start"
+        ? `Start ${label}? The roster is enrolled and event setup locks once the first round starts.`
+        : `Finish ${label}? Scores lock when a round is final.`;
+    if (!window.confirm(message)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = action === "start" ? await startRound(roundId, eventId) : await finishRound(roundId);
+      setRounds((prev) =>
+        (prev ?? []).map((r) => (r.round.id === roundId ? { ...r, round: updated } : r)),
+      );
+      onLifecycle?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const remove = async (roundId: string) => {
     setError(null);
     const prev = rounds;
@@ -245,22 +274,46 @@ export default function RoundsSection({
                   {configured ? courseName(round.course_id) : "Needs a course & format"}
                 </div>
               </div>
-              {editable && open === null && (
+              {open === null && (
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(round.id)}
-                    style={{ ...ghostButtonStyle, fontSize: 12 }}
-                  >
-                    {configured ? "Edit" : "Set up"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void remove(round.id)}
-                    style={{ ...ghostButtonStyle, fontSize: 12, color: colors.danger }}
-                  >
-                    Remove
-                  </button>
+                  {configured && round.status === "pending" && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void lifecycle(round.id, "start", `Round ${i + 1}`)}
+                      style={{ ...buttonStyle, padding: "8px 12px", fontSize: 12 }}
+                    >
+                      Start round
+                    </button>
+                  )}
+                  {round.status === "active" && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void lifecycle(round.id, "finish", `Round ${i + 1}`)}
+                      style={{ ...ghostButtonStyle, fontSize: 12, color: colors.good }}
+                    >
+                      Finish round
+                    </button>
+                  )}
+                  {editable && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setOpen(round.id)}
+                        style={{ ...ghostButtonStyle, fontSize: 12 }}
+                      >
+                        {configured ? "Edit" : "Set up"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void remove(round.id)}
+                        style={{ ...ghostButtonStyle, fontSize: 12, color: colors.danger }}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

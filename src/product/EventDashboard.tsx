@@ -104,7 +104,13 @@ export default function EventDashboard() {
             </button>
           </Card>
 
-          <RoundsSection eventId={event.id} editable={event.status === "draft"} />
+          <RoundsSection
+            eventId={event.id}
+            editable={event.status === "draft"}
+            onLifecycle={() => {
+              void getEventById(event.id).then((ev) => ev && setEvent(ev));
+            }}
+          />
 
           <TeamsRosterSection event={event} editable={event.status === "draft"} />
 

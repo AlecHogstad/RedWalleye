@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FORMAT_REGISTRY } from "../scoring/formats";
 import type { Format } from "../types";
@@ -10,10 +10,14 @@ import {
   listEventPlayers,
   listEventRounds,
   listCourses,
+  listRoundPlayers,
+  listScores,
   type RoundWithGame,
 } from "./api";
-import type { Course, EventPlayer, EventRow, Team } from "./types";
+import type { Course, EventPlayer, EventRow, RoundPlayer, Score, Team } from "./types";
 import { Page, Card, colors, StatusPill, ghostButtonStyle } from "./ui";
+
+const POLL_MS = 20_000;
 
 // The tournament page — what a joined player (or the organizer) sees for an
 // event: teams with their rosters, and the round schedule. This is the clean
@@ -33,8 +37,19 @@ export default function TournamentPage() {
   const [players, setPlayers] = useState<EventPlayer[]>([]);
   const [rounds, setRounds] = useState<RoundWithGame[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [roundPlayers, setRoundPlayers] = useState<RoundPlayer[]>([]);
+  const [scores, setScores] = useState<Score[]>([]);
   const [uid, setUid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const refreshLive = useCallback(async () => {
+    const r = await listEventRounds(eventId);
+    const started = r.filter((x) => x.round.status !== "pending").map((x) => x.round.id);
+    const [rp, s] = await Promise.all([listRoundPlayers(started), listScores(started)]);
+    setRounds(r);
+    setRoundPlayers(rp);
+    setScores(s);
+  }, [eventId]);
 
   useEffect(() => {
     let active = true;
@@ -45,22 +60,32 @@ export default function TournamentPage() {
       setEvent(ev);
       setUid(me);
       if (!ev) return;
-      const [t, p, r, c] = await Promise.all([
+      const [t, p, c] = await Promise.all([
         listTeams(eventId),
         listEventPlayers(eventId),
-        listEventRounds(eventId),
         listCourses(),
       ]);
       if (!active) return;
       setTeams(t);
       setPlayers(p);
-      setRounds(r);
       setCourses(c);
+      await refreshLive();
     })().catch((err) => active && setError(err instanceof Error ? err.message : String(err)));
     return () => {
       active = false;
     };
-  }, [eventId]);
+  }, [eventId, refreshLive]);
+
+  // Live-ish standings while play is on: poll + refresh on focus.
+  useEffect(() => {
+    const t = window.setInterval(() => void refreshLive().catch(() => {}), POLL_MS);
+    const onFocus = () => void refreshLive().catch(() => {});
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshLive]);
 
   if (error) {
     return (
@@ -99,6 +124,25 @@ export default function TournamentPage() {
   const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
   const isOrganizer = uid != null && uid === event.organizer_id;
 
+  // Gross leaderboard across started rounds: round_player → event_player, then
+  // sum strokes. (Net + team points arrive with tees and pairings.)
+  const rpToEventPlayer = new Map(roundPlayers.map((rp) => [rp.id, rp.event_player_id]));
+  const totals = new Map<string, { total: number; holes: number }>();
+  for (const s of scores) {
+    if (s.strokes == null) continue;
+    const epId = rpToEventPlayer.get(s.round_player_id);
+    if (!epId) continue;
+    const t = totals.get(epId) ?? { total: 0, holes: 0 };
+    t.total += s.strokes;
+    t.holes += 1;
+    totals.set(epId, t);
+  }
+  const board = activePlayers
+    .map((p) => ({ player: p, ...(totals.get(p.id) ?? { total: 0, holes: 0 }) }))
+    .filter((r) => r.holes > 0)
+    .sort((a, b) => b.holes - a.holes || a.total - b.total || a.player.name.localeCompare(b.player.name));
+  const anyStarted = rounds.some(({ round }) => round.status !== "pending");
+
   const renderPlayer = (p: EventPlayer) => (
     <div
       key={p.id}
@@ -135,6 +179,47 @@ export default function TournamentPage() {
               Manage event →
             </button>
           </Link>
+        )}
+
+        {anyStarted && (
+          <Card>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>Leaderboard</div>
+              <span style={{ color: colors.muted, fontSize: 12 }}>gross · updates live</span>
+            </div>
+            {board.length === 0 ? (
+              <p style={{ color: colors.muted, fontSize: 14, margin: "8px 0 0" }}>
+                No scores in yet.
+              </p>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                {board.map((row, i) => (
+                  <div
+                    key={row.player.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      padding: "8px 0",
+                      borderTop: `1px solid ${colors.border}`,
+                    }}
+                  >
+                    <span style={{ fontSize: 14, fontWeight: row.player.id === mine?.id ? 700 : 400 }}>
+                      <span style={{ color: colors.muted, display: "inline-block", width: 26 }}>
+                        {i + 1}.
+                      </span>
+                      {row.player.name}
+                      {row.player.id === mine?.id && <span style={{ color: colors.accent }}> · you</span>}
+                    </span>
+                    <span style={{ color: colors.muted, fontSize: 13 }}>
+                      <strong style={{ color: colors.text, fontSize: 16 }}>{row.total}</strong> thru{" "}
+                      {row.holes}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         )}
 
         {teams.map((team) => {
@@ -201,7 +286,16 @@ export default function TournamentPage() {
                     : "Course TBD"}
                 </div>
               </div>
-              <StatusPill status={round.status} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {round.status !== "pending" && (
+                  <Link to={`/e/${eventId}/r/${round.id}`} style={{ textDecoration: "none" }}>
+                    <button type="button" style={{ ...ghostButtonStyle, fontSize: 12 }}>
+                      {round.status === "active" ? "Enter scores →" : "Scorecard →"}
+                    </button>
+                  </Link>
+                )}
+                <StatusPill status={round.status} />
+              </div>
             </div>
           ))}
         </Card>

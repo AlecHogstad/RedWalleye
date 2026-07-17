@@ -5,7 +5,16 @@
 // policy (organizer_id = auth.uid()) passes.
 
 import { getProductClient } from "./supabase";
-import type { Course, EventPlayer, EventRow, Game, Round, Team } from "./types";
+import type {
+  Course,
+  EventPlayer,
+  EventRow,
+  Game,
+  Round,
+  RoundPlayer,
+  Score,
+  Team,
+} from "./types";
 
 /** Human-friendly join codes: no 0/O/1/I ambiguity, uppercase, 6 chars. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -520,4 +529,108 @@ export async function addSelf(code: string, name: string, handicap?: number | nu
   });
   if (error) throw new Error(error.message);
   return data as JoinResult;
+}
+
+// ---------------------------------------------------------------------------
+// Round lifecycle & scoring — the slice that makes an event playable.
+// Organizer starts/finishes rounds; players write their own scores
+// (owns_round_player RLS path); everyone reads them for the leaderboard.
+// ---------------------------------------------------------------------------
+
+/** Start a round: enroll every active roster player, flip the round to
+ *  `active`, and activate the event on its first started round (that's the
+ *  moment setup locks — spec §3). */
+export async function startRound(roundId: string, eventId: string): Promise<Round> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+
+  const roster = (await listEventPlayers(eventId)).filter((p) => p.status === "active");
+  if (roster.length === 0) throw new Error("Nobody is on the roster yet.");
+
+  const { error: rpErr } = await client.from("round_players").upsert(
+    roster.map((p) => ({ round_id: roundId, event_player_id: p.id })),
+    { onConflict: "round_id,event_player_id", ignoreDuplicates: true },
+  );
+  if (rpErr) throw new Error(rpErr.message);
+
+  const { data: round, error } = await client
+    .from("rounds")
+    .update({ status: "active" })
+    .eq("id", roundId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+
+  const { error: evErr } = await client
+    .from("events")
+    .update({ status: "active" })
+    .eq("id", eventId)
+    .eq("status", "draft");
+  if (evErr) throw new Error(evErr.message);
+
+  return round as Round;
+}
+
+/** Finish a round (view-only afterwards; reopen comes with O-105). */
+export async function finishRound(roundId: string): Promise<Round> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client
+    .from("rounds")
+    .update({ status: "final" })
+    .eq("id", roundId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Round;
+}
+
+/** Round enrollments for a set of rounds (maps round_player → event_player). */
+export async function listRoundPlayers(roundIds: string[]): Promise<RoundPlayer[]> {
+  if (roundIds.length === 0) return [];
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client.from("round_players").select().in("round_id", roundIds);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as RoundPlayer[];
+}
+
+/** All scores for a set of rounds (leaderboard + scorecards read this). */
+export async function listScores(roundIds: string[]): Promise<Score[]> {
+  if (roundIds.length === 0) return [];
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client.from("scores").select().in("round_id", roundIds);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Score[];
+}
+
+/** Write one hole. Upserts on (round_player_id, hole_number); null strokes
+ *  clears the hole. RLS: a player may write their own row, the organizer
+ *  anyone's. */
+export async function upsertScore(args: {
+  roundId: string;
+  roundPlayerId: string;
+  hole: number;
+  strokes: number | null;
+}): Promise<Score> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const uid = await currentUserId();
+  const { data, error } = await client
+    .from("scores")
+    .upsert(
+      {
+        round_id: args.roundId,
+        round_player_id: args.roundPlayerId,
+        hole_number: args.hole,
+        strokes: args.strokes,
+        updated_by: uid,
+      },
+      { onConflict: "round_player_id,hole_number" },
+    )
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Score;
 }
