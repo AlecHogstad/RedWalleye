@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { getEventById } from "./api";
 import type { EventRow } from "./types";
 import RoundsSection from "./RoundsSection";
+import TeamsRosterSection from "./TeamsRosterSection";
 import EventDetailsCard from "./EventDetailsCard";
 import { Page, Card, colors, ghostButtonStyle, buttonStyle, StatusPill } from "./ui";
 
@@ -105,11 +106,13 @@ export default function EventDashboard() {
 
           <RoundsSection eventId={event.id} editable={event.status === "draft"} />
 
+          <TeamsRosterSection event={event} editable={event.status === "draft"} />
+
           <Card>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Next up</div>
             <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-              Teams, roster, and pairings are coming to this dashboard. Your event is saved
-              as a draft — everything stays editable until the first round starts.
+              The join link for players and match pairings are coming next. Your event is a
+              draft — everything stays editable until the first round starts.
             </p>
           </Card>
           </div>

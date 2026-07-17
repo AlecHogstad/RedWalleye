@@ -5,7 +5,7 @@
 // policy (organizer_id = auth.uid()) passes.
 
 import { getProductClient } from "./supabase";
-import type { Course, EventRow, Game, Round } from "./types";
+import type { Course, EventPlayer, EventRow, Game, Round, Team } from "./types";
 
 /** Human-friendly join codes: no 0/O/1/I ambiguity, uppercase, 6 chars. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -315,5 +315,120 @@ export async function deleteRound(roundId: string): Promise<void> {
   const client = getProductClient();
   if (!client) throw new Error("Supabase project not configured.");
   const { error } = await client.from("rounds").delete().eq("id", roundId);
+  if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// Teams & roster — two captain teams (the engine is 2-team head-to-head) and
+// the event_players roster the organizer pre-fills; players mostly arrive via
+// the share link (O-92) and claim these slots.
+// ---------------------------------------------------------------------------
+
+/** An event's teams in display order (0 = "Team A"). */
+export async function listTeams(eventId: string): Promise<Team[]> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client
+    .from("teams")
+    .select()
+    .eq("event_id", eventId)
+    .order("ordinal");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Team[];
+}
+
+/** Seed the two default teams. Idempotent in effect: the unique
+ *  (event_id, ordinal) constraint stops a double-seed — on conflict we just
+ *  re-read whatever exists. */
+export async function createDefaultTeams(eventId: string): Promise<Team[]> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client
+    .from("teams")
+    .insert([
+      { event_id: eventId, name: "Team A", ordinal: 0 },
+      { event_id: eventId, name: "Team B", ordinal: 1 },
+    ])
+    .select();
+  if (error) {
+    if (error.code === "23505") return listTeams(eventId); // raced another tab
+    throw new Error(error.message);
+  }
+  return (data ?? []) as Team[];
+}
+
+export async function renameTeam(teamId: string, name: string): Promise<Team> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Team name is required.");
+  const { data, error } = await client
+    .from("teams")
+    .update({ name: trimmed })
+    .eq("id", teamId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Team;
+}
+
+/** The roster, active players first, in creation order. */
+export async function listEventPlayers(eventId: string): Promise<EventPlayer[]> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client
+    .from("event_players")
+    .select()
+    .eq("event_id", eventId)
+    .order("created_at");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as EventPlayer[];
+}
+
+export async function addEventPlayer(
+  eventId: string,
+  name: string,
+  handicap?: number | null,
+): Promise<EventPlayer> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Player name is required.");
+  const { data, error } = await client
+    .from("event_players")
+    .insert({ event_id: eventId, name: trimmed, handicap: handicap ?? null })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as EventPlayer;
+}
+
+/** Patch a roster slot (name / handicap / team assignment). */
+export async function updateEventPlayer(
+  id: string,
+  patch: { name?: string; handicap?: number | null; teamId?: string | null },
+): Promise<EventPlayer> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.handicap !== undefined) row.handicap = patch.handicap;
+  if (patch.teamId !== undefined) row.team_id = patch.teamId;
+  const { data, error } = await client
+    .from("event_players")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as EventPlayer;
+}
+
+/** Hard-delete a roster slot — the pre-score removal path (spec §8); the
+ *  post-score soft-withdraw arrives with scoring. */
+export async function removeEventPlayer(id: string): Promise<void> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { error } = await client.from("event_players").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
