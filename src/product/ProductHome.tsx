@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { listMyEvents } from "./api";
 import type { EventRow } from "./types";
-import { Page, Card, colors, buttonStyle, ghostButtonStyle, StatusPill } from "./ui";
+import { Page, Card, colors, displayStyle, buttonStyle, ghostButtonStyle, StatusPill } from "./ui";
 
 // Organizer home — the landing after sign-in. Lists the events you own and the
 // one action that starts the wizard. Kept intentionally spare; the event
@@ -27,7 +27,7 @@ export default function ProductHome() {
   return (
     <Page>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: 24, margin: 0 }}>Your events</h1>
+        <h1 style={{ ...displayStyle, fontSize: 24, margin: 0 }}>Your events</h1>
         <button
           type="button"
           onClick={() => void signOut()}

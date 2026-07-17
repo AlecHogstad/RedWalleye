@@ -12,10 +12,21 @@ import {
   listCourses,
   listRoundPlayers,
   listScores,
+  startRound,
+  finishRound,
   type RoundWithGame,
 } from "./api";
 import type { Course, EventPlayer, EventRow, RoundPlayer, Score, Team } from "./types";
-import { Page, Card, colors, StatusPill, ghostButtonStyle } from "./ui";
+import {
+  Page,
+  Card,
+  colors,
+  displayStyle,
+  serifItalicStyle,
+  StatusPill,
+  ghostButtonStyle,
+  buttonStyle,
+} from "./ui";
 
 const POLL_MS = 20_000;
 
@@ -41,6 +52,7 @@ export default function TournamentPage() {
   const [scores, setScores] = useState<Score[]>([]);
   const [uid, setUid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const refreshLive = useCallback(async () => {
     const r = await listEventRounds(eventId);
@@ -91,7 +103,7 @@ export default function TournamentPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>Something went wrong</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 8px" }}>Something went wrong</h1>
           <p style={{ color: colors.danger, fontSize: 14, lineHeight: 1.6 }}>{error}</p>
         </Card>
       </Page>
@@ -108,7 +120,7 @@ export default function TournamentPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>No access to this event</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 8px" }}>No access to this event</h1>
           <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6 }}>
             You're not on this event's roster on this device. Open the invite link the
             organizer shared to join (or rejoin with your PIN).
@@ -143,6 +155,27 @@ export default function TournamentPage() {
     .sort((a, b) => b.holes - a.holes || a.total - b.total || a.player.name.localeCompare(b.player.name));
   const anyStarted = rounds.some(({ round }) => round.status !== "pending");
 
+  const lifecycle = async (roundId: string, action: "start" | "finish", label: string) => {
+    if (busy) return;
+    const message =
+      action === "start"
+        ? `Start ${label}? The roster is enrolled and event setup locks once the first round starts.`
+        : `Finish ${label}? Scores lock when a round is final.`;
+    if (!window.confirm(message)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (action === "start") await startRound(roundId, event.id);
+      else await finishRound(roundId);
+      const [ev] = await Promise.all([getEventById(event.id), refreshLive()]);
+      if (ev) setEvent(ev);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const renderPlayer = (p: EventPlayer) => (
     <div
       key={p.id}
@@ -168,7 +201,7 @@ export default function TournamentPage() {
     <Page>
       <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>Tournament</p>
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 16px" }}>
-        <h1 style={{ fontSize: 24, margin: 0 }}>{event.name}</h1>
+        <h1 style={{ ...displayStyle, fontSize: 24, margin: 0 }}>{event.name}</h1>
         <StatusPill status={event.status} />
       </div>
 
@@ -185,7 +218,9 @@ export default function TournamentPage() {
           <Card>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <div style={{ fontSize: 15, fontWeight: 600 }}>Leaderboard</div>
-              <span style={{ color: colors.muted, fontSize: 12 }}>gross · updates live</span>
+              <span style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5 }}>
+                gross · updates live
+              </span>
             </div>
             {board.length === 0 ? (
               <p style={{ color: colors.muted, fontSize: 14, margin: "8px 0 0" }}>
@@ -211,9 +246,13 @@ export default function TournamentPage() {
                       {row.player.name}
                       {row.player.id === mine?.id && <span style={{ color: colors.accent }}> · you</span>}
                     </span>
-                    <span style={{ color: colors.muted, fontSize: 13 }}>
-                      <strong style={{ color: colors.text, fontSize: 16 }}>{row.total}</strong> thru{" "}
-                      {row.holes}
+                    <span style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5 }}>
+                      <strong
+                        style={{ ...displayStyle, color: colors.text, fontSize: 17, fontStyle: "normal" }}
+                      >
+                        {row.total}
+                      </strong>{" "}
+                      thru {row.holes}
                     </span>
                   </div>
                 ))}
@@ -286,13 +325,33 @@ export default function TournamentPage() {
                     : "Course TBD"}
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {isOrganizer && round.status === "pending" && game && round.course_id && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void lifecycle(round.id, "start", `Round ${i + 1}`)}
+                    style={{ ...buttonStyle, padding: "8px 14px", fontSize: 11 }}
+                  >
+                    Start round
+                  </button>
+                )}
                 {round.status !== "pending" && (
                   <Link to={`/e/${eventId}/r/${round.id}`} style={{ textDecoration: "none" }}>
-                    <button type="button" style={{ ...ghostButtonStyle, fontSize: 12 }}>
+                    <button type="button" style={{ ...ghostButtonStyle, fontSize: 11 }}>
                       {round.status === "active" ? "Enter scores →" : "Scorecard →"}
                     </button>
                   </Link>
+                )}
+                {isOrganizer && round.status === "active" && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void lifecycle(round.id, "finish", `Round ${i + 1}`)}
+                    style={{ ...ghostButtonStyle, fontSize: 11, color: colors.good }}
+                  >
+                    Finish
+                  </button>
                 )}
                 <StatusPill status={round.status} />
               </div>

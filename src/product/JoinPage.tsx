@@ -8,7 +8,7 @@ import {
   type JoinEventInfo,
   type JoinRosterEntry,
 } from "./api";
-import { Page, Card, colors, inputStyle, labelStyle, buttonStyle, ghostButtonStyle } from "./ui";
+import { Page, Card, colors, displayStyle, inputStyle, labelStyle, buttonStyle, ghostButtonStyle } from "./ui";
 
 // The player join flow (O-92) — what the share link opens. No account, no
 // email, no install: an anonymous session is created silently, the player
@@ -119,7 +119,7 @@ export default function JoinPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>Can't open this invite</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 8px" }}>Can't open this invite</h1>
           <p style={{ color: colors.danger, fontSize: 14, lineHeight: 1.6 }}>{error}</p>
         </Card>
       </Page>
@@ -138,7 +138,7 @@ export default function JoinPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>Invite not found</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 8px" }}>Invite not found</h1>
           <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6 }}>
             This link's event code isn't recognized. Ask the organizer to re-send the link.
           </p>
@@ -151,7 +151,7 @@ export default function JoinPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>{info.event.name}</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 8px" }}>{info.event.name}</h1>
           <p style={{ color: colors.muted, fontSize: 14 }}>This event has ended.</p>
         </Card>
       </Page>
@@ -163,20 +163,36 @@ export default function JoinPage() {
       <Page center>
         <Card>
           <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>{info.event.name}</p>
-          <h1 style={{ fontSize: 22, margin: "6px 0 14px" }}>You're in, {joined.name} ⛳</h1>
+          <h1 style={{ ...displayStyle, fontSize: 22, margin: "6px 0 14px" }}>You're in, {joined.name} ⛳</h1>
           <div
             style={{
-              background: "#0f1215",
-              border: `1px solid ${colors.border}`,
+              background: colors.accent,
               borderRadius: 10,
               padding: 16,
               textAlign: "center",
             }}
           >
-            <div style={{ color: colors.muted, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            <div
+              style={{
+                color: colors.surface,
+                opacity: 0.8,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+              }}
+            >
               Your rejoin PIN
             </div>
-            <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: "0.3em", marginTop: 6 }}>
+            <div
+              style={{
+                ...displayStyle,
+                color: colors.surface,
+                fontSize: 34,
+                letterSpacing: "0.25em",
+                marginTop: 6,
+              }}
+            >
               {joined.pin}
             </div>
           </div>
@@ -210,7 +226,7 @@ export default function JoinPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 6px" }}>That spot is taken</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 6px" }}>That spot is taken</h1>
           <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
             <strong style={{ color: colors.text }}>{pinFor.name}</strong> already joined on
             another device. If that's you, enter your 4-digit rejoin PIN to move it here.
@@ -261,7 +277,7 @@ export default function JoinPage() {
   return (
     <Page>
       <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>You're invited to</p>
-      <h1 style={{ fontSize: 24, margin: "4px 0 16px" }}>{info.event.name}</h1>
+      <h1 style={{ ...displayStyle, fontSize: 24, margin: "4px 0 16px" }}>{info.event.name}</h1>
 
       <Card>
         <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Tap your name</div>

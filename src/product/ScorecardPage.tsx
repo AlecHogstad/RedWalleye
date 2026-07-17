@@ -13,7 +13,15 @@ import {
   upsertScore,
 } from "./api";
 import type { EventPlayer, EventRow, Round, RoundPlayer, Score } from "./types";
-import { Page, Card, colors, ghostButtonStyle, StatusPill } from "./ui";
+import {
+  Page,
+  Card,
+  colors,
+  displayStyle,
+  serifItalicStyle,
+  ghostButtonStyle,
+  StatusPill,
+} from "./ui";
 
 // The round scorecard — every player in the round with their running total;
 // expand a row for hole-by-hole entry. A player edits their OWN row; the
@@ -149,7 +157,7 @@ export default function ScorecardPage() {
     return (
       <Page center>
         <Card>
-          <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>No access to this round</h1>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: "0 0 8px" }}>No access to this round</h1>
           <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6 }}>
             Open the invite link the organizer shared to join first.
           </p>
@@ -185,7 +193,7 @@ export default function ScorecardPage() {
       </Link>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>
+        <h1 style={{ ...displayStyle, fontSize: 22, margin: 0 }}>
           Round {roundIndex + 1}
           {formatId ? ` · ${formatLabel(formatId)}` : ""}
         </h1>
@@ -235,10 +243,15 @@ export default function ScorecardPage() {
                     <span style={{ color: colors.muted, fontSize: 12 }}> · tap to score</span>
                   )}
                 </span>
-                <span style={{ color: colors.muted, fontSize: 13 }}>
+                <span style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5 }}>
                   {thru > 0 ? (
                     <>
-                      <strong style={{ color: colors.text, fontSize: 16 }}>{total}</strong> thru {thru}
+                      <strong
+                        style={{ ...displayStyle, color: colors.text, fontSize: 17, fontStyle: "normal" }}
+                      >
+                        {total}
+                      </strong>{" "}
+                      thru {thru}
                     </>
                   ) : (
                     "—"
@@ -275,7 +288,7 @@ export default function ScorecardPage() {
                             fontSize: 15,
                             borderRadius: 6,
                             border: `1px solid ${colors.border}`,
-                            background: canEdit ? "#0f1215" : "transparent",
+                            background: canEdit ? "#fff" : "transparent",
                             color: colors.text,
                             boxSizing: "border-box",
                           }}

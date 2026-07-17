@@ -5,7 +5,7 @@ import type { EventRow } from "./types";
 import RoundsSection from "./RoundsSection";
 import TeamsRosterSection from "./TeamsRosterSection";
 import EventDetailsCard from "./EventDetailsCard";
-import { Page, Card, colors, ghostButtonStyle, buttonStyle, StatusPill } from "./ui";
+import { Page, Card, colors, displayStyle, ghostButtonStyle, buttonStyle, StatusPill } from "./ui";
 
 // Event dashboard — where an organizer lands after creating an event and the
 // hub the wizard's later steps hang off. This first slice confirms the row
@@ -63,7 +63,7 @@ export default function EventDashboard() {
       {event && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <h1 style={{ fontSize: 24, margin: 0 }}>{event.name}</h1>
+            <h1 style={{ ...displayStyle, fontSize: 24, margin: 0 }}>{event.name}</h1>
             <StatusPill status={event.status} />
           </div>
 
