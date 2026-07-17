@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getEventById } from "./api";
 import type { EventRow } from "./types";
+import RoundsSection from "./RoundsSection";
 import { Page, Card, colors, ghostButtonStyle, buttonStyle, StatusPill } from "./ui";
 
 // Event dashboard — where an organizer lands after creating an event and the
@@ -102,11 +103,13 @@ export default function EventDashboard() {
             </button>
           </Card>
 
+          <RoundsSection eventId={event.id} editable={event.status === "draft"} />
+
           <Card>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Next up</div>
             <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-              Rounds &amp; courses, teams, and roster are coming to this dashboard. Your event
-              is saved as a draft — nothing here is final yet.
+              Teams, roster, and pairings are coming to this dashboard. Your event is saved
+              as a draft — everything stays editable until the first round starts.
             </p>
           </Card>
           </div>

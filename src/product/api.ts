@@ -5,7 +5,7 @@
 // policy (organizer_id = auth.uid()) passes.
 
 import { getProductClient } from "./supabase";
-import type { EventRow } from "./types";
+import type { Course, EventRow, Game, Round } from "./types";
 
 /** Human-friendly join codes: no 0/O/1/I ambiguity, uppercase, 6 chars. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -95,4 +95,129 @@ export async function listMyEvents(): Promise<EventRow[]> {
 
   if (error) throw new Error(error.message);
   return (data ?? []) as EventRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Courses (global library) & rounds — the wizard's "Rounds & courses" step.
+// ---------------------------------------------------------------------------
+
+/** The global course library, A→Z. Readable by any signed-in user. */
+export async function listCourses(): Promise<Course[]> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client.from("courses").select().order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Course[];
+}
+
+/** Add a course to the shared library (minimal entry — name + optional
+ *  location; tees/scorecard come with the full course picker, O-96). */
+export async function createCourse(name: string, location?: string): Promise<Course> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data: auth } = await client.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error("You must be signed in.");
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Course name is required.");
+
+  const { data, error } = await client
+    .from("courses")
+    .insert({ name: trimmed, location: location?.trim() || null, created_by: uid })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Course;
+}
+
+/** A round plus its format (the round's `games` row, when one exists). */
+export interface RoundWithGame {
+  round: Round;
+  game: Game | null;
+}
+
+/** An event's rounds in play order (date, then creation), each with its game. */
+export async function listEventRounds(eventId: string): Promise<RoundWithGame[]> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+
+  const [roundsRes, gamesRes] = await Promise.all([
+    client
+      .from("rounds")
+      .select()
+      .eq("event_id", eventId)
+      .order("round_date", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true }),
+    client.from("games").select().eq("event_id", eventId).not("round_id", "is", null),
+  ]);
+  if (roundsRes.error) throw new Error(roundsRes.error.message);
+  if (gamesRes.error) throw new Error(gamesRes.error.message);
+
+  const gameByRound = new Map<string, Game>();
+  for (const g of (gamesRes.data ?? []) as Game[]) {
+    if (g.round_id) gameByRound.set(g.round_id, g);
+  }
+  return ((roundsRes.data ?? []) as Round[]).map((round) => ({
+    round,
+    game: gameByRound.get(round.id) ?? null,
+  }));
+}
+
+export interface NewRoundInput {
+  eventId: string;
+  courseId: string;
+  /** Format id from FORMAT_REGISTRY (one format per round). */
+  format: string;
+  roundDate?: string | null; // yyyy-mm-dd
+}
+
+/** Create a round and its format row. The `games` row carries the engine's
+ *  HouseRules blob; it starts as just `{ format }` and the house-rules editor
+ *  (later step) patches config_json in place. */
+export async function createRound(input: NewRoundInput): Promise<RoundWithGame> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data: auth } = await client.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error("You must be signed in.");
+
+  const { data: round, error: roundErr } = await client
+    .from("rounds")
+    .insert({
+      event_id: input.eventId,
+      course_id: input.courseId,
+      round_date: input.roundDate ?? null,
+      status: "pending",
+      created_by: uid,
+    })
+    .select()
+    .single();
+  if (roundErr) throw new Error(roundErr.message);
+
+  const { data: game, error: gameErr } = await client
+    .from("games")
+    .insert({
+      event_id: input.eventId,
+      round_id: (round as Round).id,
+      type: input.format,
+      config_json: { format: input.format },
+    })
+    .select()
+    .single();
+  if (gameErr) {
+    // Don't leave a format-less round behind — roll back the round row.
+    await client.from("rounds").delete().eq("id", (round as Round).id);
+    throw new Error(gameErr.message);
+  }
+  return { round: round as Round, game: game as Game };
+}
+
+/** Delete a round (its games row cascades). Draft-stage editing only — the
+ *  dashboard hides this once the round is underway. */
+export async function deleteRound(roundId: string): Promise<void> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { error } = await client.from("rounds").delete().eq("id", roundId);
+  if (error) throw new Error(error.message);
 }
