@@ -372,13 +372,25 @@ export async function renameTeam(teamId: string, name: string): Promise<Team> {
   return data as Team;
 }
 
+/** Every event_players column EXCEPT rejoin_pin, which is hidden by a
+ *  column-level grant (see migration …000700) — `select *` would be denied. */
+const PLAYER_COLS = "id,event_id,name,handicap,team_id,claimed_by,status,created_at";
+
+/** The signed-in user's id (anonymous sessions included), or null. */
+export async function currentUserId(): Promise<string | null> {
+  const client = getProductClient();
+  if (!client) return null;
+  const { data } = await client.auth.getUser();
+  return data.user?.id ?? null;
+}
+
 /** The roster, active players first, in creation order. */
 export async function listEventPlayers(eventId: string): Promise<EventPlayer[]> {
   const client = getProductClient();
   if (!client) throw new Error("Supabase project not configured.");
   const { data, error } = await client
     .from("event_players")
-    .select()
+    .select(PLAYER_COLS)
     .eq("event_id", eventId)
     .order("created_at");
   if (error) throw new Error(error.message);
@@ -397,7 +409,7 @@ export async function addEventPlayer(
   const { data, error } = await client
     .from("event_players")
     .insert({ event_id: eventId, name: trimmed, handicap: handicap ?? null })
-    .select()
+    .select(PLAYER_COLS)
     .single();
   if (error) throw new Error(error.message);
   return data as EventPlayer;
@@ -418,7 +430,7 @@ export async function updateEventPlayer(
     .from("event_players")
     .update(row)
     .eq("id", id)
-    .select()
+    .select(PLAYER_COLS)
     .single();
   if (error) throw new Error(error.message);
   return data as EventPlayer;

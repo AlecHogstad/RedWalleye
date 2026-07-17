@@ -86,7 +86,8 @@ export default function App() {
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/app") ||
-    pathname.startsWith("/j/")
+    pathname.startsWith("/j/") ||
+    pathname.startsWith("/e/")
   ) {
     return <ProductApp />;
   }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ensureSession,
   getEventByCode,
@@ -37,6 +37,7 @@ function loadJoined(code: string): Joined | null {
 
 export default function JoinPage() {
   const { code = "" } = useParams<{ code: string }>();
+  const navigate = useNavigate();
   const [info, setInfo] = useState<JoinEventInfo | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<Joined | null>(() => loadJoined(code));
@@ -181,11 +182,18 @@ export default function JoinPage() {
           </div>
           <p style={{ color: colors.muted, fontSize: 13, lineHeight: 1.6, marginTop: 14 }}>
             Save this — it lets you rejoin as {joined.name} from any other phone or if your
-            browser gets cleared. Scores &amp; matchups will show up here once the event starts.
+            browser gets cleared.
           </p>
           <button
             type="button"
-            style={{ ...ghostButtonStyle, marginTop: 6, fontSize: 13 }}
+            style={{ ...buttonStyle, width: "100%", marginTop: 4 }}
+            onClick={() => navigate(`/e/${info.event.id}`)}
+          >
+            Go to the tournament →
+          </button>
+          <button
+            type="button"
+            style={{ ...ghostButtonStyle, marginTop: 10, fontSize: 13 }}
             onClick={() => {
               localStorage.removeItem(storageKey(code));
               setJoined(null);

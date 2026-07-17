@@ -43,7 +43,9 @@ export interface EventPlayer {
   handicap: number | null;
   team_id: string | null;
   claimed_by: string | null;
-  rejoin_pin: string | null;
+  /** Hidden from reads by a column-level grant (migration …000700); only the
+   *  O-92 RPCs return it, to the slot's owner. Never present on fetched rows. */
+  rejoin_pin?: string | null;
   status: PlayerStatus;
   created_at: string;
 }
