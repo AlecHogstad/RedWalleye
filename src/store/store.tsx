@@ -175,7 +175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // don't boot the v1 kv sync alongside it. The two backends never share
     // data; this just keeps the golf-app client (and its console noise) off
     // product pages entirely.
-    if (/^#\/(login|app)/.test(window.location.hash)) return;
+    if (/^#\/(login|app|j\/)/.test(window.location.hash)) return;
     const offData = subscribeRemote(setRemote);
     const offConn = subscribeConnected(setConnected);
     return () => {

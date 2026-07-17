@@ -4,6 +4,7 @@ import LoginPage from "./LoginPage";
 import ProductHome from "./ProductHome";
 import NewEventWizard from "./NewEventWizard";
 import EventDashboard from "./EventDashboard";
+import JoinPage from "./JoinPage";
 import { Page, colors } from "./ui";
 
 // The product surface (organizer accounts) — its own router, rendered outside
@@ -37,6 +38,9 @@ export default function ProductApp() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Player join — deliberately NOT behind RequireAuth: players have no
+            account; the page bootstraps an anonymous session itself. */}
+        <Route path="/j/:code" element={<JoinPage />} />
         <Route
           path="/app"
           element={

@@ -432,3 +432,80 @@ export async function removeEventPlayer(id: string): Promise<void> {
   const { error } = await client.from("event_players").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// Join flow (O-92) — no-account entry via the share link. The caller gets an
+// anonymous session, peeks the event by code, then claims a slot or adds
+// themselves through the SECURITY DEFINER RPCs (the only path an unbound
+// user has into an event).
+// ---------------------------------------------------------------------------
+
+/** Make sure the browser has SOME session — anonymous if nobody is signed in.
+ *  (An organizer opening their own link keeps their real session.) */
+export async function ensureSession(): Promise<void> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data } = await client.auth.getSession();
+  if (data.session) return;
+  const { error } = await client.auth.signInAnonymously();
+  if (error) {
+    throw new Error(
+      `Could not start a guest session (${error.message}). Anonymous sign-ins must be ` +
+        "enabled: Supabase → Authentication → Sign In / Providers → Anonymous.",
+    );
+  }
+}
+
+export interface JoinRosterEntry {
+  id: string;
+  name: string;
+  claimed: boolean;
+}
+
+export interface JoinEventInfo {
+  event: { id: string; name: string; status: string };
+  players: JoinRosterEntry[];
+}
+
+/** Peek an event by join code (names + claimed flags only). Null = bad code. */
+export async function getEventByCode(code: string): Promise<JoinEventInfo | null> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client.rpc("get_event_by_code", { p_code: code });
+  if (error) throw new Error(error.message);
+  return (data as JoinEventInfo | null) ?? null;
+}
+
+export interface JoinResult {
+  player_id: string;
+  event_id: string;
+  /** 4-digit recovery code — lets the player rebind on another phone. */
+  rejoin_pin: string;
+}
+
+/** Claim a pre-entered roster slot (PIN required only to take over an
+ *  already-claimed one). */
+export async function claimSlot(code: string, playerId: string, pin?: string): Promise<JoinResult> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client.rpc("claim_slot", {
+    p_code: code,
+    p_player_id: playerId,
+    p_pin: pin ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as JoinResult;
+}
+
+/** Join as someone not on the pre-entered list. */
+export async function addSelf(code: string, name: string, handicap?: number | null): Promise<JoinResult> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client.rpc("add_self", {
+    p_code: code,
+    p_name: name,
+    p_handicap: handicap ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as JoinResult;
+}
