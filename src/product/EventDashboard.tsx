@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { getEventById } from "./api";
 import type { EventRow } from "./types";
 import RoundsSection from "./RoundsSection";
+import EventDetailsCard from "./EventDetailsCard";
 import { Page, Card, colors, ghostButtonStyle, buttonStyle, StatusPill } from "./ui";
 
 // Event dashboard — where an organizer lands after creating an event and the
@@ -66,6 +67,12 @@ export default function EventDashboard() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <EventDetailsCard
+            event={event}
+            editable={event.status === "draft"}
+            onSaved={setEvent}
+          />
+
           <Card>
             <div style={{ fontSize: 13, color: colors.muted, marginBottom: 8 }}>
               Share link — anyone with this can join

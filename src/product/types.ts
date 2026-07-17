@@ -20,6 +20,8 @@ export interface EventRow {
   status: EventStatus;
   payment_status: PaymentStatus;
   join_code: string;
+  /** Planning headcount from the wizard; editable until the event starts. */
+  expected_players: number | null;
   created_at: string;
 }
 

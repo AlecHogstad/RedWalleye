@@ -22,6 +22,10 @@ function randomJoinCode(len = 6): string {
 
 export interface NewEventInput {
   name: string;
+  /** Planning headcount ("16 guys are coming"). Editable until the event starts. */
+  expectedPlayers: number;
+  /** Rounds to seed as placeholders — course & format get set on the dashboard. */
+  rounds: number;
 }
 
 /**
@@ -40,6 +44,7 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
   const name = input.name.trim();
   if (!name) throw new Error("Event name is required.");
 
+  let event: EventRow | null = null;
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const { data, error } = await client
@@ -47,19 +52,63 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
       .insert({
         organizer_id: uid,
         name,
+        expected_players: input.expectedPlayers,
         join_code: randomJoinCode(),
       })
       .select()
       .single();
 
-    if (!error && data) return data as EventRow;
-
+    if (!error && data) {
+      event = data as EventRow;
+      break;
+    }
     // 23505 = unique_violation. Only join_code is unique here, so retry with a
     // fresh code. Anything else is a real failure — surface it.
     if (error && error.code === "23505" && attempt < MAX_ATTEMPTS - 1) continue;
     if (error) throw new Error(error.message);
   }
-  throw new Error("Could not generate a unique join code. Please try again.");
+  if (!event) throw new Error("Could not generate a unique join code. Please try again.");
+
+  // Seed the requested number of rounds as placeholders (no course/format yet —
+  // the dashboard's Rounds section fills those in). If this fails, drop the
+  // event so a retry starts clean (rounds cascade with it).
+  const count = Math.max(0, Math.floor(input.rounds));
+  if (count > 0) {
+    const { error: roundsErr } = await client.from("rounds").insert(
+      Array.from({ length: count }, () => ({
+        event_id: event!.id,
+        status: "pending",
+        created_by: uid,
+      })),
+    );
+    if (roundsErr) {
+      await client.from("events").delete().eq("id", event.id);
+      throw new Error(roundsErr.message);
+    }
+  }
+  return event;
+}
+
+/** Patch event details (name / headcount). Draft-stage only in the UI; RLS
+ *  limits it to the organizer regardless. */
+export async function updateEvent(
+  id: string,
+  patch: { name?: string; expectedPlayers?: number | null },
+): Promise<EventRow> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) {
+    const trimmed = patch.name.trim();
+    if (!trimmed) throw new Error("Event name is required.");
+    row.name = trimmed;
+  }
+  if (patch.expectedPlayers !== undefined) row.expected_players = patch.expectedPlayers;
+
+  const { data, error } = await client.from("events").update(row).eq("id", id).select().single();
+  if (error) throw new Error(error.message);
+  return data as EventRow;
 }
 
 /** A single event by id. RLS returns it only to its organizer or a bound
@@ -204,6 +253,59 @@ export async function createRound(input: NewRoundInput): Promise<RoundWithGame> 
     await client.from("rounds").delete().eq("id", (round as Round).id);
     throw new Error(gameErr.message);
   }
+  return { round: round as Round, game: game as Game };
+}
+
+/** Set (or change) an existing round's course + format — used for the
+ *  placeholder rounds the wizard seeds, and for edits while the event is a
+ *  draft. Upserts the round's games row. */
+export async function setRoundSetup(args: {
+  roundId: string;
+  eventId: string;
+  courseId: string;
+  format: string;
+}): Promise<RoundWithGame> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+
+  const { data: round, error: roundErr } = await client
+    .from("rounds")
+    .update({ course_id: args.courseId })
+    .eq("id", args.roundId)
+    .select()
+    .single();
+  if (roundErr) throw new Error(roundErr.message);
+
+  const { data: existing, error: findErr } = await client
+    .from("games")
+    .select()
+    .eq("round_id", args.roundId)
+    .maybeSingle();
+  if (findErr) throw new Error(findErr.message);
+
+  if (existing) {
+    const prevConfig = ((existing as Game).config_json ?? {}) as Record<string, unknown>;
+    const { data: game, error } = await client
+      .from("games")
+      .update({ type: args.format, config_json: { ...prevConfig, format: args.format } })
+      .eq("id", (existing as Game).id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return { round: round as Round, game: game as Game };
+  }
+
+  const { data: game, error: insertErr } = await client
+    .from("games")
+    .insert({
+      event_id: args.eventId,
+      round_id: args.roundId,
+      type: args.format,
+      config_json: { format: args.format },
+    })
+    .select()
+    .single();
+  if (insertErr) throw new Error(insertErr.message);
   return { round: round as Round, game: game as Game };
 }
 
