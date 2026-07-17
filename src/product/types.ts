@@ -80,6 +80,13 @@ export interface Tee {
 
 export type RoundStatus = "pending" | "active" | "final";
 
+/** One match pairing: seat arrays sized to the format's seatsPerSide;
+ *  null = open seat (renders as an empty pairing). */
+export interface RoundMatch {
+  sideA: (string | null)[];
+  sideB: (string | null)[];
+}
+
 export interface Round {
   id: string;
   event_id: string | null;
@@ -87,6 +94,7 @@ export interface Round {
   tee_id: string | null;
   round_date: string | null;
   status: RoundStatus;
+  matches_json: RoundMatch[];
   created_by: string;
   created_at: string;
 }

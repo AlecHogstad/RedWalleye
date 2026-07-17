@@ -7,6 +7,7 @@
 import { getProductClient } from "./supabase";
 import type {
   Course,
+  RoundMatch,
   EventPlayer,
   EventRow,
   Game,
@@ -633,4 +634,19 @@ export async function upsertScore(args: {
     .single();
   if (error) throw new Error(error.message);
   return data as Score;
+}
+
+/** Save a round's match pairings (organizer only via can_manage_round).
+ *  Null seats are kept — an open seat is a real thing to render. */
+export async function updateRoundMatches(roundId: string, matches: RoundMatch[]): Promise<Round> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client
+    .from("rounds")
+    .update({ matches_json: matches })
+    .eq("id", roundId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Round;
 }

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { FORMAT_REGISTRY } from "../scoring/formats";
-import type { Format } from "../types";
 import { TrophyIcon, FlagIcon, GearIcon } from "../components/Icons";
 import {
   ensureSession,
@@ -17,7 +15,8 @@ import {
   finishRound,
   type RoundWithGame,
 } from "./api";
-import type { Course, EventPlayer, EventRow, RoundPlayer, Score, Team } from "./types";
+import RoundCards from "./RoundCards";
+import type { Course, EventPlayer, EventRow, Round, RoundPlayer, Score, Team } from "./types";
 import {
   Page,
   Card,
@@ -25,8 +24,6 @@ import {
   displayStyle,
   serifItalicStyle,
   StatusPill,
-  ghostButtonStyle,
-  buttonStyle,
 } from "./ui";
 
 const POLL_MS = 20_000;
@@ -38,11 +35,6 @@ const POLL_MS = 20_000;
 // RLS-scoped product rows; standings poll while play is on.
 
 type Tab = "board" | "rounds" | "teams";
-
-function formatLabel(id: string): string {
-  const plugin = FORMAT_REGISTRY[id as Format];
-  return plugin ? plugin.labels.long : id;
-}
 
 function TeamsIcon({ size = 20 }: { size?: number }) {
   return (
@@ -158,7 +150,6 @@ export default function TournamentPage() {
   const activePlayers = players.filter((p) => p.status === "active");
   const mine = activePlayers.find((p) => p.claimed_by != null && p.claimed_by === uid);
   const unassigned = activePlayers.filter((p) => p.team_id == null);
-  const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
   const isOrganizer = uid != null && uid === event.organizer_id;
 
   // Gross leaderboard across started rounds: round_player → event_player, then
@@ -281,70 +272,20 @@ export default function TournamentPage() {
 
   const roundsTab = (
     <>
-      <Card>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>Rounds</div>
-        {rounds.length === 0 && (
-          <p style={{ color: colors.muted, fontSize: 14, margin: "8px 0 0" }}>
-            The schedule isn't set yet.
-          </p>
-        )}
-        {rounds.map(({ round, game }, i) => (
-          <div
-            key={round.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              padding: "12px 0",
-              borderTop: `1px solid ${colors.border}`,
-              marginTop: i === 0 ? 10 : 0,
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>
-                Round {i + 1}
-                {game ? ` · ${formatLabel(game.type)}` : ""}
-              </div>
-              <div style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5, marginTop: 1 }}>
-                {round.course_id
-                  ? (courseNameById.get(round.course_id) ?? "course TBD")
-                  : "course TBD"}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {isOrganizer && round.status === "pending" && game && round.course_id && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void lifecycle(round.id, "start", `Round ${i + 1}`)}
-                  style={{ ...buttonStyle, padding: "8px 14px", fontSize: 11 }}
-                >
-                  Start round
-                </button>
-              )}
-              {round.status !== "pending" && (
-                <Link to={`/e/${eventId}/r/${round.id}`} style={{ textDecoration: "none" }}>
-                  <button type="button" style={{ ...ghostButtonStyle, fontSize: 11 }}>
-                    {round.status === "active" ? "Enter scores →" : "Scorecard →"}
-                  </button>
-                </Link>
-              )}
-              {isOrganizer && round.status === "active" && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void lifecycle(round.id, "finish", `Round ${i + 1}`)}
-                  style={{ ...ghostButtonStyle, fontSize: 11, color: colors.good }}
-                >
-                  Finish
-                </button>
-              )}
-              <StatusPill status={round.status} />
-            </div>
-          </div>
-        ))}
-      </Card>
+      <RoundCards
+        eventId={eventId}
+        expectedPlayers={event.expected_players}
+        rounds={rounds}
+        teams={teams}
+        players={activePlayers}
+        courses={courses}
+        isOrganizer={isOrganizer}
+        busy={busy}
+        onLifecycle={(roundId, action, label) => void lifecycle(roundId, action, label)}
+        onRoundUpdated={(updated: Round) =>
+          setRounds((prev) => prev.map((r) => (r.round.id === updated.id ? { ...r, round: updated } : r)))
+        }
+      />
       {!anyStarted && (
         <p style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5, textAlign: "center", margin: "10px 0 0" }}>
           scores open when a round starts
