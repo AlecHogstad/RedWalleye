@@ -9,12 +9,6 @@ import { Page, Card, colors, buttonStyle, ghostButtonStyle, StatusPill } from ".
 // one action that starts the wizard. Kept intentionally spare; the event
 // dashboard is where the depth lives.
 
-function fmtDates(ev: EventRow): string | null {
-  if (!ev.starts_on) return null;
-  if (!ev.ends_on || ev.ends_on === ev.starts_on) return ev.starts_on;
-  return `${ev.starts_on} → ${ev.ends_on}`;
-}
-
 export default function ProductHome() {
   const { user, signOut } = useAuth();
   const [events, setEvents] = useState<EventRow[] | null>(null);
@@ -62,26 +56,16 @@ export default function ProductHome() {
             No events yet. Create your first one above.
           </p>
         )}
-        {events?.map((ev) => {
-          const dates = fmtDates(ev);
-          return (
-            <Link key={ev.id} to={`/app/event/${ev.id}`} style={{ textDecoration: "none" }}>
-              <Card>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ color: colors.text, fontSize: 16, fontWeight: 600 }}>
-                      {ev.name}
-                    </div>
-                    {dates && (
-                      <div style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>{dates}</div>
-                    )}
-                  </div>
-                  <StatusPill status={ev.status} />
-                </div>
-              </Card>
-            </Link>
-          );
-        })}
+        {events?.map((ev) => (
+          <Link key={ev.id} to={`/app/event/${ev.id}`} style={{ textDecoration: "none" }}>
+            <Card>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ color: colors.text, fontSize: 16, fontWeight: 600 }}>{ev.name}</div>
+                <StatusPill status={ev.status} />
+              </div>
+            </Card>
+          </Link>
+        ))}
       </div>
     </Page>
   );

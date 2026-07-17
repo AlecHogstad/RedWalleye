@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getEventById } from "./api";
 import type { EventRow } from "./types";
+import RoundsSection from "./RoundsSection";
+import TeamsRosterSection from "./TeamsRosterSection";
+import EventDetailsCard from "./EventDetailsCard";
 import { Page, Card, colors, ghostButtonStyle, buttonStyle, StatusPill } from "./ui";
 
 // Event dashboard — where an organizer lands after creating an event and the
@@ -59,19 +62,18 @@ export default function EventDashboard() {
 
       {event && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
             <h1 style={{ fontSize: 24, margin: 0 }}>{event.name}</h1>
             <StatusPill status={event.status} />
           </div>
-          {event.starts_on && (
-            <p style={{ color: colors.muted, fontSize: 14, margin: "0 0 24px" }}>
-              {event.ends_on && event.ends_on !== event.starts_on
-                ? `${event.starts_on} → ${event.ends_on}`
-                : event.starts_on}
-            </p>
-          )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <EventDetailsCard
+            event={event}
+            editable={event.status === "draft"}
+            onSaved={setEvent}
+          />
+
           <Card>
             <div style={{ fontSize: 13, color: colors.muted, marginBottom: 8 }}>
               Share link — anyone with this can join
@@ -102,11 +104,21 @@ export default function EventDashboard() {
             </button>
           </Card>
 
+          <RoundsSection
+            eventId={event.id}
+            editable={event.status === "draft"}
+            onLifecycle={() => {
+              void getEventById(event.id).then((ev) => ev && setEvent(ev));
+            }}
+          />
+
+          <TeamsRosterSection event={event} editable={event.status === "draft"} />
+
           <Card>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Next up</div>
             <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-              Rounds &amp; courses, teams, and roster are coming to this dashboard. Your event
-              is saved as a draft — nothing here is final yet.
+              The join link for players and match pairings are coming next. Your event is a
+              draft — everything stays editable until the first round starts.
             </p>
           </Card>
           </div>

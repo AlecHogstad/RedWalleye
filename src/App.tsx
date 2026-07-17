@@ -83,7 +83,12 @@ export default function App() {
 
   // Product surface (organizer accounts) renders outside the v1 golf-club
   // shell. Kept after all hooks above so hook order is stable across routes.
-  if (pathname.startsWith("/login") || pathname.startsWith("/app")) {
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/app") ||
+    pathname.startsWith("/j/") ||
+    pathname.startsWith("/e/")
+  ) {
     return <ProductApp />;
   }
 
