@@ -650,3 +650,26 @@ export async function updateRoundMatches(roundId: string, matches: RoundMatch[])
   if (error) throw new Error(error.message);
   return data as Round;
 }
+
+/** Set a round's course at start time (the v1 Start Round flow picks the
+ *  course as it starts the round). */
+export async function setRoundCourse(roundId: string, courseId: string): Promise<void> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { error } = await client.from("rounds").update({ course_id: courseId }).eq("id", roundId);
+  if (error) throw new Error(error.message);
+}
+
+/** Reopen a finished round (v1's escape hatch for fixing scores). */
+export async function reopenRound(roundId: string): Promise<Round> {
+  const client = getProductClient();
+  if (!client) throw new Error("Supabase project not configured.");
+  const { data, error } = await client
+    .from("rounds")
+    .update({ status: "active" })
+    .eq("id", roundId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Round;
+}
