@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, NavLink, useLocation, useParams } from "react-router-dom";
 import { TrophyIcon, FlagIcon, GearIcon } from "../components/Icons";
+import { PoleFlag } from "../components/CheckFlag";
 import {
   ensureSession,
   currentUserId,
@@ -17,14 +18,7 @@ import {
 } from "./api";
 import RoundCards from "./RoundCards";
 import type { Course, EventPlayer, EventRow, Round, RoundPlayer, Score, Team } from "./types";
-import {
-  Page,
-  Card,
-  colors,
-  displayStyle,
-  serifItalicStyle,
-  StatusPill,
-} from "./ui";
+import { Page, Card, colors, displayStyle } from "./ui";
 
 const POLL_MS = 20_000;
 
@@ -192,82 +186,54 @@ export default function TournamentPage() {
     }
   };
 
+  // v1 `.standing` rows (same classes the HomePage leaderboard uses).
   const renderPlayer = (p: EventPlayer) => (
-    <div
-      key={p.id}
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        padding: "8px 0",
-        borderTop: `1px solid ${colors.border}`,
-      }}
-    >
-      <span style={{ fontSize: 14, fontWeight: p.id === mine?.id ? 700 : 400 }}>
-        {p.name}
-        {p.id === mine?.id && <span style={{ color: colors.accent }}> · you</span>}
-      </span>
-      <span style={{ color: colors.muted, fontSize: 12 }}>
-        {p.handicap != null ? `HCP ${p.handicap}` : ""}
-      </span>
+    <div className="standing" key={p.id} style={{ padding: "10px 16px" }}>
+      <span className="dot" style={{ background: "transparent" }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="team-name" style={{ fontSize: 14 }}>
+          {p.name}
+          {p.id === mine?.id && (
+            <em style={{ color: "var(--orange)", fontStyle: "normal" }}> · you</em>
+          )}
+        </div>
+      </div>
+      <span className="team-meta">{p.handicap != null ? `HCP ${p.handicap}` : ""}</span>
     </div>
   );
 
   const boardTab = (
-    <>
-      {!anyStarted ? (
-        <Card>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>Leaderboard</div>
-          <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6, margin: "8px 0 0" }}>
-            Standings appear here the moment the first round starts.
+    <section className="section">
+      <div className="card">
+        {!anyStarted ? (
+          <p className="hint" style={{ padding: "14px 16px" }}>
+            Standings appear the moment the first round starts — {activePlayers.length} players,{" "}
+            {rounds.length} rounds.
           </p>
-          <p style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5, margin: "6px 0 0" }}>
-            {activePlayers.length} players · {rounds.length} rounds
+        ) : board.length === 0 ? (
+          <p className="hint" style={{ padding: "14px 16px" }}>
+            No scores in yet.
           </p>
-        </Card>
-      ) : (
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>Leaderboard</div>
-            <span style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5 }}>
-              gross · updates live
-            </span>
-          </div>
-          {board.length === 0 ? (
-            <p style={{ color: colors.muted, fontSize: 14, margin: "8px 0 0" }}>No scores in yet.</p>
-          ) : (
-            <div style={{ marginTop: 8 }}>
-              {board.map((row, i) => (
-                <div
-                  key={row.player.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    padding: "8px 0",
-                    borderTop: `1px solid ${colors.border}`,
-                  }}
-                >
-                  <span style={{ fontSize: 14, fontWeight: row.player.id === mine?.id ? 700 : 400 }}>
-                    <span style={{ ...displayStyle, color: colors.muted, display: "inline-block", width: 28, fontSize: 13 }}>
-                      {i + 1}
-                    </span>
-                    {row.player.name}
-                    {row.player.id === mine?.id && <span style={{ color: colors.accent }}> · you</span>}
-                  </span>
-                  <span style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5 }}>
-                    <strong style={{ ...displayStyle, color: colors.text, fontSize: 17, fontStyle: "normal" }}>
-                      {row.total}
-                    </strong>{" "}
-                    thru {row.holes}
-                  </span>
+        ) : (
+          board.map((row, i) => (
+            <div className="standing" key={row.player.id}>
+              <span className="rank">{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="team-name" style={{ fontSize: 15 }}>
+                  {row.player.name}
+                  {row.player.id === mine?.id && (
+                    <em style={{ color: "var(--orange)", fontStyle: "normal" }}> · you</em>
+                  )}
                 </div>
-              ))}
+                <div className="team-meta">thru {row.holes}</div>
+              </div>
+              <span className="pts">{row.total}</span>
             </div>
-          )}
-        </Card>
-      )}
-    </>
+          ))
+        )}
+      </div>
+      {anyStarted && <p className="hint">Gross strokes · updates live on every phone.</p>}
+    </section>
   );
 
   const roundsTab = (
@@ -286,174 +252,115 @@ export default function TournamentPage() {
           setRounds((prev) => prev.map((r) => (r.round.id === updated.id ? { ...r, round: updated } : r)))
         }
       />
-      {!anyStarted && (
-        <p style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5, textAlign: "center", margin: "10px 0 0" }}>
-          scores open when a round starts
-        </p>
-      )}
+      {!anyStarted && <p className="hint center">Scores open when a round starts.</p>}
     </>
   );
 
+  const teamColors = ["#de4f2c", "#1e4a2b"];
   const teamsTab = (
     <>
-      {teams.map((team) => {
+      {teams.map((team, ti) => {
         const roster = activePlayers.filter((p) => p.team_id === team.id);
         return (
-          <Card key={team.id}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div style={{ ...displayStyle, fontSize: 16 }}>{team.name}</div>
-              <span style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5 }}>
-                {roster.length} players
-              </span>
+          <section className="section" key={team.id} style={ti > 0 ? { paddingTop: 0 } : undefined}>
+            <div className="card">
+              <div className="standing">
+                <span className="dot" style={{ background: team.color ?? teamColors[ti] ?? "#26301f" }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="team-name">{team.name}</div>
+                  <div className="team-meta">
+                    {roster.length === 0 ? "nobody assigned yet" : `${roster.length} players`}
+                  </div>
+                </div>
+              </div>
+              {roster.map(renderPlayer)}
             </div>
-            <div style={{ marginTop: 8 }}>
-              {roster.length === 0 ? (
-                <p style={{ color: colors.muted, fontSize: 13, margin: "4px 0 0" }}>
-                  Nobody assigned yet.
-                </p>
-              ) : (
-                roster.map(renderPlayer)
-              )}
-            </div>
-          </Card>
+          </section>
         );
       })}
       {unassigned.length > 0 && (
-        <Card>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>
-            Not on a team yet
-            <span style={{ color: colors.muted, fontWeight: 400, fontSize: 13 }}> · {unassigned.length}</span>
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="card">
+            <div className="standing">
+              <span className="dot" style={{ background: "transparent" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="team-name">Not on a team yet</div>
+                <div className="team-meta">{unassigned.length} players</div>
+              </div>
+            </div>
+            {unassigned.map(renderPlayer)}
           </div>
-          <div style={{ marginTop: 8 }}>{unassigned.map(renderPlayer)}</div>
-        </Card>
+        </section>
       )}
     </>
   );
 
-  const tabs: { id: Tab; label: string; to: string; icon: JSX.Element }[] = [
-    { id: "board", label: "Leaderboard", to: `/e/${eventId}`, icon: <TrophyIcon /> },
-    { id: "rounds", label: "Rounds", to: `/e/${eventId}/rounds`, icon: <FlagIcon /> },
-    { id: "teams", label: "Teams", to: `/e/${eventId}/teams`, icon: <TeamsIcon /> },
-  ];
+  // Same shell as v1's App.tsx: .app theme + .topbar (lockup / wordmark) +
+  // main + .tabbar — the global index.css does all the styling.
+  const initials = event.name
+    .split(/\s+/)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: colors.bg,
-        color: colors.text,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "16px 16px 10px",
-          maxWidth: 520,
-          margin: "0 auto",
-          boxSizing: "border-box",
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <h1
-            style={{
-              ...displayStyle,
-              fontSize: 20,
-              margin: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {event.name}
-          </h1>
+    <div className="app theme-green">
+      <header className="topbar">
+        <div className="lockup" aria-label={event.name}>
+          <PoleFlag />
+          <span>{initials}</span>
         </div>
-        <StatusPill status={event.status} />
+        <div className="wordmark">{event.name}</div>
+        <span className="spacer" />
+        {event.status === "active" ? (
+          <span className="sync online">● live</span>
+        ) : (
+          <span className="est">{event.status}</span>
+        )}
         {isOrganizer && (
-          <Link
-            to={`/app/event/${event.id}`}
-            aria-label="Manage event"
-            style={{ color: colors.accent, display: "inline-flex", padding: 4 }}
-          >
-            <GearIcon size={20} />
+          <Link to={`/app/event/${event.id}`} className="header-btn" aria-label="Manage event">
+            <GearIcon />
           </Link>
         )}
       </header>
 
-      {/* Tab content */}
-      <main
-        style={{
-          maxWidth: 520,
-          margin: "0 auto",
-          padding: "4px 16px 96px",
-          boxSizing: "border-box",
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
+      <main>
         {tab === "board" && boardTab}
         {tab === "rounds" && roundsTab}
         {tab === "teams" && teamsTab}
-        {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
+        {error && (
+          <p className="hint center" style={{ color: "var(--orange)" }}>
+            {error}
+          </p>
+        )}
       </main>
 
-      {/* Bottom tab bar — v1 style: fixed, cream card, active = filled pill */}
-      <nav
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 30,
-          display: "flex",
-          background: colors.surface,
-          borderTop: `1px solid ${colors.border}`,
-          paddingBottom: "env(safe-area-inset-bottom)",
-        }}
-      >
-        {tabs.map((t) => {
-          const active = tab === t.id;
-          return (
-            <Link
-              key={t.id}
-              to={t.to}
-              style={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "11px 2px 9px",
-                minWidth: 0,
-                color: active ? colors.surface : colors.muted,
-                textDecoration: "none",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  background: active ? colors.accent : "transparent",
-                  border: `1.5px solid ${active ? colors.accent : "transparent"}`,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span style={{ display: "inline-flex" }}>{t.icon}</span>
-                {t.label}
-              </span>
-            </Link>
-          );
-        })}
+      <nav className="tabbar">
+        <NavLink to={`/e/${eventId}`} end>
+          <span className="tab-inner">
+            <span className="tab-icon">
+              <TrophyIcon />
+            </span>
+            <span className="tab-label">Leaderboard</span>
+          </span>
+        </NavLink>
+        <NavLink to={`/e/${eventId}/rounds`}>
+          <span className="tab-inner">
+            <span className="tab-icon">
+              <FlagIcon />
+            </span>
+            <span className="tab-label">Rounds</span>
+          </span>
+        </NavLink>
+        <NavLink to={`/e/${eventId}/teams`}>
+          <span className="tab-inner">
+            <span className="tab-icon">
+              <TeamsIcon />
+            </span>
+            <span className="tab-label">Teams</span>
+          </span>
+        </NavLink>
       </nav>
     </div>
   );

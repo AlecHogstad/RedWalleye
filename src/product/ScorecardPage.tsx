@@ -13,15 +13,7 @@ import {
   upsertScore,
 } from "./api";
 import type { EventPlayer, EventRow, Round, RoundPlayer, Score } from "./types";
-import {
-  Page,
-  Card,
-  colors,
-  displayStyle,
-  serifItalicStyle,
-  ghostButtonStyle,
-  StatusPill,
-} from "./ui";
+import { Page, Card, colors, displayStyle, serifItalicStyle } from "./ui";
 
 // The round scorecard — every player in the round with their running total;
 // expand a row for hole-by-hole entry. A player edits their OWN row; the
@@ -184,30 +176,32 @@ export default function ScorecardPage() {
 
   const editableRound = round.status === "active";
 
+  // v1 interior-screen shell: blue scoring theme, back pill, no tab bar.
   return (
-    <Page maxWidth={560}>
-      <Link to={`/e/${eventId}`} style={{ textDecoration: "none" }}>
-        <button type="button" style={{ ...ghostButtonStyle, marginBottom: 20 }}>
-          ← {event.name}
-        </button>
-      </Link>
+    <div className="app theme-blue no-tabs">
+      <header className="topbar">
+        <Link className="badge topbar-back" to={`/e/${eventId}/rounds`}>
+          ← Rounds
+        </Link>
+        <span className="spacer" />
+        {round.status === "active" && <span className="sync online">● live</span>}
+      </header>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-        <h1 style={{ ...displayStyle, fontSize: 22, margin: 0 }}>
-          Round {roundIndex + 1}
-          {formatId ? ` · ${formatLabel(formatId)}` : ""}
-        </h1>
-        <StatusPill status={round.status} />
-      </div>
-      <p style={{ color: colors.muted, fontSize: 13, margin: "0 0 16px" }}>
-        {editableRound
-          ? "Tap your row to enter scores hole by hole."
-          : round.status === "final"
-            ? "Final — scores are locked."
-            : "This round hasn't started yet."}
-      </p>
+      <main>
+        <section className="section">
+          <h2 style={{ margin: "0 0 2px" }}>
+            Round {roundIndex + 1}
+            {formatId ? `: ${formatLabel(formatId)}` : ""}
+          </h2>
+          <p className="hint" style={{ padding: "0 0 10px" }}>
+            {editableRound
+              ? "Tap your row to enter scores hole by hole."
+              : round.status === "final"
+                ? "Final — scores are locked."
+                : "This round hasn't started yet."}
+          </p>
 
-      <Card>
+          <div className="card" style={{ padding: "4px 16px" }}>
         {rows.length === 0 && (
           <p style={{ color: colors.muted, fontSize: 14, margin: 0 }}>
             Nobody is enrolled in this round yet — the organizer starts the round to enroll
@@ -301,9 +295,15 @@ export default function ScorecardPage() {
             </div>
           );
         })}
-      </Card>
+          </div>
 
-      {error && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
-    </Page>
+          {error && (
+            <p className="hint" style={{ color: "var(--orange)", padding: "10px 0 0" }}>
+              {error}
+            </p>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

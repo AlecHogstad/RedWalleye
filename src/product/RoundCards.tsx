@@ -4,38 +4,22 @@ import { FORMAT_REGISTRY } from "../scoring/formats";
 import type { Format } from "../types";
 import { updateRoundMatches, type RoundWithGame } from "./api";
 import type { Course, EventPlayer, Round, RoundMatch, Team } from "./types";
-import {
-  Card,
-  colors,
-  displayStyle,
-  serifItalicStyle,
-  StatusPill,
-  buttonStyle,
-  ghostButtonStyle,
-  inputStyle,
-} from "./ui";
+import { inputStyle, serifItalicStyle, colors } from "./ui";
 
-// The Rounds tab, in the v1 Red Walleye shape: one card per round; inside it,
-// one row per MATCH (team-color dots, side A over side B, status column) —
-// and pairings render even when empty (open seats), so the shape of the round
-// is visible before anyone is assigned. The organizer fills seats with the
-// inline "Set matchups" editor (v1's matchup builder, embedded).
+// The Rounds tab — the SAME page as v1's RoundsPage: identical markup and the
+// global index.css classes (round-card / round-matches / match / sides / oval
+// / btn), so a player who gets a link sees the app they'd see in Red Walleye.
+// Pairings render even when empty (open seats). The one product addition is
+// the inline "Set matchups" editor for the organizer.
 
-const TEAM_FALLBACK_COLORS = ["#de4f2c", "#1e4a2b"]; // side A orange, side B green (v1)
+const TEAM_FALLBACK_COLORS = ["#de4f2c", "#1e4a2b"]; // side A orange, side B green
 
-function seatsFor(format: string | null): number {
-  if (!format) return 2;
-  const plugin = FORMAT_REGISTRY[format as Format];
-  return plugin ? plugin.seatsPerSide : 2;
-}
-
-function shortLabel(format: string): string {
-  const plugin = FORMAT_REGISTRY[format as Format];
-  return plugin ? plugin.labels.short : format;
+function plugin(format: string | null) {
+  return format ? (FORMAT_REGISTRY[format as Format] ?? null) : null;
 }
 
 function emptyMatches(format: string | null, playerCount: number): RoundMatch[] {
-  const seats = seatsFor(format);
+  const seats = plugin(format)?.seatsPerSide ?? 2;
   const count = Math.max(1, Math.floor(playerCount / (2 * seats)));
   return Array.from({ length: count }, () => ({
     sideA: Array.from({ length: seats }, () => null),
@@ -43,7 +27,6 @@ function emptyMatches(format: string | null, playerCount: number): RoundMatch[] 
   }));
 }
 
-/** The matches to display: saved pairings, else the empty shape. */
 function displayMatches(round: Round, format: string | null, playerCount: number): RoundMatch[] {
   if (round.matches_json && round.matches_json.length > 0) return round.matches_json;
   return emptyMatches(format, playerCount);
@@ -82,17 +65,19 @@ export default function RoundCards({
   const teamA = teams[0];
   const teamB = teams[1];
   const playerCount = expectedPlayers ?? players.length;
+  const anyActive = rounds.some(({ round }) => round.status === "active");
 
   const rosterOf = (team: Team | undefined) =>
     team ? players.filter((p) => p.team_id === team.id) : [];
 
   const openEditor = (round: Round, format: string | null) => {
-    const seats = seatsFor(format);
-    const current = displayMatches(round, format, playerCount).map((m) => ({
-      sideA: Array.from({ length: seats }, (_, i) => m.sideA[i] ?? null),
-      sideB: Array.from({ length: seats }, (_, i) => m.sideB[i] ?? null),
-    }));
-    setDraft(current);
+    const seats = plugin(format)?.seatsPerSide ?? 2;
+    setDraft(
+      displayMatches(round, format, playerCount).map((m) => ({
+        sideA: Array.from({ length: seats }, (_, i) => m.sideA[i] ?? null),
+        sideB: Array.from({ length: seats }, (_, i) => m.sideB[i] ?? null),
+      })),
+    );
     setEditingId(round.id);
     setError(null);
   };
@@ -119,58 +104,34 @@ export default function RoundCards({
     }
   };
 
-  const sideNames = (ids: (string | null)[]) => {
-    const filled = ids.map((id) => (id ? (nameById.get(id) ?? "?") : null));
-    return filled;
-  };
-
-  const renderSide = (ids: (string | null)[], color: string) => {
-    const names = sideNames(ids);
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-        <span
-          style={{
-            width: 9,
-            height: 9,
-            borderRadius: "50%",
-            background: color,
-            flexShrink: 0,
-          }}
-        />
-        <span style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {names.map((n, i) => (
-            <span key={i}>
-              {i > 0 && <span style={{ color: colors.muted }}> / </span>}
-              {n ? (
-                n
-              ) : (
-                <span style={{ ...serifItalicStyle, color: colors.muted }}>open seat</span>
-              )}
-            </span>
-          ))}
+  /** " / "-joined names, v1 style; open seats in the italic accent voice. */
+  const sideNames = (ids: (string | null)[]) => (
+    <>
+      {ids.map((id, i) => (
+        <span key={i}>
+          {i > 0 && " / "}
+          {id ? (
+            (nameById.get(id) ?? "?")
+          ) : (
+            <em style={{ ...serifItalicStyle, color: colors.muted }}>open</em>
+          )}
         </span>
-      </div>
-    );
-  };
+      ))}
+    </>
+  );
 
-  /** One seat select for the editor. */
-  const seatSelect = (
-    team: Team | undefined,
-    mi: number,
-    side: "sideA" | "sideB",
-    si: number,
-  ) => {
+  const seatSelect = (team: Team | undefined, mi: number, side: "sideA" | "sideB", si: number) => {
     const roster = rosterOf(team);
     const usedElsewhere = new Set(
-      draft.flatMap((m, i) =>
-        m[side === "sideA" ? "sideA" : "sideB"].filter((_, j) => !(i === mi && j === si)),
-      ).filter(Boolean) as string[],
+      draft
+        .flatMap((m, i) => m[side].filter((_, j) => !(i === mi && j === si)))
+        .filter(Boolean) as string[],
     );
     const value = draft[mi]?.[side][si] ?? "";
     return (
       <select
         key={`${mi}-${side}-${si}`}
-        aria-label={`Match ${mi + 1} ${side === "sideA" ? teamA?.name : teamB?.name} seat ${si + 1}`}
+        aria-label={`Match ${mi + 1} ${side === "sideA" ? (teamA?.name ?? "A") : (teamB?.name ?? "B")} seat ${si + 1}`}
         style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }}
         value={value ?? ""}
         onChange={(e) => setSeat(mi, side, si, e.target.value)}
@@ -188,179 +149,155 @@ export default function RoundCards({
   };
 
   return (
-    <>
-      {rounds.length === 0 && (
-        <Card>
-          <p style={{ color: colors.muted, fontSize: 14, margin: 0 }}>The schedule isn't set yet.</p>
-        </Card>
-      )}
-
+    <div className="rounds-page">
       {rounds.map(({ round, game }, i) => {
         const format = game?.type ?? null;
+        const pg = plugin(format);
         const configured = Boolean(game && round.course_id);
         const matches = displayMatches(round, format, playerCount);
         const editing = editingId === round.id;
         const colorA = teamA?.color ?? TEAM_FALLBACK_COLORS[0];
         const colorB = teamB?.color ?? TEAM_FALLBACK_COLORS[1];
-        const hasAssignments =
-          rosterOf(teamA).length > 0 || rosterOf(teamB).length > 0;
+        const locked = round.status === "pending" && anyActive;
+        const startable =
+          isOrganizer && round.status === "pending" && configured && !anyActive;
+
+        const matchBody = (m: RoundMatch) => (
+          <div className="sides">
+            <div className="side a">
+              <div className="row" style={{ gap: 6 }}>
+                <span className="dot" style={{ background: colorA }} />
+                <span className="names">{sideNames(m.sideA)}</span>
+              </div>
+            </div>
+            <div className="status">
+              <div className="result">—</div>
+              <div className="lead">{round.status === "pending" ? "not started" : "no scores yet"}</div>
+            </div>
+            <div className="side b">
+              <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                <span className="names">{sideNames(m.sideB)}</span>
+                <span className="dot" style={{ background: colorB }} />
+              </div>
+            </div>
+          </div>
+        );
 
         return (
-          <Card key={round.id}>
-            {/* Head — round name, format oval, status */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ ...displayStyle, fontSize: 17 }}>Round {i + 1}</span>
-              {format && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.14em",
-                    color: colors.muted,
-                    border: "1.5px solid currentColor",
-                    borderRadius: 999,
-                    padding: "3px 10px",
-                  }}
-                >
-                  {shortLabel(format)}
-                </span>
-              )}
-              <span style={{ flex: 1 }} />
-              <StatusPill status={round.status} />
-            </div>
-            <p style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              {round.course_id
-                ? (courseNameById.get(round.course_id) ?? "course TBD")
-                : configured
-                  ? "course TBD"
-                  : "needs a course & format"}
-            </p>
-
-            {/* Match rows */}
-            <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 12 }}>
-              {matches.map((m, mi) => (
-                <div
-                  key={mi}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "10px 0",
-                    borderBottom:
-                      mi < matches.length - 1 ? `1px solid ${colors.border}` : "none",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                    {renderSide(m.sideA, colorA)}
-                    {renderSide(m.sideB, colorB)}
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ ...displayStyle, fontSize: 15, color: colors.muted }}>—</div>
-                    <div style={{ ...serifItalicStyle, color: colors.muted, fontSize: 11.5 }}>
-                      not started
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Inline matchup editor */}
-            {editing && (
-              <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 12 }}>
-                {!hasAssignments && (
-                  <p style={{ color: colors.muted, fontSize: 13, lineHeight: 1.5, margin: "0 0 10px" }}>
-                    Nobody is assigned to a team yet — set team rosters first (organizer
-                    dashboard → Roster), then pair the matches here.
-                  </p>
-                )}
-                {draft.map((m, mi) => (
-                  <div key={mi} style={{ marginBottom: 14 }}>
-                    <div style={{ ...serifItalicStyle, color: colors.muted, fontSize: 12.5, marginBottom: 6 }}>
-                      match {mi + 1}
-                    </div>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {m.sideA.map((_, si) => seatSelect(teamA, mi, "sideA", si))}
-                      </div>
-                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {m.sideB.map((_, si) => seatSelect(teamB, mi, "sideB", si))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void save(round.id)}
-                    style={{ ...buttonStyle, flex: 1, opacity: saving ? 0.6 : 1 }}
-                  >
-                    {saving ? "Saving…" : "Save matchups"}
-                  </button>
-                  <button type="button" style={ghostButtonStyle} onClick={() => setEditingId(null)}>
-                    Cancel
-                  </button>
-                </div>
+          <section className="section" key={round.id}>
+            <div className={`round-card card ${round.status === "pending" ? "dimmed" : ""}`}>
+              <div className="round-card-head">
+                <h2>
+                  Round {i + 1}
+                  {pg ? `: ${pg.labels.long}` : ""}
+                  {round.status === "active" && <span className="oval live">In-Progress</span>}
+                  {round.status === "final" && <span className="oval">Final</span>}
+                  {locked && <span className="oval muted-oval">Locked</span>}
+                </h2>
+                <p className="round-where round-meta-row">
+                  <span>
+                    {round.course_id
+                      ? (courseNameById.get(round.course_id) ?? "")
+                      : configured
+                        ? ""
+                        : "Course & format not set yet"}
+                  </span>
+                </p>
               </div>
-            )}
 
-            {/* Foot — v1 round-card-foot */}
-            {!editing && (
-              <div
-                style={{
-                  borderTop: `1px solid ${colors.border}`,
-                  paddingTop: 12,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
-                {isOrganizer && round.status === "pending" && (
-                  <button
-                    type="button"
-                    style={{ ...ghostButtonStyle, width: "100%" }}
-                    onClick={() => openEditor(round, format)}
-                  >
-                    Set matchups
-                  </button>
+              <div className="round-matches">
+                {matches.map((m, mi) =>
+                  round.status === "pending" ? (
+                    <div className="match" key={mi}>
+                      {matchBody(m)}
+                    </div>
+                  ) : (
+                    <Link className="match" key={mi} to={`/e/${eventId}/r/${round.id}`}>
+                      {matchBody(m)}
+                    </Link>
+                  ),
                 )}
-                {isOrganizer && round.status === "pending" && configured && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    style={{ ...buttonStyle, width: "100%", opacity: busy ? 0.6 : 1 }}
-                    onClick={() => onLifecycle(round.id, "start", `Round ${i + 1}`)}
-                  >
-                    Start Round {i + 1}
-                  </button>
-                )}
-                {round.status !== "pending" && (
-                  <Link to={`/e/${eventId}/r/${round.id}`} style={{ textDecoration: "none" }}>
-                    <button type="button" style={{ ...ghostButtonStyle, width: "100%" }}>
-                      {round.status === "active" ? "Enter scores" : "View scorecard"}
+              </div>
+
+              {editing && (
+                <div style={{ borderTop: "1px solid var(--line)", padding: "12px 16px 14px" }}>
+                  {rosterOf(teamA).length === 0 && rosterOf(teamB).length === 0 && (
+                    <p className="hint" style={{ padding: "0 0 10px" }}>
+                      Nobody is assigned to a team yet — set team rosters on the organizer
+                      dashboard first.
+                    </p>
+                  )}
+                  {draft.map((m, mi) => (
+                    <div key={mi} style={{ marginBottom: 14 }}>
+                      <p className="hint" style={{ padding: "0 0 6px" }}>
+                        match {mi + 1}
+                      </p>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {m.sideA.map((_, si) => seatSelect(teamA, mi, "sideA", si))}
+                        </div>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {m.sideB.map((_, si) => seatSelect(teamB, mi, "sideB", si))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {error && (
+                    <p style={{ color: "var(--orange)", fontSize: 13, margin: "0 0 10px" }}>{error}</p>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button
+                      className="btn start"
+                      disabled={saving}
+                      onClick={() => void save(round.id)}
+                    >
+                      {saving ? "Saving…" : "Save matchups"}
                     </button>
-                  </Link>
-                )}
-                {isOrganizer && round.status === "active" && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    style={{ ...ghostButtonStyle, width: "100%", color: colors.good }}
-                    onClick={() => onLifecycle(round.id, "finish", `Round ${i + 1}`)}
-                  >
-                    Finish Round {i + 1}
-                  </button>
-                )}
-              </div>
-            )}
+                    <button className="btn ghost start" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
-            {error && editing && (
-              <p style={{ color: colors.danger, fontSize: 13, marginTop: 10 }}>{error}</p>
-            )}
-          </Card>
+              {!editing &&
+                (isOrganizer || round.status !== "pending") && (
+                  <div className="round-card-foot">
+                    {isOrganizer && round.status === "pending" && (
+                      <button className="btn ghost start" onClick={() => openEditor(round, format)}>
+                        Set matchups
+                      </button>
+                    )}
+                    {startable && (
+                      <button
+                        className="btn start"
+                        disabled={busy}
+                        onClick={() => onLifecycle(round.id, "start", `Round ${i + 1}`)}
+                      >
+                        Start Round {i + 1}
+                      </button>
+                    )}
+                    {round.status !== "pending" && (
+                      <Link className="btn ghost start" to={`/e/${eventId}/r/${round.id}`}>
+                        {round.status === "active" ? "Enter scores" : "View scorecard"}
+                      </Link>
+                    )}
+                    {isOrganizer && round.status === "active" && (
+                      <button
+                        className="btn ghost start"
+                        disabled={busy}
+                        onClick={() => onLifecycle(round.id, "finish", `Round ${i + 1}`)}
+                      >
+                        Finish Round {i + 1}
+                      </button>
+                    )}
+                  </div>
+                )}
+            </div>
+          </section>
         );
       })}
-    </>
+      {rounds.length === 0 && <p className="hint center">The schedule isn't set yet.</p>}
+    </div>
   );
 }
