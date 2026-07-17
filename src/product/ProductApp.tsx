@@ -46,6 +46,8 @@ export default function ProductApp() {
         {/* Tournament view for joined players (anonymous sessions) AND the
             organizer — also public routing; RLS decides who sees the data. */}
         <Route path="/e/:eventId" element={<TournamentPage />} />
+        <Route path="/e/:eventId/rounds" element={<TournamentPage />} />
+        <Route path="/e/:eventId/teams" element={<TournamentPage />} />
         <Route path="/e/:eventId/r/:roundId" element={<ScorecardPage />} />
         <Route
           path="/app"
