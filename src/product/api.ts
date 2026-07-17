@@ -4,7 +4,7 @@
 // organizer owns sets organizer_id = the signed-in uid so the events_insert
 // policy (organizer_id = auth.uid()) passes.
 
-import { getProductClient, productUrl, productAnonKey } from "./supabase";
+import { getProductClient } from "./supabase";
 import type { EventRow } from "./types";
 
 /** Human-friendly join codes: no 0/O/1/I ambiguity, uppercase, 6 chars. */
@@ -35,117 +35,35 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
   const client = getProductClient();
   if (!client) throw new Error("Supabase project not configured.");
 
-  // Use the SESSION (not just getUser) so we can see the exact token that will
-  // be sent on the write — auth.uid() at the DB is read from this token's `sub`.
-  const { data: sess } = await client.auth.getSession();
-  const session = sess.session;
-  const uid = session?.user?.id;
-  const claims = decodeJwt(session?.access_token);
-  const header = decodeJwtHeader(session?.access_token);
-  const nowSec = Math.floor(Date.now() / 1000);
-  const expired = claims?.exp ? claims.exp < nowSec : undefined;
-  const configuredUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "";
-  // eslint-disable-next-line no-console
-  console.log("[createEvent] auth debug", {
-    hasSession: Boolean(session),
-    hasToken: Boolean(session?.access_token),
-    uid,
-    tokenAlg: header?.alg, // HS256 = shared secret · ES256/RS256 = signing keys
-    tokenKid: header?.kid,
-    tokenRole: claims?.role,
-    tokenAud: claims?.aud,
-    tokenSub: claims?.sub,
-    subMatchesUid: claims?.sub === uid,
-    tokenIss: claims?.iss,
-    tokenExp: claims?.exp,
-    expired,
-    configuredUrl,
-  });
-  if (!session || !uid) {
-    throw new Error(
-      "You're not signed in to the database (no active session). Sign out and sign back in, then try again.",
-    );
-  }
+  const { data: auth } = await client.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error("You must be signed in to create an event.");
 
   const name = input.name.trim();
   if (!name) throw new Error("Event name is required.");
 
-  const token = session.access_token;
-
-  // Insert via a hand-built request so the session token is ATTACHED EXPLICITLY
-  // and can't be stripped by a sibling Supabase client. Decisive test: if this
-  // succeeds where the supabase-js client insert 403s, the client's header was
-  // being clobbered. (Temporary raw path while we stabilize product auth.)
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const resp = await fetch(`${productUrl}/rest/v1/events`, {
-      method: "POST",
-      headers: {
-        apikey: productAnonKey,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
+    const { data, error } = await client
+      .from("events")
+      .insert({
         organizer_id: uid,
         name,
         starts_on: input.startsOn ?? null,
         ends_on: input.endsOn ?? null,
         join_code: randomJoinCode(),
-      }),
-    });
+      })
+      .select()
+      .single();
 
-    const bodyText = await resp.text();
-    // eslint-disable-next-line no-console
-    console.log("[createEvent] explicit insert", resp.status, bodyText);
+    if (!error && data) return data as EventRow;
 
-    if (resp.ok) {
-      const rows = bodyText ? JSON.parse(bodyText) : [];
-      const row = Array.isArray(rows) ? rows[0] : rows;
-      if (row) return row as EventRow;
-      throw new Error("Event created but no row returned.");
-    }
-
-    // 23505 = unique_violation on join_code → retry with a fresh code.
-    if (resp.status === 409 && /23505/.test(bodyText) && attempt < MAX_ATTEMPTS - 1) continue;
-
-    // Anything else is terminal. Surface the auth facts for diagnosis.
-    throw new Error(
-      `Insert failed (HTTP ${resp.status}). ${bodyText} — debug: role=${
-        claims?.role ?? "?"
-      } sub=${claims?.sub ? String(claims.sub).slice(0, 8) : "none"} uid=${uid.slice(
-        0,
-        8,
-      )} match=${claims?.sub === uid} expired=${expired}`,
-    );
+    // 23505 = unique_violation. Only join_code is unique here, so retry with a
+    // fresh code. Anything else is a real failure — surface it.
+    if (error && error.code === "23505" && attempt < MAX_ATTEMPTS - 1) continue;
+    if (error) throw new Error(error.message);
   }
   throw new Error("Could not generate a unique join code. Please try again.");
-}
-
-/** Decode a JWT payload (no verification — display only). Returns null on any
- *  malformed input. Temporary aid for the RLS/auth diagnostic above. */
-function decodeJwt(
-  token?: string,
-): { role?: string; sub?: string; exp?: number; iss?: string; aud?: string } | null {
-  return decodeJwtPart(token, 1);
-}
-
-/** Decode the JWT header (part 0): `alg` tells us which key signed the token —
- *  HS256 = legacy shared secret · ES256/RS256 = the new signing keys. */
-function decodeJwtHeader(token?: string): { alg?: string; kid?: string; typ?: string } | null {
-  return decodeJwtPart(token, 0);
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic-only decoder
-function decodeJwtPart(token: string | undefined, index: 0 | 1): any {
-  if (!token) return null;
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    return JSON.parse(atob(parts[index].replace(/-/g, "+").replace(/_/g, "/")));
-  } catch {
-    return null;
-  }
 }
 
 /** A single event by id. RLS returns it only to its organizer or a bound
