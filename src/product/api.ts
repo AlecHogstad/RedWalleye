@@ -22,8 +22,6 @@ function randomJoinCode(len = 6): string {
 
 export interface NewEventInput {
   name: string;
-  startsOn?: string | null; // ISO date (yyyy-mm-dd) or null
-  endsOn?: string | null;
 }
 
 /**
@@ -49,8 +47,6 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
       .insert({
         organizer_id: uid,
         name,
-        starts_on: input.startsOn ?? null,
-        ends_on: input.endsOn ?? null,
         join_code: randomJoinCode(),
       })
       .select()
@@ -169,7 +165,6 @@ export interface NewRoundInput {
   courseId: string;
   /** Format id from FORMAT_REGISTRY (one format per round). */
   format: string;
-  roundDate?: string | null; // yyyy-mm-dd
 }
 
 /** Create a round and its format row. The `games` row carries the engine's
@@ -187,7 +182,6 @@ export async function createRound(input: NewRoundInput): Promise<RoundWithGame> 
     .insert({
       event_id: input.eventId,
       course_id: input.courseId,
-      round_date: input.roundDate ?? null,
       status: "pending",
       created_by: uid,
     })

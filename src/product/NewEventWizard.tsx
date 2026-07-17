@@ -11,8 +11,6 @@ import { Page, Card, colors, inputStyle, labelStyle, buttonStyle, ghostButtonSty
 export default function NewEventWizard() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
-  const [startsOn, setStartsOn] = useState("");
-  const [endsOn, setEndsOn] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,11 +20,7 @@ export default function NewEventWizard() {
     setBusy(true);
     setError(null);
     try {
-      const event = await createEvent({
-        name,
-        startsOn: startsOn || null,
-        endsOn: endsOn || null,
-      });
+      const event = await createEvent({ name });
       navigate(`/app/event/${event.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -64,34 +58,6 @@ export default function NewEventWizard() {
             required
             autoFocus
           />
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle} htmlFor="ev-start">
-                Starts <span style={{ opacity: 0.6 }}>(optional)</span>
-              </label>
-              <input
-                id="ev-start"
-                type="date"
-                style={inputStyle}
-                value={startsOn}
-                onChange={(e) => setStartsOn(e.target.value)}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle} htmlFor="ev-end">
-                Ends <span style={{ opacity: 0.6 }}>(optional)</span>
-              </label>
-              <input
-                id="ev-end"
-                type="date"
-                style={inputStyle}
-                value={endsOn}
-                min={startsOn || undefined}
-                onChange={(e) => setEndsOn(e.target.value)}
-              />
-            </div>
-          </div>
 
           {error && (
             <p style={{ color: colors.danger, fontSize: 13, marginTop: 14 }}>{error}</p>

@@ -60,17 +60,10 @@ export default function EventDashboard() {
 
       {event && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
             <h1 style={{ fontSize: 24, margin: 0 }}>{event.name}</h1>
             <StatusPill status={event.status} />
           </div>
-          {event.starts_on && (
-            <p style={{ color: colors.muted, fontSize: 14, margin: "0 0 24px" }}>
-              {event.ends_on && event.ends_on !== event.starts_on
-                ? `${event.starts_on} → ${event.ends_on}`
-                : event.starts_on}
-            </p>
-          )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Card>

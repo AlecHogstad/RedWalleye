@@ -27,17 +27,6 @@ function formatLabel(id: string): string {
   return plugin ? plugin.labels.long : id;
 }
 
-function fmtDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export default function RoundsSection({
   eventId,
   editable,
@@ -54,7 +43,6 @@ export default function RoundsSection({
   const [courseId, setCourseId] = useState("");
   const [newCourseName, setNewCourseName] = useState("");
   const [format, setFormat] = useState<string>(FORMAT_IDS[0]);
-  const [roundDate, setRoundDate] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -94,12 +82,10 @@ export default function RoundsSection({
         eventId,
         courseId: useCourseId,
         format,
-        roundDate: roundDate || null,
       });
       setRounds((prev) => [...(prev ?? []), created]);
       setAdding(false);
       setNewCourseName("");
-      setRoundDate("");
       setCourseId(useCourseId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -136,7 +122,7 @@ export default function RoundsSection({
       )}
       {rounds !== null && rounds.length === 0 && !adding && (
         <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6, margin: "12px 0 0" }}>
-          No rounds yet. Add one — each round gets a date, a course, and a game format.
+          No rounds yet. Add one — each round gets a course and a game format.
         </p>
       )}
 
@@ -157,7 +143,7 @@ export default function RoundsSection({
               Round {i + 1} · {game ? formatLabel(game.type) : "Format TBD"}
             </div>
             <div style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>
-              {[fmtDate(round.round_date), courseName(round.course_id)].filter(Boolean).join(" · ")}
+              {courseName(round.course_id)}
             </div>
           </div>
           {editable && (
@@ -207,11 +193,6 @@ export default function RoundsSection({
               />
             </>
           )}
-
-          <label style={labelStyle} htmlFor="rnd-date">
-            Date <span style={{ opacity: 0.6 }}>(optional)</span>
-          </label>
-          <input id="rnd-date" type="date" style={inputStyle} value={roundDate} onChange={(e) => setRoundDate(e.target.value)} />
 
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button
