@@ -58,8 +58,8 @@ export async function createEvent(input: NewEventInput): Promise<EventRow> {
 
     if (!error && data) return data as EventRow;
 
-    // 23505 = unique_violation. Only the join_code is unique here, so retry
-    // with a fresh code. Anything else is a real failure — surface it.
+    // 23505 = unique_violation. Only join_code is unique here, so retry with a
+    // fresh code. Anything else is a real failure — surface it.
     if (error && error.code === "23505" && attempt < MAX_ATTEMPTS - 1) continue;
     if (error) throw new Error(error.message);
   }

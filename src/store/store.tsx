@@ -171,6 +171,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // (the SDK echoes local writes immediately, even while offline).
   useEffect(() => {
     if (!syncEnabled) return;
+    // The product surface (/login, /app) talks to its own Supabase project —
+    // don't boot the v1 kv sync alongside it. The two backends never share
+    // data; this just keeps the golf-app client (and its console noise) off
+    // product pages entirely.
+    if (/^#\/(login|app)/.test(window.location.hash)) return;
     const offData = subscribeRemote(setRemote);
     const offConn = subscribeConnected(setConnected);
     return () => {
