@@ -83,11 +83,12 @@ export default function App() {
 
   // Product surface (organizer accounts) renders outside the v1 golf-club
   // shell. Kept after all hooks above so hook order is stable across routes.
+  // (Tournaments — /e/:eventId — are their own top-level surface, mounted
+  // before the HashRouter in main.tsx; they never reach this branch.)
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/app") ||
-    pathname.startsWith("/j/") ||
-    pathname.startsWith("/e/")
+    pathname.startsWith("/j/")
   ) {
     return <ProductApp />;
   }

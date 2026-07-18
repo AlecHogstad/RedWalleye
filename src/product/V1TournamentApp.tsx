@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
 import {
   MemoryRouter,
   Link,
@@ -327,8 +326,7 @@ function V1Shell({ event, isOrganizer }: { event: EventRow; isOrganizer: boolean
 
 // --- The provider: product data in, StoreValue out ---------------------------
 
-export default function V1TournamentApp() {
-  const { eventId = "" } = useParams<{ eventId: string }>();
+export default function V1TournamentApp({ eventId }: { eventId: string }) {
   const [data, setData] = useState<ProductData | null>(null);
   const [uid, setUid] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   ensureSession,
   getEventByCode,
@@ -37,7 +37,6 @@ function loadJoined(code: string): Joined | null {
 
 export default function JoinPage() {
   const { code = "" } = useParams<{ code: string }>();
-  const navigate = useNavigate();
   const [info, setInfo] = useState<JoinEventInfo | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<Joined | null>(() => loadJoined(code));
@@ -203,7 +202,11 @@ export default function JoinPage() {
           <button
             type="button"
             style={{ ...buttonStyle, width: "100%", marginTop: 4 }}
-            onClick={() => navigate(`/e/${info.event.id}`)}
+            onClick={() => {
+              // The tournament is a separate top-level surface (own router) —
+              // set the hash directly so the surface switch fires.
+              window.location.hash = `#/e/${info.event.id}`;
+            }}
           >
             Go to the tournament →
           </button>
