@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { createEvent } from "./api";
-import { Page, Card, colors, inputStyle, labelStyle, buttonStyle, ghostButtonStyle } from "./ui";
+import { Page, Card, colors, displayStyle, inputStyle, labelStyle, buttonStyle, ghostButtonStyle } from "./ui";
 
 // Wizard step 1 — Basics: name + how many players + how many rounds. Writes
 // the draft `events` row plus N placeholder rounds the moment this completes
@@ -55,7 +55,7 @@ export default function NewEventWizard() {
         ← Cancel
       </button>
 
-      <h1 style={{ fontSize: 24, margin: "0 0 4px" }}>New event</h1>
+      <h1 style={{ ...displayStyle, fontSize: 24, margin: "0 0 4px" }}>New event</h1>
       <p style={{ color: colors.muted, fontSize: 14, margin: "0 0 20px" }}>
         The basics — all of this stays editable until your first round starts, and
         your share link works right away.

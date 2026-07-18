@@ -1,60 +1,19 @@
-import { useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
+import {
+  Page,
+  Card,
+  colors,
+  displayStyle,
+  serifItalicStyle,
+  inputStyle,
+  labelStyle,
+  buttonStyle,
+} from "./ui";
 
-// Minimal organizer auth screen — the first product-surface page. Neutral,
-// utilitarian styling (the product register, not the golf-club theme). This is
-// the seed the O-100 wizard will sit behind.
-
-function Shell({ children }: { children: ReactNode }) {
-  const wrap: CSSProperties = {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#0b0d0f",
-    color: "#e8eaed",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    padding: 24,
-  };
-  const card: CSSProperties = {
-    width: "100%",
-    maxWidth: 380,
-    background: "#15181c",
-    border: "1px solid #24282e",
-    borderRadius: 12,
-    padding: 28,
-  };
-  return (
-    <div style={wrap}>
-      <div style={card}>{children}</div>
-    </div>
-  );
-}
-
-const label: CSSProperties = { display: "block", fontSize: 13, color: "#9aa0a6", margin: "14px 0 6px" };
-const input: CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #2b3038",
-  background: "#0f1215",
-  color: "#e8eaed",
-  fontSize: 15,
-  boxSizing: "border-box",
-};
-const button: CSSProperties = {
-  width: "100%",
-  marginTop: 18,
-  padding: "11px 12px",
-  borderRadius: 8,
-  border: "none",
-  background: "#3b82f6",
-  color: "#fff",
-  fontSize: 15,
-  fontWeight: 600,
-  cursor: "pointer",
-};
+// Organizer auth screen — the front door of the product surface, in the
+// Red Walleye club language (shared ui.tsx primitives).
 
 export default function LoginPage() {
   const { configured, loading, user, signUp, signIn } = useAuth();
@@ -68,21 +27,23 @@ export default function LoginPage() {
 
   if (!configured) {
     return (
-      <Shell>
-        <h1 style={{ fontSize: 20, margin: 0 }}>Connect Supabase</h1>
-        <p style={{ color: "#9aa0a6", fontSize: 14, lineHeight: 1.6 }}>
-          Copy <code>.env.example</code> to <code>.env.local</code>, fill in your
-          project's <code>VITE_SUPABASE_URL</code> and{" "}
-          <code>VITE_SUPABASE_ANON_KEY</code>, then restart <code>npm run dev</code>.
-        </p>
-      </Shell>
+      <Page center maxWidth={400}>
+        <Card>
+          <h1 style={{ ...displayStyle, fontSize: 20, margin: 0 }}>Connect Supabase</h1>
+          <p style={{ color: colors.muted, fontSize: 14, lineHeight: 1.6 }}>
+            Copy <code>.env.example</code> to <code>.env.local</code>, fill in your
+            project's <code>VITE_SUPABASE_URL</code> and{" "}
+            <code>VITE_SUPABASE_ANON_KEY</code>, then restart <code>npm run dev</code>.
+          </p>
+        </Card>
+      </Page>
     );
   }
   if (loading) {
     return (
-      <Shell>
-        <p style={{ color: "#9aa0a6" }}>Loading…</p>
-      </Shell>
+      <Page center maxWidth={400}>
+        <p style={{ color: colors.muted, textAlign: "center" }}>Loading…</p>
+      </Page>
     );
   }
   // Signed in already → into the product. The home screen owns sign-out.
@@ -102,42 +63,59 @@ export default function LoginPage() {
   };
 
   return (
-    <Shell>
-      <h1 style={{ fontSize: 20, margin: "0 0 4px" }}>
-        {mode === "in" ? "Sign in" : "Create your account"}
-      </h1>
-      <p style={{ color: "#9aa0a6", fontSize: 13, margin: 0 }}>Organizer access</p>
+    <Page center maxWidth={400}>
+      <Card>
+        <h1 style={{ ...displayStyle, fontSize: 22, margin: "0 0 4px" }}>
+          {mode === "in" ? "Sign in" : "Create your account"}
+        </h1>
+        <p style={{ ...serifItalicStyle, color: colors.muted, fontSize: 13, margin: 0 }}>
+          organizer access
+        </p>
 
-      <form onSubmit={submit}>
-        {mode === "up" && (
-          <>
-            <label style={label} htmlFor="name">Name</label>
-            <input id="name" style={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Alec" />
-          </>
-        )}
-        <label style={label} htmlFor="email">Email</label>
-        <input id="email" style={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-        <label style={label} htmlFor="password">Password</label>
-        <input id="password" style={input} type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        <form onSubmit={submit}>
+          {mode === "up" && (
+            <>
+              <label style={labelStyle} htmlFor="name">Name</label>
+              <input id="name" style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Alec" />
+            </>
+          )}
+          <label style={labelStyle} htmlFor="email">Email</label>
+          <input id="email" style={inputStyle} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <label style={labelStyle} htmlFor="password">Password</label>
+          <input id="password" style={inputStyle} type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
 
-        {error && <p style={{ color: "#f87171", fontSize: 13, marginTop: 12 }}>{error}</p>}
-        {notice && <p style={{ color: "#34d399", fontSize: 13, marginTop: 12 }}>{notice}</p>}
+          {error && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
+          {notice && <p style={{ color: colors.good, fontSize: 13, marginTop: 12 }}>{notice}</p>}
 
-        <button style={{ ...button, opacity: busy ? 0.6 : 1 }} disabled={busy} type="submit">
-          {busy ? "…" : mode === "in" ? "Sign in" : "Create account"}
+          <button
+            style={{ ...buttonStyle, width: "100%", marginTop: 18, opacity: busy ? 0.6 : 1 }}
+            disabled={busy}
+            type="submit"
+          >
+            {busy ? "…" : mode === "in" ? "Sign in" : "Create account"}
+          </button>
+        </form>
+
+        <button
+          onClick={() => {
+            setMode(mode === "in" ? "up" : "in");
+            setError(null);
+            setNotice(null);
+          }}
+          style={{
+            marginTop: 16,
+            background: "none",
+            border: "none",
+            color: colors.muted,
+            fontSize: 13,
+            cursor: "pointer",
+            padding: 0,
+            textDecoration: "underline",
+          }}
+        >
+          {mode === "in" ? "Need an account? Create one" : "Have an account? Sign in"}
         </button>
-      </form>
-
-      <button
-        onClick={() => {
-          setMode(mode === "in" ? "up" : "in");
-          setError(null);
-          setNotice(null);
-        }}
-        style={{ marginTop: 16, background: "none", border: "none", color: "#9aa0a6", fontSize: 13, cursor: "pointer", padding: 0 }}
-      >
-        {mode === "in" ? "Need an account? Create one" : "Have an account? Sign in"}
-      </button>
-    </Shell>
+      </Card>
+    </Page>
   );
 }

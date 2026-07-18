@@ -136,7 +136,10 @@ function playerHasScores(state: TournamentState, playerId: string): boolean {
   );
 }
 
-const StoreContext = createContext<StoreValue | null>(null);
+// Exported so the Tournament Pass adapter (src/product/V1TournamentApp) can
+// drive these same pages from Postgres-backed state. Not for general use.
+export const StoreContext = createContext<StoreValue | null>(null);
+export type { StoreValue };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   // Local-only mode keeps the whole state; synced mode keeps the remote
